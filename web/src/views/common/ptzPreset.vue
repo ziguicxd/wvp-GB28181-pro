@@ -57,7 +57,9 @@ export default {
           this.$nextTick(() => {
             this.$refs.channelListTable.doLayout()
           })
-        })
+        }).catch((error)=> {
+          console.log(error);
+        });
     },
     showInput() {
       this.inputVisible = true
