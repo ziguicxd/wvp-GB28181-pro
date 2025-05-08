@@ -1,16 +1,6 @@
 <template>
   <div class="login-container">
-    <div
-      style="justify-content: center;
-      align-items: center;
-      width: 100%;
-      height: 100vh;
-      display: flex;
-      background-image: url(/static/images/bg19.png);
-      background-position: center center;
-      background-repeat: no-repeat;
-      background-size: cover;"
-    >
+    <div class="background">
       <el-form
         ref="loginForm"
         :model="loginForm"
@@ -19,6 +9,7 @@
         auto-complete="on"
         label-position="left"
       >
+        <!-- 标题 -->
         <div class="title-container">
           <h3 class="title">视频汇聚平台</h3>
         </div>
@@ -53,16 +44,16 @@
             name="password"
             tabindex="2"
             auto-complete="on"
-            @keyup.enter.native="handleLogin"
+            @keyup.enter="handleLogin"
           />
-          <span class="show-pwd" @click="showPwd">
+          <span class="show-pwd" @click="togglePasswordVisibility">
             <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
           </span>
         </el-form-item>
 
         <!-- 验证码 -->
         <el-form-item prop="captcha">
-          <div style="display: flex; align-items: center;">
+          <div class="captcha-container">
             <span class="svg-container">
               <svg-icon icon-class="captcha" />
             </span>
@@ -76,17 +67,18 @@
             <img
               :src="captchaSrc"
               @click="refreshCaptcha"
-              style="cursor: pointer; margin-left: 10px; height: 36px;"
+              class="captcha-image"
               alt="验证码"
             />
           </div>
         </el-form-item>
 
+        <!-- 登录按钮 -->
         <el-button
           :loading="loading"
           type="primary"
-          style="width: 100%; margin-bottom: 30px;"
-          @click.native.prevent="handleLogin"
+          class="login-button"
+          @click.prevent="handleLogin"
         >
           登录
         </el-button>
@@ -101,6 +93,7 @@ import { validUsername } from '@/utils/validate';
 export default {
   name: 'Login',
   data() {
+    // 定义验证规则
     const validateUsername = (rule, value, callback) => {
       if (!validUsername(value)) {
         callback(new Error('请输入用户名'));
@@ -137,24 +130,23 @@ export default {
         captcha: [{ required: true, trigger: 'blur', validator: validateCaptcha }],
       },
       loading: false,
-      passwordType: 'password',
-      captchaSrc: '/api/captcha?' + new Date().getTime(),
+      passwordType: 'password', // 密码显示类型
+      captchaSrc: '/api/captcha?' + new Date().getTime(), // 验证码图片地址
     };
   },
   methods: {
-    showPwd() {
-      if (this.passwordType === 'password') {
-        this.passwordType = '';
-      } else {
-        this.passwordType = 'password';
-      }
+    // 切换密码可见性
+    togglePasswordVisibility() {
+      this.passwordType = this.passwordType === 'password' ? 'text' : 'password';
       this.$nextTick(() => {
         this.$refs.password.focus();
       });
     },
+    // 刷新验证码
     refreshCaptcha() {
-      this.captchaSrc = '/api/captcha?' + new Date().getTime(); // 刷新验证码
+      this.captchaSrc = '/api/captcha?' + new Date().getTime();
     },
+    // 登录处理
     handleLogin() {
       this.$refs.loginForm.validate((valid) => {
         if (valid) {
@@ -170,7 +162,7 @@ export default {
               this.refreshCaptcha(); // 登录失败时刷新验证码
             });
         } else {
-          console.log('error submit!!');
+          console.log('表单验证失败');
           return false;
         }
       });
@@ -180,66 +172,29 @@ export default {
 </script>
 
 <style lang="scss">
-/* 修复input 背景不协调 和光标变色 */
-/* Detail see https://github.com/PanJiaChen/vue-element-admin/pull/927 */
-
-$bg:#283443;
-$light_gray:#fff;
-$cursor: #fff;
-
-@supports (-webkit-mask: none) and (not (cater-color: $cursor)) {
-  .login-container .el-input input {
-    color: $cursor;
-  }
-}
-
-/* reset element-ui css */
-.login-container {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  user-select: none;
-  .el-input {
-    display: inline-block;
-    height: 47px;
-    width: 85%;
-
-    input {
-      background: transparent;
-      border: 0px;
-      -webkit-appearance: none;
-      border-radius: 0px;
-      padding: 12px 5px 12px 15px;
-      color: $light_gray;
-      height: 47px;
-      caret-color: $cursor;
-
-      &:-webkit-autofill {
-        box-shadow: 0 0 0px 1000px $bg inset !important;
-        -webkit-text-fill-color: $cursor !important;
-      }
-    }
-  }
-
-  .el-form-item {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
-    color: #454545;
-  }
-}
-</style>
-
-<style lang="scss" scoped>
-$bg: #162e46;
-$dark_gray:#eee;
-$light_gray:#eee;
+/* 样式变量 */
+$bg-color: #162e46;
+$text-color-light: #eee;
+$text-color-dark: #454545;
+$input-bg: rgba(0, 0, 0, 0.1);
 
 .login-container {
   min-height: 100%;
   width: 100%;
-  background-color: $bg;
+  background-color: $bg-color;
   overflow: hidden;
+
+  .background {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100vh;
+    background-image: url(/static/images/bg19.png);
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
 
   .login-form {
     position: relative;
@@ -248,43 +203,71 @@ $light_gray:#eee;
     height: 63vh;
     padding: 160px 35px 0;
     margin: 0 auto;
-    overflow: hidden;
     border-radius: 24px;
     border: 1px solid rgba(160, 174, 192, 0.25);
     -webkit-backdrop-filter: blur(30px);
     backdrop-filter: blur(30px);
+
+    .title-container {
+      text-align: center;
+      margin-bottom: 40px;
+
+      .title {
+        font-size: 26px;
+        color: $text-color-light;
+        font-weight: bold;
+      }
+    }
+
+    .svg-container {
+      padding: 6px 5px 6px 15px;
+      color: $text-color-light;
+      vertical-align: middle;
+      width: 30px;
+      display: inline-block;
+    }
+
+    .captcha-container {
+      display: flex;
+      align-items: center;
+
+      .captcha-image {
+        cursor: pointer;
+        margin-left: 10px;
+        height: 36px;
+      }
+    }
+
+    .login-button {
+      width: 100%;
+      margin-bottom: 30px;
+    }
   }
 
-  .tips {
-    font-size: 14px;
-    color: #fff;
-    margin-bottom: 10px;
+  .el-input {
+    display: inline-block;
+    height: 47px;
+    width: 85%;
 
-    span {
-      &:first-of-type {
-        margin-right: 16px;
+    input {
+      background: transparent;
+      border: 0;
+      padding: 12px 5px 12px 15px;
+      color: $text-color-light;
+      caret-color: $text-color-light;
+
+      &:-webkit-autofill {
+        box-shadow: 0 0 0px 1000px $bg-color inset !important;
+        -webkit-text-fill-color: $text-color-light !important;
       }
     }
   }
 
-  .svg-container {
-    padding: 6px 5px 6px 15px;
-    color: $dark_gray;
-    vertical-align: middle;
-    width: 30px;
-    display: inline-block;
-  }
-
-  .title-container {
-    position: relative;
-
-    .title {
-      font-size: 26px;
-      color: $light_gray;
-      margin: 0px auto 40px auto;
-      text-align: center;
-      font-weight: bold;
-    }
+  .el-form-item {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: $input-bg;
+    border-radius: 5px;
+    color: $text-color-dark;
   }
 
   .show-pwd {
@@ -292,19 +275,9 @@ $light_gray:#eee;
     right: 10px;
     top: 7px;
     font-size: 16px;
-    color: $dark_gray;
+    color: $text-color-light;
     cursor: pointer;
     user-select: none;
   }
-}
-</style>
-<style lang="scss">
-/* 添加 captcha 图标的样式 */
-.svg-container {
-  padding: 6px 5px 6px 15px;
-  color: #eee;
-  vertical-align: middle;
-  width: 30px;
-  display: inline-block;
 }
 </style>
