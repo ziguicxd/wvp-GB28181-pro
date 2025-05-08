@@ -101,7 +101,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         defaultExcludes.add("/api/device/query/snap/**");
         defaultExcludes.add("/index/hook/abl/**");
 
-
+        // 添加验证码接口到允许匿名访问的列表
+        defaultExcludes.add("/api/captcha");
 
         if (userSetting.getInterfaceAuthentication() && !userSetting.getInterfaceAuthenticationExcludes().isEmpty()) {
             defaultExcludes.addAll(userSetting.getInterfaceAuthenticationExcludes());
