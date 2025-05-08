@@ -63,6 +63,9 @@
         <!-- 验证码 -->
         <el-form-item prop="captcha">
           <div style="display: flex; align-items: center;">
+            <span class="svg-container">
+              <svg-icon icon-class="captcha" />
+            </span>
             <el-input
               v-model="loginForm.captcha"
               placeholder="验证码"
@@ -297,5 +300,15 @@ $light_gray:#eee;
     cursor: pointer;
     user-select: none;
   }
+}
+</style>
+<style lang="scss">
+/* 添加 captcha 图标的样式 */
+.svg-container {
+  padding: 6px 5px 6px 15px;
+  color: #eee;
+  vertical-align: middle;
+  width: 30px;
+  display: inline-block;
 }
 </style>
