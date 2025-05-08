@@ -49,11 +49,12 @@ const mutations = {
 const actions = {
   // user login
   login({ commit }, userInfo) {
-    const { username, password } = userInfo
+    const { username, password, captcha } = userInfo // 添加 captcha 参数
     return new Promise((resolve, reject) => {
       login({
         username: username.trim(),
-        password: crypto.createHash('md5').update(password, 'utf8').digest('hex')
+        password: crypto.createHash('md5').update(password, 'utf8').digest('hex'),
+        captcha // 将验证码传递给后端
       }).then(response => {
         const { data } = response
         commit('SET_TOKEN', data.accessToken)

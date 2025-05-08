@@ -53,7 +53,14 @@ public class UserController {
 
     @Parameter(name = "username", description = "用户名", required = true)
     @Parameter(name = "password", description = "密码（32位md5加密）", required = true)
-    public LoginUser login(HttpServletRequest request, HttpServletResponse response, @RequestParam String username, @RequestParam String password){
+    @Parameter(name = "captcha", description = "验证码", required = true)
+    public LoginUser login(HttpServletRequest request, HttpServletResponse response, @RequestParam String username, @RequestParam String password, @RequestParam String captcha){
+        // 校验验证码
+        HttpSession session = request.getSession();
+        String sessionCaptcha = (String) session.getAttribute("captcha");
+        if (sessionCaptcha == null || !captcha.equalsIgnoreCase(sessionCaptcha)) {
+            throw new ControllerException(ErrorCode.ERROR100.getCode(), "验证码错误");
+        }       
         LoginUser user;
         try {
             user = SecurityUtils.login(username, password, authenticationManager);
