@@ -51,13 +51,37 @@ export default {
   methods: {
     getPresetList: function() {
       this.$store.dispatch('frontEnd/queryPreset', [this.deviceId, this.channelDeviceId])
-        .then(data => {
-          this.presetList = data
-          // 防止出现表格错位
-          this.$nextTick(() => {
-            this.$refs.channelListTable.doLayout()
-          })
+        .then(response => {
+          // 检查 response 和 data 是否存在
+          if (response && response.data) {
+            this.presetList = response.data
+            // 防止出现表格错位
+            this.$nextTick(() => {
+              if (this.$refs.channelListTable) {
+                this.$refs.channelListTable.doLayout()
+              }
+            })
+          } else {
+            console.warn('后端返回数据为空或格式不正确')
+            this.$message({
+              showClose: true,
+              message: '后端返回数据为空或格式不正确',
+              type: 'warning'
+            })
+          }
         })
+        .catch((error) => {
+          // 仅在非超时情况下显示错误提示
+          if (String(error).includes('超时')) {
+            console.warn('请求超时，已忽略错误提示')
+          } else {
+            this.$message({
+              showClose: true,
+              message: error,
+              type: 'error'
+            })
+          }
+        })        
     },
     showInput() {
       this.inputVisible = true
