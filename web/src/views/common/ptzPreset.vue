@@ -77,11 +77,11 @@ export default {
           } else {
             this.$message({
               showClose: true,
-              message: error,
+              message: error.message || '请求失败',
               type: 'error'
             })
           }
-        })        
+        })       
     },
     showInput() {
       this.inputVisible = true
