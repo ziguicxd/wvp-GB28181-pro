@@ -58,6 +58,18 @@ export default {
             this.$refs.channelListTable.doLayout()
           })
         })
+        .catch((error) => {
+          // 仅在非超时情况下显示错误提示
+          if (String(error).includes('超时')) {
+            console.warn('请求超时，已忽略错误提示')
+          } else {
+            this.$message({
+              showClose: true,
+              message: error,
+              type: 'error'
+            })
+          }
+        })        
     },
     showInput() {
       this.inputVisible = true

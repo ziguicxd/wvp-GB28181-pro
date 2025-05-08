@@ -319,16 +319,16 @@ public class ServerController {
         VersionPo version = versionInfo.getVersion();
         platformMap.put("版本", version.getVersion());
         platformMap.put("构建日期", version.getBUILD_DATE());
-        platformMap.put("GIT分支", version.getGIT_BRANCH());
-        platformMap.put("GIT地址", version.getGIT_URL());
-        platformMap.put("GIT日期", version.getGIT_DATE());
-        platformMap.put("GIT版本", version.getGIT_Revision_SHORT());
+        // platformMap.put("GIT分支", version.getGIT_BRANCH());
+        // platformMap.put("GIT地址", version.getGIT_URL());
+        // platformMap.put("GIT日期", version.getGIT_DATE());
+        // platformMap.put("GIT版本", version.getGIT_Revision_SHORT());
         platformMap.put("DOCKER环境", new File("/.dockerenv").exists()?"是":"否");
 
-        Map<String, String> docmap = new LinkedHashMap<>();
-        result.put("文档地址", docmap);
-        docmap.put("部署文档", String.format("%s://%s:%s/doc.html", request.getScheme(), request.getServerName(), request.getServerPort()));
-        docmap.put("接口文档", "https://doc.wvp-pro.cn");
+        // Map<String, String> docmap = new LinkedHashMap<>();
+        // result.put("文档地址", docmap);
+        // docmap.put("部署文档", String.format("%s://%s:%s/doc.html", request.getScheme(), request.getServerName(), request.getServerPort()));
+        // docmap.put("接口文档", "https://doc.wvp-pro.cn");
 
         return result;
     }
