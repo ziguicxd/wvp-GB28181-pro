@@ -1,7 +1,6 @@
 <template>
   <div class="login-container">
     <div
-
       style="justify-content: center;
       align-items: center;
       width: 100%;
@@ -12,11 +11,19 @@
       background-repeat: no-repeat;
       background-size: cover;"
     >
-      <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" auto-complete="on" label-position="left">
+      <el-form
+        ref="loginForm"
+        :model="loginForm"
+        :rules="loginRules"
+        class="login-form"
+        auto-complete="on"
+        label-position="left"
+      >
         <div class="title-container">
           <h3 class="title">视频汇聚平台</h3>
         </div>
 
+        <!-- 用户名 -->
         <el-form-item prop="username">
           <span class="svg-container">
             <svg-icon icon-class="user" />
@@ -32,6 +39,7 @@
           />
         </el-form-item>
 
+        <!-- 密码 -->
         <el-form-item prop="password">
           <span class="svg-container">
             <svg-icon icon-class="password" />
@@ -52,81 +60,120 @@
           </span>
         </el-form-item>
 
-        <el-button :loading="loading" type="primary" style="width:100%;margin-bottom:30px;" @click.native.prevent="handleLogin">登录</el-button>
+        <!-- 验证码 -->
+        <el-form-item prop="captcha">
+          <div style="display: flex; align-items: center;">
+            <el-input
+              v-model="loginForm.captcha"
+              placeholder="验证码"
+              name="captcha"
+              tabindex="3"
+              auto-complete="off"
+            />
+            <img
+              :src="captchaSrc"
+              @click="refreshCaptcha"
+              style="cursor: pointer; margin-left: 10px; height: 36px;"
+              alt="验证码"
+            />
+          </div>
+        </el-form-item>
 
+        <el-button
+          :loading="loading"
+          type="primary"
+          style="width: 100%; margin-bottom: 30px;"
+          @click.native.prevent="handleLogin"
+        >
+          登录
+        </el-button>
       </el-form>
     </div>
-
   </div>
 </template>
 
 <script>
-import { validUsername } from '@/utils/validate'
+import { validUsername } from '@/utils/validate';
 
 export default {
   name: 'Login',
   data() {
     const validateUsername = (rule, value, callback) => {
       if (!validUsername(value)) {
-        callback(new Error('请输入用户名'))
+        callback(new Error('请输入用户名'));
       } else {
-        callback()
+        callback();
       }
-    }
+    };
+
     const validatePassword = (rule, value, callback) => {
-      callback()
-    }
+      if (!value) {
+        callback(new Error('请输入密码'));
+      } else {
+        callback();
+      }
+    };
+
+    const validateCaptcha = (rule, value, callback) => {
+      if (!value) {
+        callback(new Error('请输入验证码'));
+      } else {
+        callback();
+      }
+    };
+
     return {
       loginForm: {
         username: '',
-        password: ''
+        password: '',
+        captcha: '',
       },
       loginRules: {
         username: [{ required: true, trigger: 'blur', validator: validateUsername }],
-        password: [{ required: true, trigger: 'blur', validator: validatePassword }]
+        password: [{ required: true, trigger: 'blur', validator: validatePassword }],
+        captcha: [{ required: true, trigger: 'blur', validator: validateCaptcha }],
       },
       loading: false,
       passwordType: 'password',
-      redirect: undefined
-    }
-  },
-  watch: {
-    $route: {
-      handler: function(route) {
-        this.redirect = route.query && route.query.redirect
-      },
-      immediate: true
-    }
+      captchaSrc: '/api/captcha?' + new Date().getTime(),
+    };
   },
   methods: {
     showPwd() {
       if (this.passwordType === 'password') {
-        this.passwordType = ''
+        this.passwordType = '';
       } else {
-        this.passwordType = 'password'
+        this.passwordType = 'password';
       }
       this.$nextTick(() => {
-        this.$refs.password.focus()
-      })
+        this.$refs.password.focus();
+      });
+    },
+    refreshCaptcha() {
+      this.captchaSrc = '/api/captcha?' + new Date().getTime(); // 刷新验证码
     },
     handleLogin() {
-      this.$refs.loginForm.validate(valid => {
+      this.$refs.loginForm.validate((valid) => {
         if (valid) {
-          this.loading = true
-          this.$store.dispatch('user/login', this.loginForm).then((re) => {
-            this.$router.push({ path: this.redirect || '/' })
-            this.loading = false
-          }).catch(() => {
-            this.loading = false
-          })
+          this.loading = true;
+          this.$store
+            .dispatch('user/login', this.loginForm)
+            .then(() => {
+              this.$router.push({ path: this.redirect || '/' });
+              this.loading = false;
+            })
+            .catch(() => {
+              this.loading = false;
+              this.refreshCaptcha(); // 登录失败时刷新验证码
+            });
         } else {
-          console.log('error submit!!')
-          return false
+          console.log('error submit!!');
+          return false;
         }
-      })
-    }
-  }
-}
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss">
