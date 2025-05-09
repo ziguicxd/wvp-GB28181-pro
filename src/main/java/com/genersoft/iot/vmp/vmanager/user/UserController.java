@@ -71,16 +71,16 @@ public class UserController {
                            @RequestParam(required = false) String captcha,
                            @RequestParam(required = false) String key) {
 
-        // 获取客户端IP地址
-        String clientIp = request.getRemoteAddr();
-
-        // 验证IP白名单
-        if (!allowedIps.contains(clientIp)) {
-            throw new ControllerException(ErrorCode.ERROR100.getCode(), "IP地址不被允许访问: " + clientIp);
-        }
-
-        // 检查固定密钥
+        // 如果 fixedKey 存在，则验证IP白名单
         if (key != null && key.equals(fixedKey)) {
+            // 获取客户端IP地址
+            String clientIp = request.getRemoteAddr();
+
+            // 验证IP白名单
+            if (!allowedIps.contains(clientIp)) {
+                throw new ControllerException(ErrorCode.ERROR100.getCode(), "IP地址不被允许访问: " + clientIp);
+            }
+
             // 绕过验证码验证
             return processLogin(username, password, response);
         }
