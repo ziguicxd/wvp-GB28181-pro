@@ -71,7 +71,7 @@ public class UserController {
                            @RequestParam(required = false) String captcha,
                            @RequestParam(required = false) String key) {
 
-        // 如果 fixedKey 存在，则验证IP白名单
+        // 如果 fixedKey 存在且匹配，则绕过验证码验证并验证IP白名单
         if (key != null && key.equals(fixedKey)) {
             // 获取客户端IP地址
             String clientIp = request.getRemoteAddr();
@@ -81,11 +81,11 @@ public class UserController {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "IP地址不被允许访问: " + clientIp);
             }
 
-            // 绕过验证码验证
+            // 绕过验证码验证，直接登录
             return processLogin(username, password, response);
         }
 
-        // 校验验证码
+        // 如果没有提供 fixedKey 或者 fixedKey 不匹配，则进行验证码验证
         HttpSession session = request.getSession();
         String sessionCaptcha = (String) session.getAttribute("captcha");
         if (sessionCaptcha == null || !captcha.equalsIgnoreCase(sessionCaptcha)) {
