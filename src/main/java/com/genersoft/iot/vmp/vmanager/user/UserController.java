@@ -72,7 +72,7 @@ public class UserController {
                            @RequestParam(required = false) String fixedKey) {
 
         // 如果 fixedKey 存在且匹配，则绕过验证码验证并验证IP白名单
-        if (key != null && key.equals(fixedKey)) {
+        if (fixedKey != null && key.equals(fixedKey)) {
             // 获取客户端IP地址
             String clientIp = request.getRemoteAddr();
 
