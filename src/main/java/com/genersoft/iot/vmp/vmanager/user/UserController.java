@@ -71,8 +71,12 @@ public class UserController {
                            @RequestParam(required = false) String captcha,
                            @RequestParam(required = false) String fixedKey) {
 
-        // 如果 fixedKey 存在且匹配，则绕过验证码验证并验证IP白名单
-        if (fixedKey != null && fixedKey.equals(fixedKey)) {
+        // 如果传入 fixedKey，则验证其值是否与系统配置一致
+        if (fixedKey != null) {
+            if (!fixedKey.equals(this.fixedKey)) {
+                throw new ControllerException(ErrorCode.ERROR100.getCode(), "固定密钥错误");
+            }
+
             // 获取客户端IP地址
             String clientIp = request.getRemoteAddr();
 
