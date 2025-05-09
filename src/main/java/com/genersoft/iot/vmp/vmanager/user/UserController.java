@@ -64,12 +64,12 @@ public class UserController {
     @Parameter(name = "username", description = "用户名", required = true)
     @Parameter(name = "password", description = "密码（32位md5加密）", required = true)
     @Parameter(name = "captcha", description = "验证码", required = false)
-    @Parameter(name = "key", description = "固定密钥，用于绕过验证码", required = false)
+    @Parameter(name = "fixedKey", description = "固定密钥，用于绕过验证码", required = false)
     public LoginUser login(HttpServletRequest request, HttpServletResponse response, 
                            @RequestParam String username, 
                            @RequestParam String password, 
                            @RequestParam(required = false) String captcha,
-                           @RequestParam(required = false) String key) {
+                           @RequestParam(required = false) String fixedKey) {
 
         // 如果 fixedKey 存在且匹配，则绕过验证码验证并验证IP白名单
         if (key != null && key.equals(fixedKey)) {
