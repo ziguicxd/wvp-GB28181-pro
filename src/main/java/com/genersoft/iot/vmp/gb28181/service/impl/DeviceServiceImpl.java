@@ -47,6 +47,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+
 
 /**
  * 设备业务（目录订阅）
@@ -226,17 +229,25 @@ public class DeviceServiceImpl implements IDeviceService {
 
         //进行通道离线
         // deviceChannelMapper.offlineByDeviceId(deviceId);   
-        // 查询所有通道
-        List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceId);
-        
-        // 如果有通道需要更新状态
-        if (!channels.isEmpty()) {
+        try {
+            // 将 deviceId 转换为 int 类型
+            int deviceDbId = Integer.parseInt(deviceId);
+
+            // 查询所有通道
+            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceDbId);
+
             // 提取所有通道的 ID
-            List<Integer> channelIds = channels.stream().map(DeviceChannel::getId).collect(Collectors.toList());
-            
+            List<Integer> channelIds = channels.stream()
+                                                .map(DeviceChannel::getId)
+                                                .collect(Collectors.toList());
+
             // 批量更新通道状态为离线
-            deviceChannelMapper.offlineChannels(channelIds);
-        }       
+            if (!channelIds.isEmpty()) {
+                deviceChannelMapper.offlineChannels(channelIds);
+            }
+        } catch (NumberFormatException e) {
+            log.error("[设备离线] 无法将 deviceId 转换为数字: {}", deviceId, e);
+        }    
         
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
