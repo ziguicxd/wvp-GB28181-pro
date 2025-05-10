@@ -232,7 +232,7 @@ public class DeviceServiceImpl implements IDeviceService {
         redisCatchStorage.updateDevice(device);
         deviceMapper.update(device);
 
-        // 获取所有通道并逐个设置为离线
+        // 获取所有通道并逐个设置为离线  <直接修改数据库>
         // List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
         // for (DeviceChannel channel : allChannels) {
         //     log.info("[通道状态更新] 开始设置通道离线，通道ID: {}", channel.getId());
@@ -240,19 +240,22 @@ public class DeviceServiceImpl implements IDeviceService {
         //     log.info("[通道状态更新成功] 通道ID: {}", channel.getId());
         // }
     
-        // 使用 GbChannelServiceImpl 实现通道离线
+        // 获取所有通道并逐个设置为离线
         List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
-        List<CommonGBChannel> gbChannels = new ArrayList<>();
+
+        // 查询数据库中最新的在线通道
+        List<Integer> channelIds = new ArrayList<>();
         for (DeviceChannel channel : allChannels) {
-            CommonGBChannel gbChannel = new CommonGBChannel();
-            gbChannel.setGbId(channel.getId());
-            gbChannel.setGbDeviceId(channel.getDeviceId());
-            gbChannel.setGbName(channel.getName());
-            gbChannels.add(gbChannel);
+            channelIds.add(channel.getId());
         }
-        if (!gbChannels.isEmpty()) {
-            gbChannelService.offline(gbChannels); // 调用 GbChannelServiceImpl 的批量离线方法
-        }        
+        List<CommonGBChannel> onlineChannels = commonGBChannelMapper.queryInListByStatus(channelIds, "ON");
+
+        // 调用 GbChannelServiceImpl 批量离线
+        if (!onlineChannels.isEmpty()) {
+            gbChannelService.offline(onlineChannels);
+        } else {
+            log.info("[设备离线] 所有通道已经是离线状态，无需更新");
+        }      
         
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
