@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
+import com.genersoft.iot.vmp.gb28181.service.impl.GbChannelServiceImpl;
 
 import javax.sip.InvalidArgumentException;
 import javax.sip.SipException;
@@ -102,6 +103,9 @@ public class DeviceServiceImpl implements IDeviceService {
 
     @Autowired
     private IRedisRpcService redisRpcService;
+
+    @Autowired
+    private GbChannelServiceImpl gbChannelService;
 
     private Device getDeviceByDeviceIdFromDb(String deviceId) {
         return deviceMapper.getDeviceByDeviceId(deviceId);
@@ -228,26 +232,27 @@ public class DeviceServiceImpl implements IDeviceService {
         deviceMapper.update(device);
 
         //进行通道离线
-        // deviceChannelMapper.offlineByDeviceId(deviceId);   
         try {
-            // 将 deviceId 转换为 int 类型
-            // int deviceDbId = Integer.parseInt(deviceId);
+            // 查询所有与设备相关的通道
+            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceId);
 
-            // 查询所有通道
-            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceDbId);
+            // 将 DeviceChannel 转换为 CommonGBChannel
+            List<CommonGBChannel> commonGBChannels = channels.stream()
+                    .map(channel -> {
+                        CommonGBChannel commonGBChannel = new CommonGBChannel();
+                        commonGBChannel.setGbId(channel.getId()); // 设置通道ID
+                        commonGBChannel.setGbDeviceId(channel.getDeviceId()); // 设置设备ID
+                        commonGBChannel.setGbName(channel.getName()); // 设置通道名称
+                        return commonGBChannel;
+                    })
+                    .collect(Collectors.toList());
 
-            // 提取所有通道的 ID
-            List<Integer> channelIds = channels.stream()
-                                                .map(DeviceChannel::getId)
-                                                .collect(Collectors.toList());
+            // 使用 GbChannelServiceImpl 的批量离线方法
+            gbChannelService.offline(commonGBChannels);
 
-            // 批量更新通道状态为离线
-            if (!channelIds.isEmpty()) {
-                deviceChannelMapper.offlineChannels(channelIds);
-            }
-        } catch (NumberFormatException e) {
-            log.error("[设备离线] 无法将 deviceId 转换为数字: {}", deviceId, e);
-        }    
+        } catch (Exception e) {
+            log.error("[设备离线] 处理设备通道离线时发生异常, deviceId: {}", deviceId, e);
+        }   
         
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
