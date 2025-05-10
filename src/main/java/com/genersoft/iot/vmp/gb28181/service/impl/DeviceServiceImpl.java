@@ -50,8 +50,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-
-
 /**
  * 设备业务（目录订阅）
  */
@@ -133,7 +131,7 @@ public class DeviceServiceImpl implements IDeviceService {
         }
         if (sipTransactionInfo != null) {
             device.setSipTransactionInfo(sipTransactionInfo);
-        }else {
+        } else {
             if (deviceInRedis != null) {
                 device.setSipTransactionInfo(deviceInRedis.getSipTransactionInfo());
             }
@@ -154,8 +152,8 @@ public class DeviceServiceImpl implements IDeviceService {
                 log.error("[命令发送失败] 查询设备信息: {}", e.getMessage());
             }
             sync(device);
-        }else {
-            if(!device.isOnLine()){
+        } else {
+            if (!device.isOnLine()) {
                 device.setOnLine(true);
                 device.setCreateTime(now);
                 deviceMapper.update(device);
@@ -183,7 +181,7 @@ public class DeviceServiceImpl implements IDeviceService {
                     redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(), null, true);
                 }
 
-            }else {
+            } else {
                 deviceMapper.update(device);
                 redisCatchStorage.updateDevice(device);
             }
@@ -196,7 +194,7 @@ public class DeviceServiceImpl implements IDeviceService {
         // 刷新过期任务
         String registerExpireTaskKey = VideoManagerConstants.REGISTER_EXPIRE_TASK_KEY_PREFIX + device.getDeviceId();
         // 如果第一次注册那么必须在60 * 3时间内收到一个心跳，否则设备离线
-        dynamicTask.startDelay(registerExpireTaskKey, ()-> offline(device.getDeviceId(), "三次心跳超时"),
+        dynamicTask.startDelay(registerExpireTaskKey, () -> offline(device.getDeviceId(), "三次心跳超时"),
                 device.getHeartBeatInterval() * 1000 * device.getHeartBeatCount());
 
     }
@@ -217,7 +215,8 @@ public class DeviceServiceImpl implements IDeviceService {
             return;
         }
         log.info("[设备离线] {}, device：{}， 心跳间隔： {}，心跳超时次数： {}， 上次心跳时间：{}， 上次注册时间： {}", reason, deviceId,
-                device.getHeartBeatInterval(), device.getHeartBeatCount(), device.getKeepaliveTime(), device.getRegisterTime());
+                device.getHeartBeatInterval(), device.getHeartBeatCount(), device.getKeepaliveTime(),
+                device.getRegisterTime());
         String registerExpireTaskKey = VideoManagerConstants.REGISTER_EXPIRE_TASK_KEY_PREFIX + deviceId;
         dynamicTask.stop(registerExpireTaskKey);
         if (device.isOnLine()) {
@@ -231,11 +230,11 @@ public class DeviceServiceImpl implements IDeviceService {
         redisCatchStorage.updateDevice(device);
         deviceMapper.update(device);
 
-        //进行通道离线
+        // 进行通道离线
         try {
-            int dataDeviceId = Integer.parseInt(deviceId);
+            // int dataDeviceId = Integer.parseInt(deviceId);
             // 查询所有与设备相关的通道
-            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(dataDeviceId);
+            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
             // 处理返回的通道列表
             if (channels.isEmpty()) {
                 log.info("[通道查询] 设备ID: {} 的通道数为0", deviceId);
@@ -253,15 +252,15 @@ public class DeviceServiceImpl implements IDeviceService {
                         .collect(Collectors.toList());
 
                 // 使用 GbChannelServiceImpl 的批量离线方法
-                gbChannelService.offline(commonGBChannels);                
+                gbChannelService.offline(commonGBChannels);
             }
         } catch (NumberFormatException e) {
             log.error("[通道查询] 设备ID转为数字时出错: {}", deviceId, e);
 
         } catch (Exception e) {
             log.error("[设备离线] 处理设备通道离线时发生异常, deviceId: {}", deviceId, e);
-        }   
-        
+        }
+
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
         if (ssrcTransactions != null && !ssrcTransactions.isEmpty()) {
@@ -279,7 +278,8 @@ public class DeviceServiceImpl implements IDeviceService {
         if (!audioBroadcastCatches.isEmpty()) {
             for (AudioBroadcastCatch audioBroadcastCatch : audioBroadcastCatches) {
 
-                SendRtpInfo sendRtpItem = sendRtpServerService.queryByChannelId(audioBroadcastCatch.getChannelId(), deviceId);
+                SendRtpInfo sendRtpItem = sendRtpServerService.queryByChannelId(audioBroadcastCatch.getChannelId(),
+                        deviceId);
                 if (sendRtpItem != null) {
                     sendRtpServerService.delete(sendRtpItem);
                     MediaServer mediaInfo = mediaServerService.getOne(sendRtpItem.getMediaServerId());
@@ -300,9 +300,10 @@ public class DeviceServiceImpl implements IDeviceService {
         // 添加目录订阅
         CatalogSubscribeTask catalogSubscribeTask = new CatalogSubscribeTask(device, sipCommander, dynamicTask);
         // 刷新订阅
-        int subscribeCycleForCatalog = Math.max(device.getSubscribeCycleForCatalog(),30);
+        int subscribeCycleForCatalog = Math.max(device.getSubscribeCycleForCatalog(), 30);
         // 设置最小值为30
-        dynamicTask.startCron(device.getDeviceId() + "catalog", catalogSubscribeTask, (subscribeCycleForCatalog -1) * 1000);
+        dynamicTask.startCron(device.getDeviceId() + "catalog", catalogSubscribeTask,
+                (subscribeCycleForCatalog - 1) * 1000);
 
         catalogSubscribeTask.run();
         return true;
@@ -323,13 +324,13 @@ public class DeviceServiceImpl implements IDeviceService {
             if (runnable instanceof ISubscribeTask) {
                 ISubscribeTask subscribeTask = (ISubscribeTask) runnable;
                 subscribeTask.stop(callback);
-            }else {
+            } else {
                 log.info("[移除目录订阅]失败，未找到订阅任务 : {}", device.getDeviceId());
                 if (callback != null) {
                     callback.run(false);
                 }
             }
-        }else {
+        } else {
             log.info("[移除移动位置订阅]失败，设备已经离线 : {}", device.getDeviceId());
             if (callback != null) {
                 callback.run(false);
@@ -346,11 +347,13 @@ public class DeviceServiceImpl implements IDeviceService {
         }
         log.info("[添加移动位置订阅] 设备{}", device.getDeviceId());
         // 添加目录订阅
-        MobilePositionSubscribeTask mobilePositionSubscribeTask = new MobilePositionSubscribeTask(device, sipCommander, dynamicTask);
+        MobilePositionSubscribeTask mobilePositionSubscribeTask = new MobilePositionSubscribeTask(device, sipCommander,
+                dynamicTask);
         // 设置最小值为30
-        int subscribeCycleForCatalog = Math.max(device.getSubscribeCycleForMobilePosition(),30);
+        int subscribeCycleForCatalog = Math.max(device.getSubscribeCycleForMobilePosition(), 30);
         // 刷新订阅
-        dynamicTask.startCron(device.getDeviceId() + "mobile_position" , mobilePositionSubscribeTask, subscribeCycleForCatalog * 1000);
+        dynamicTask.startCron(device.getDeviceId() + "mobile_position", mobilePositionSubscribeTask,
+                subscribeCycleForCatalog * 1000);
         mobilePositionSubscribeTask.run();
         return true;
     }
@@ -370,13 +373,13 @@ public class DeviceServiceImpl implements IDeviceService {
             if (runnable instanceof ISubscribeTask) {
                 ISubscribeTask subscribeTask = (ISubscribeTask) runnable;
                 subscribeTask.stop(callback);
-            }else {
+            } else {
                 log.info("[移除移动位置订阅]失败，未找到订阅任务 : {}", device.getDeviceId());
                 if (callback != null) {
                     callback.run(false);
                 }
             }
-        }else {
+        } else {
             log.info("[移除移动位置订阅]失败，设备已经离线 : {}", device.getDeviceId());
             if (callback != null) {
                 callback.run(false);
@@ -410,7 +413,7 @@ public class DeviceServiceImpl implements IDeviceService {
             log.info("[同步通道] 同步已存在, 设备: {}, 同步信息: {}", device.getDeviceId(), JSON.toJSON(syncStatus));
             return;
         }
-        int sn = (int)((Math.random()*9+1)*100000);
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
         catalogResponseMessageHandler.setChannelSyncReady(device, sn);
         try {
             sipCommander.catalogQuery(device, sn, event -> {
@@ -419,7 +422,7 @@ public class DeviceServiceImpl implements IDeviceService {
                 catalogResponseMessageHandler.setChannelSyncEnd(device.getDeviceId(), sn, errorMsg);
             });
         } catch (SipException | InvalidArgumentException | ParseException e) {
-            log.error("[同步通道], 信令发送失败：{}", e.getMessage() );
+            log.error("[同步通道], 信令发送失败：{}", e.getMessage());
             String errorMsg = String.format("同步通道失败，信令发送失败： %s", e.getMessage());
             catalogResponseMessageHandler.setChannelSyncEnd(device.getDeviceId(), sn, errorMsg);
         }
@@ -464,7 +467,7 @@ public class DeviceServiceImpl implements IDeviceService {
             String data = queue.poll(10, TimeUnit.SECONDS);
             if (data != null && "ONLINE".equalsIgnoreCase(data.trim())) {
                 return Boolean.TRUE;
-            }else {
+            } else {
                 return Boolean.FALSE;
             }
 
@@ -501,7 +504,7 @@ public class DeviceServiceImpl implements IDeviceService {
         device.setOnLine(false);
         device.setCreateTime(DateUtil.getNow());
         device.setUpdateTime(DateUtil.getNow());
-        if(device.getStreamMode() == null) {
+        if (device.getStreamMode() == null) {
             device.setStreamMode("TCP-PASSIVE");
         }
         deviceMapper.addCustomDevice(device);
@@ -520,7 +523,7 @@ public class DeviceServiceImpl implements IDeviceService {
             if (!deviceInStore.getGeoCoordSys().equals(device.getGeoCoordSys())) {
                 deviceInStore.setGeoCoordSys(device.getGeoCoordSys());
             }
-        }else {
+        } else {
             deviceInStore.setGeoCoordSys("WGS84");
         }
         if (device.getCharset() == null) {
@@ -574,12 +577,12 @@ public class DeviceServiceImpl implements IDeviceService {
 
     @Override
     public Device getDeviceByChannelId(Integer channelId) {
-        return deviceMapper.queryByChannelId(ChannelDataType.GB28181.value,channelId);
+        return deviceMapper.queryByChannelId(ChannelDataType.GB28181.value, channelId);
     }
 
     @Override
     public Device getDeviceBySourceChannelDeviceId(String channelId) {
-        return deviceMapper.getDeviceBySourceChannelDeviceId(ChannelDataType.GB28181.value,channelId);
+        return deviceMapper.getDeviceBySourceChannelDeviceId(ChannelDataType.GB28181.value, channelId);
     }
 
     @Override
@@ -594,10 +597,10 @@ public class DeviceServiceImpl implements IDeviceService {
             redisRpcService.subscribeCatalog(id, cycle);
             return;
         }
-        //  目录订阅相关的信息
+        // 目录订阅相关的信息
         if (device.getSubscribeCycleForCatalog() > 0) {
             // 订阅周期不同，则先取消
-            removeCatalogSubscribe(device, result->{
+            removeCatalogSubscribe(device, result -> {
                 device.setSubscribeCycleForCatalog(cycle);
                 if (cycle > 0) {
                     // 开启订阅
@@ -607,7 +610,7 @@ public class DeviceServiceImpl implements IDeviceService {
                 deviceMapper.updateSubscribeCatalog(device);
                 redisCatchStorage.updateDevice(device);
             });
-        }else {
+        } else {
             // 开启订阅
             device.setSubscribeCycleForCatalog(cycle);
             addCatalogSubscribe(device);
@@ -627,10 +630,10 @@ public class DeviceServiceImpl implements IDeviceService {
             redisRpcService.subscribeMobilePosition(id, cycle, interval);
             return;
         }
-        //  目录订阅相关的信息
+        // 目录订阅相关的信息
         if (device.getSubscribeCycleForMobilePosition() > 0) {
             // 订阅周期已经开启，则先取消
-            removeMobilePositionSubscribe(device, result->{
+            removeMobilePositionSubscribe(device, result -> {
                 // 开启订阅
                 device.setSubscribeCycleForMobilePosition(cycle);
                 device.setMobilePositionSubmissionInterval(interval);
@@ -641,7 +644,7 @@ public class DeviceServiceImpl implements IDeviceService {
                 deviceMapper.updateSubscribeMobilePosition(device);
                 redisCatchStorage.updateDevice(device);
             });
-        }else {
+        } else {
             // 订阅未开启
             device.setSubscribeCycleForMobilePosition(cycle);
             device.setMobilePositionSubmissionInterval(interval);
@@ -664,7 +667,7 @@ public class DeviceServiceImpl implements IDeviceService {
             // 刷新过期任务
             String registerExpireTaskKey = VideoManagerConstants.REGISTER_EXPIRE_TASK_KEY_PREFIX + device.getDeviceId();
             // 如果第一次注册那么必须在60 * 3时间内收到一个心跳，否则设备离线
-            dynamicTask.startDelay(registerExpireTaskKey, ()-> offline(device.getDeviceId(), "三次心跳超时"),
+            dynamicTask.startDelay(registerExpireTaskKey, () -> offline(device.getDeviceId(), "三次心跳超时"),
                     device.getHeartBeatInterval() * 1000 * device.getHeartBeatCount());
             deviceInDb.setHeartBeatCount(device.getHeartBeatCount());
             deviceInDb.setHeartBeatInterval(device.getHeartBeatInterval());
@@ -685,10 +688,10 @@ public class DeviceServiceImpl implements IDeviceService {
             if (channelSyncStatus.getErrorMsg() != null) {
                 wvpResult.setCode(ErrorCode.ERROR100.getCode());
                 wvpResult.setMsg(channelSyncStatus.getErrorMsg());
-            }else if (channelSyncStatus.getTotal() == null || channelSyncStatus.getTotal() == 0){
+            } else if (channelSyncStatus.getTotal() == null || channelSyncStatus.getTotal() == 0) {
                 wvpResult.setCode(ErrorCode.SUCCESS.getCode());
                 wvpResult.setMsg("等待通道信息...");
-            }else {
+            } else {
                 wvpResult.setCode(ErrorCode.SUCCESS.getCode());
                 wvpResult.setMsg(ErrorCode.SUCCESS.getMsg());
                 wvpResult.setData(channelSyncStatus);
@@ -725,7 +728,8 @@ public class DeviceServiceImpl implements IDeviceService {
     public void deviceConfigQuery(Device device, String channelId, String configType, ErrorCallback<Object> callback) {
 
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            WVPResult<String> result = redisRpcService.deviceConfigQuery(device.getServerId(), device, channelId, configType);
+            WVPResult<String> result = redisRpcService.deviceConfigQuery(device.getServerId(), device, channelId,
+                    configType);
             callback.run(result.getCode(), result.getMsg(), result.getData());
             return;
         }
@@ -757,7 +761,8 @@ public class DeviceServiceImpl implements IDeviceService {
     public void record(Device device, String channelId, String recordCmdStr, ErrorCallback<String> callback) {
 
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            WVPResult<String> result = redisRpcService.recordControl(device.getServerId(), device, channelId, recordCmdStr);
+            WVPResult<String> result = redisRpcService.recordControl(device.getServerId(), device, channelId,
+                    recordCmdStr);
             callback.run(result.getCode(), result.getMsg(), result.getData());
             return;
         }
@@ -789,9 +794,11 @@ public class DeviceServiceImpl implements IDeviceService {
     }
 
     @Override
-    public void resetAlarm(Device device, String channelId, String alarmMethod, String alarmType, ErrorCallback<String> callback) {
+    public void resetAlarm(Device device, String channelId, String alarmMethod, String alarmType,
+            ErrorCallback<String> callback) {
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            WVPResult<String> result = redisRpcService.resetAlarm(device.getServerId(), device, channelId, alarmMethod, alarmType);
+            WVPResult<String> result = redisRpcService.resetAlarm(device.getServerId(), device, channelId, alarmMethod,
+                    alarmType);
             callback.run(result.getCode(), result.getMsg(), result.getData());
             return;
         }
@@ -821,9 +828,11 @@ public class DeviceServiceImpl implements IDeviceService {
     }
 
     @Override
-    public void homePosition(Device device, String channelId, Boolean enabled, Integer resetTime, Integer presetIndex, ErrorCallback<String> callback) {
+    public void homePosition(Device device, String channelId, Boolean enabled, Integer resetTime, Integer presetIndex,
+            ErrorCallback<String> callback) {
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            WVPResult<String> result = redisRpcService.homePosition(device.getServerId(), device, channelId, enabled, resetTime, presetIndex);
+            WVPResult<String> result = redisRpcService.homePosition(device.getServerId(), device, channelId, enabled,
+                    resetTime, presetIndex);
             callback.run(result.getCode(), result.getMsg(), result.getData());
             return;
         }
@@ -838,52 +847,56 @@ public class DeviceServiceImpl implements IDeviceService {
     }
 
     @Override
-    public void dragZoomIn(Device device, String channelId, int length, int width, int midpointx, int midpointy, int lengthx, int lengthy, ErrorCallback<String> callback) {
+    public void dragZoomIn(Device device, String channelId, int length, int width, int midpointx, int midpointy,
+            int lengthx, int lengthy, ErrorCallback<String> callback) {
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            redisRpcService.dragZoomIn(device.getServerId(), device, channelId, length, width, midpointx, midpointy, lengthx, lengthy);
+            redisRpcService.dragZoomIn(device.getServerId(), device, channelId, length, width, midpointx, midpointy,
+                    lengthx, lengthy);
             return;
         }
 
         StringBuffer cmdXml = new StringBuffer(200);
         cmdXml.append("<DragZoomIn>\r\n");
-        cmdXml.append("<Length>" + length+ "</Length>\r\n");
-        cmdXml.append("<Width>" + width+ "</Width>\r\n");
-        cmdXml.append("<MidPointX>" + midpointx+ "</MidPointX>\r\n");
-        cmdXml.append("<MidPointY>" + midpointy+ "</MidPointY>\r\n");
-        cmdXml.append("<LengthX>" + lengthx+ "</LengthX>\r\n");
-        cmdXml.append("<LengthY>" + lengthy+ "</LengthY>\r\n");
+        cmdXml.append("<Length>" + length + "</Length>\r\n");
+        cmdXml.append("<Width>" + width + "</Width>\r\n");
+        cmdXml.append("<MidPointX>" + midpointx + "</MidPointX>\r\n");
+        cmdXml.append("<MidPointY>" + midpointy + "</MidPointY>\r\n");
+        cmdXml.append("<LengthX>" + lengthx + "</LengthX>\r\n");
+        cmdXml.append("<LengthY>" + lengthy + "</LengthY>\r\n");
         cmdXml.append("</DragZoomIn>\r\n");
         try {
             sipCommander.dragZoomCmd(device, channelId, cmdXml.toString(), callback);
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[命令发送失败] 拉框放大: {}", e.getMessage());
             callback.run(ErrorCode.ERROR100.getCode(), "命令发送: " + e.getMessage(), null);
-            throw new ControllerException(ErrorCode.ERROR100.getCode(), "命令发送失败: " +  e.getMessage());
+            throw new ControllerException(ErrorCode.ERROR100.getCode(), "命令发送失败: " + e.getMessage());
         }
     }
 
     @Override
-    public void dragZoomOut(Device device, String channelId, int length, int width, int midpointx, int midpointy, int lengthx, int lengthy, ErrorCallback<String> callback) {
+    public void dragZoomOut(Device device, String channelId, int length, int width, int midpointx, int midpointy,
+            int lengthx, int lengthy, ErrorCallback<String> callback) {
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            redisRpcService.dragZoomOut(device.getServerId(), device, channelId, length, width, midpointx, midpointy, lengthx, lengthy);
+            redisRpcService.dragZoomOut(device.getServerId(), device, channelId, length, width, midpointx, midpointy,
+                    lengthx, lengthy);
             return;
         }
 
         StringBuffer cmdXml = new StringBuffer(200);
         cmdXml.append("<DragZoomOut>\r\n");
-        cmdXml.append("<Length>" + length+ "</Length>\r\n");
-        cmdXml.append("<Width>" + width+ "</Width>\r\n");
-        cmdXml.append("<MidPointX>" + midpointx+ "</MidPointX>\r\n");
-        cmdXml.append("<MidPointY>" + midpointy+ "</MidPointY>\r\n");
-        cmdXml.append("<LengthX>" + lengthx+ "</LengthX>\r\n");
-        cmdXml.append("<LengthY>" + lengthy+ "</LengthY>\r\n");
+        cmdXml.append("<Length>" + length + "</Length>\r\n");
+        cmdXml.append("<Width>" + width + "</Width>\r\n");
+        cmdXml.append("<MidPointX>" + midpointx + "</MidPointX>\r\n");
+        cmdXml.append("<MidPointY>" + midpointy + "</MidPointY>\r\n");
+        cmdXml.append("<LengthX>" + lengthx + "</LengthX>\r\n");
+        cmdXml.append("<LengthY>" + lengthy + "</LengthY>\r\n");
         cmdXml.append("</DragZoomOut>\r\n");
         try {
             sipCommander.dragZoomCmd(device, channelId, cmdXml.toString(), callback);
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[命令发送失败] 拉框放大: {}", e.getMessage());
             callback.run(ErrorCode.ERROR100.getCode(), "命令发送: " + e.getMessage(), null);
-            throw new ControllerException(ErrorCode.ERROR100.getCode(), "命令发送失败: " +  e.getMessage());
+            throw new ControllerException(ErrorCode.ERROR100.getCode(), "命令发送失败: " + e.getMessage());
         }
     }
 
@@ -899,7 +912,7 @@ public class DeviceServiceImpl implements IDeviceService {
             sipCommander.deviceStatusQuery(device, (code, msg, data) -> {
                 if ("ONLINE".equalsIgnoreCase(data.trim())) {
                     online(device, null);
-                }else {
+                } else {
                     offline(device.getDeviceId(), "设备状态查询结果：" + data.trim());
                 }
                 if (callback != null) {
@@ -913,11 +926,12 @@ public class DeviceServiceImpl implements IDeviceService {
         }
     }
 
-
     @Override
-    public void alarm(Device device, String startPriority, String endPriority, String alarmMethod, String alarmType, String startTime, String endTime, ErrorCallback<Object> callback) {
+    public void alarm(Device device, String startPriority, String endPriority, String alarmMethod, String alarmType,
+            String startTime, String endTime, ErrorCallback<Object> callback) {
         if (!userSetting.getServerId().equals(device.getServerId())) {
-            WVPResult<String> result = redisRpcService.alarm(device.getServerId(), device, startPriority, endPriority, alarmMethod, alarmType, startTime, endTime);
+            WVPResult<String> result = redisRpcService.alarm(device.getServerId(), device, startPriority, endPriority,
+                    alarmMethod, alarmType, startTime, endTime);
             callback.run(result.getCode(), result.getMsg(), result.getData());
             return;
         }
@@ -932,7 +946,8 @@ public class DeviceServiceImpl implements IDeviceService {
         }
 
         try {
-            sipCommander.alarmInfoQuery(device, startPriority, endPriority, alarmMethod, alarmType, startAlarmTime, endAlarmTime, callback);
+            sipCommander.alarmInfoQuery(device, startPriority, endPriority, alarmMethod, alarmType, startAlarmTime,
+                    endAlarmTime, callback);
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[命令发送失败] 获取设备状态: {}", e.getMessage());
             callback.run(ErrorCode.ERROR100.getCode(), "命令发送: " + e.getMessage(), null);
