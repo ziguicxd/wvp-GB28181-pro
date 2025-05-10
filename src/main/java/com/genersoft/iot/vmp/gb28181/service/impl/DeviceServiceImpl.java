@@ -225,12 +225,26 @@ public class DeviceServiceImpl implements IDeviceService {
         deviceMapper.update(device);
 
         // 获取所有通道并逐个设置为离线
+        // List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
+        // for (DeviceChannel channel : allChannels) {
+        //     log.info("[通道状态更新] 开始设置通道离线，通道ID: {}", channel.getId());
+        //     deviceChannelMapper.offline(channel.getId());
+        //     log.info("[通道状态更新成功] 通道ID: {}", channel.getId());
+        // }
+    
+        // 使用 GbChannelServiceImpl 实现通道离线
         List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
+        List<CommonGBChannel> gbChannels = new ArrayList<>();
         for (DeviceChannel channel : allChannels) {
-            log.info("[通道状态更新] 开始设置通道离线，通道ID: {}", channel.getId());
-            deviceChannelMapper.offline(channel.getId());
-            log.info("[通道状态更新成功] 通道ID: {}", channel.getId());
+            CommonGBChannel gbChannel = new CommonGBChannel();
+            gbChannel.setGbId(channel.getId());
+            gbChannel.setGbDeviceId(channel.getDeviceId());
+            gbChannel.setGbName(channel.getName());
+            gbChannels.add(gbChannel);
         }
+        if (!gbChannels.isEmpty()) {
+            gbChannelService.offline(gbChannels); // 调用 GbChannelServiceImpl 的批量离线方法
+        }        
         
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
