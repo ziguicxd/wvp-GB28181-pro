@@ -233,22 +233,30 @@ public class DeviceServiceImpl implements IDeviceService {
 
         //进行通道离线
         try {
+            int dataDeviceId = Integer.parseInt(deviceId);
             // 查询所有与设备相关的通道
-            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId()).isEmpty();
+            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(dataDeviceId);
+            // 处理返回的通道列表
+            if (channels.isEmpty()) {
+                log.info("[通道查询] 设备ID: {} 的通道数为0", deviceId);
+            } else {
+                log.info("[通道查询] 设备ID: {} 的通道数为 {}", deviceId, channels.size());
+                // 将 DeviceChannel 转换为 CommonGBChannel
+                List<CommonGBChannel> commonGBChannels = channels.stream()
+                        .map(channel -> {
+                            CommonGBChannel commonGBChannel = new CommonGBChannel();
+                            commonGBChannel.setGbId(channel.getId()); // 设置通道ID
+                            commonGBChannel.setGbDeviceId(channel.getDeviceId()); // 设置设备ID
+                            commonGBChannel.setGbName(channel.getName()); // 设置通道名称
+                            return commonGBChannel;
+                        })
+                        .collect(Collectors.toList());
 
-            // 将 DeviceChannel 转换为 CommonGBChannel
-            List<CommonGBChannel> commonGBChannels = channels.stream()
-                    .map(channel -> {
-                        CommonGBChannel commonGBChannel = new CommonGBChannel();
-                        commonGBChannel.setGbId(channel.getId()); // 设置通道ID
-                        commonGBChannel.setGbDeviceId(channel.getDeviceId()); // 设置设备ID
-                        commonGBChannel.setGbName(channel.getName()); // 设置通道名称
-                        return commonGBChannel;
-                    })
-                    .collect(Collectors.toList());
-
-            // 使用 GbChannelServiceImpl 的批量离线方法
-            gbChannelService.offline(commonGBChannels);
+                // 使用 GbChannelServiceImpl 的批量离线方法
+                gbChannelService.offline(commonGBChannels);                
+            }
+        } catch (NumberFormatException e) {
+            log.error("[通道查询] 设备ID转为数字时出错: {}", deviceId, e);
 
         } catch (Exception e) {
             log.error("[设备离线] 处理设备通道离线时发生异常, deviceId: {}", deviceId, e);
