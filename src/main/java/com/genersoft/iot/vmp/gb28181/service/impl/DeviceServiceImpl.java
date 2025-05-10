@@ -47,11 +47,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.genersoft.iot.vmp.gb28181.dao.CommonGBChannelMapper;
 
 /**
  * 设备业务（目录订阅）
@@ -108,12 +103,6 @@ public class DeviceServiceImpl implements IDeviceService {
     private Device getDeviceByDeviceIdFromDb(String deviceId) {
         return deviceMapper.getDeviceByDeviceId(deviceId);
     }
-
-    @Autowired
-    private GbChannelServiceImpl gbChannelService;
-
-    @Autowired
-    private CommonGBChannelMapper commonGBChannelMapper;    
 
     @Override
     public void online(Device device, SipTransactionInfo sipTransactionInfo) {
@@ -235,30 +224,8 @@ public class DeviceServiceImpl implements IDeviceService {
         redisCatchStorage.updateDevice(device);
         deviceMapper.update(device);
 
-        // 获取所有通道并逐个设置为离线  <直接修改数据库>
-        // List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
-        // for (DeviceChannel channel : allChannels) {
-        //     log.info("[通道状态更新] 开始设置通道离线，通道ID: {}", channel.getId());
-        //     deviceChannelMapper.offline(channel.getId());
-        //     log.info("[通道状态更新成功] 通道ID: {}", channel.getId());
-        // }
-    
-        // 获取所有通道并逐个设置为离线
-        List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
-
-        // 查询数据库中最新的在线通道
-        List<Integer> channelIds = new ArrayList<>();
-        for (DeviceChannel channel : allChannels) {
-            channelIds.add(channel.getId());
-        }
-        List<CommonGBChannel> onlineChannels = commonGBChannelMapper.queryInListByStatus(channelIds, "ON");
-
-        // 调用 GbChannelServiceImpl 批量离线
-        if (!onlineChannels.isEmpty()) {
-            gbChannelService.offline(onlineChannels);
-        } else {
-            log.info("[设备离线] 所有通道已经是离线状态，无需更新");
-        }      
+        //进行通道离线
+        deviceChannelMapper.offlineByDeviceId(deviceId);     
         
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
