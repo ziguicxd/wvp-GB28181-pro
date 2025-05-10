@@ -231,7 +231,7 @@ public class DeviceServiceImpl implements IDeviceService {
         // deviceChannelMapper.offlineByDeviceId(deviceId);   
         try {
             // 将 deviceId 转换为 int 类型
-            int deviceDbId = Integer.parseInt(deviceId);
+            // int deviceDbId = Integer.parseInt(deviceId);
 
             // 查询所有通道
             List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceDbId);
