@@ -223,8 +223,13 @@ public class DeviceServiceImpl implements IDeviceService {
         device.setOnLine(false);
         redisCatchStorage.updateDevice(device);
         deviceMapper.update(device);
-        //进行通道离线
-        deviceChannelMapper.offlineByDeviceId(deviceId);
+
+        // 获取所有通道并逐个设置为离线
+        List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
+        for (DeviceChannel channel : allChannels) {
+            deviceChannelMapper.offline(channel.getId());
+        }
+        
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);
         if (ssrcTransactions != null && !ssrcTransactions.isEmpty()) {
