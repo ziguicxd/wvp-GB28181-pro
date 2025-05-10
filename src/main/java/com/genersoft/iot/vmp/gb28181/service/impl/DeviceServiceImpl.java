@@ -225,7 +225,15 @@ public class DeviceServiceImpl implements IDeviceService {
         deviceMapper.update(device);
 
         //进行通道离线
-        deviceChannelMapper.offlineByDeviceId(deviceId);     
+        // deviceChannelMapper.offlineByDeviceId(deviceId);   
+        // 批量离线通道 
+        // List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceId);
+        // List<Integer> ids = channels.stream().map(DeviceChannel::getId).collect(Collectors.toList());
+        // deviceChannelMapper.offlineChannels(ids);        
+        List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceId);
+        for (DeviceChannel channel : channels) {
+            deviceChannelMapper.offline(channel.getId());
+        }         
         
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(deviceId);

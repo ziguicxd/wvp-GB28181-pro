@@ -193,6 +193,17 @@ public interface DeviceChannelMapper {
 
     @Update(value = {"UPDATE wvp_device_channel SET status='OFF' WHERE id=#{id}"})
     void offline(@Param("id") int id);
+    
+    // 批量通道离线数据库修改
+    @Update("<script>" +
+            "UPDATE wvp_device_channel " +
+            "SET status='OFF' " +
+            "WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'> " +
+            "#{id} " +
+            "</foreach>" +
+            "</script>")
+    void offlineChannels(@Param("ids") List<Integer> ids);
 
     @Insert("<script> " +
             "insert into wvp_device_channel " +
