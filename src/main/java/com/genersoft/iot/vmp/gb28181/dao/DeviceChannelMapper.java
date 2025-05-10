@@ -92,7 +92,7 @@ public interface DeviceChannelMapper {
                                       @Param("online") Boolean online, @Param("channelIds") List<String> channelIds);
 
     @SelectProvider(type = DeviceChannelProvider.class, method = "queryChannelsByDeviceDbId")
-    List<DeviceChannel> queryChannelsByDeviceDbId(@Param("dataDeviceId") int dataDeviceId);
+    List<DeviceChannel> queryChannelsByDeviceDbId(@Param("dataDeviceId") String  dataDeviceId);
 
     @Select("<script> " +
             "select id from wvp_device_channel where data_type =1 and data_device_id in  " +
