@@ -50,7 +50,8 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import com.genersoft.iot.vmp.gb28181.dao.CommonGBChannelMapper;
 
 /**
  * 设备业务（目录订阅）
@@ -111,6 +112,8 @@ public class DeviceServiceImpl implements IDeviceService {
     @Autowired
     private GbChannelServiceImpl gbChannelService;
 
+    @Autowired
+    private CommonGBChannelMapper commonGBChannelMapper;    
 
     @Override
     public void online(Device device, SipTransactionInfo sipTransactionInfo) {
