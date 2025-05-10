@@ -47,6 +47,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.ArrayList;
+
 
 /**
  * 设备业务（目录订阅）
@@ -103,6 +107,10 @@ public class DeviceServiceImpl implements IDeviceService {
     private Device getDeviceByDeviceIdFromDb(String deviceId) {
         return deviceMapper.getDeviceByDeviceId(deviceId);
     }
+
+    @Autowired
+    private GbChannelServiceImpl gbChannelService;
+
 
     @Override
     public void online(Device device, SipTransactionInfo sipTransactionInfo) {
