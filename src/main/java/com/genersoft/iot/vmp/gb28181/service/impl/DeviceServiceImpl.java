@@ -234,7 +234,7 @@ public class DeviceServiceImpl implements IDeviceService {
         //进行通道离线
         try {
             // 查询所有与设备相关的通道
-            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(deviceId);
+            List<DeviceChannel> channels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId()).isEmpty();
 
             // 将 DeviceChannel 转换为 CommonGBChannel
             List<CommonGBChannel> commonGBChannels = channels.stream()
