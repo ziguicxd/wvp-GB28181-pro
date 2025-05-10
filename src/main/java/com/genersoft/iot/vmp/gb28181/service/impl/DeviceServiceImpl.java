@@ -228,12 +228,8 @@ public class DeviceServiceImpl implements IDeviceService {
         List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
         for (DeviceChannel channel : allChannels) {
             log.info("[通道状态更新] 开始设置通道离线，通道ID: {}", channel.getId());
-            int affectedRows = deviceChannelMapper.offline(channel.getId());
-            if (affectedRows > 0) {
-                log.info("[通道状态更新成功] 通道ID: {}", channel.getId());
-            } else {
-                log.warn("[通道状态更新失败] 通道ID: {}", channel.getId());
-            }
+            deviceChannelMapper.offline(channel.getId());
+            log.info("[通道状态更新成功] 通道ID: {}", channel.getId());
         }
         
         // 离线释放所有ssrc
