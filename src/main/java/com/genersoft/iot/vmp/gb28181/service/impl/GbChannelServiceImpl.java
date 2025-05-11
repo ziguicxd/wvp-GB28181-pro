@@ -67,7 +67,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
         if (commonGBChannel.getDataType() == null || commonGBChannel.getDataDeviceId() == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "缺少通道数据类型或通道数据关联设备ID");
         }
-        CommonGBChannel commonGBChannelInDb =  commonGBChannelMapper.queryByDataId(commonGBChannel.getDataType(), commonGBChannel.getDataDeviceId());
+        CommonGBChannel commonGBChannelInDb = commonGBChannelMapper.queryByDataId(commonGBChannel.getDataType(),
+                commonGBChannel.getDataDeviceId());
         if (commonGBChannelInDb != null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "此推流已经关联通道");
         }
@@ -82,7 +83,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         // 移除国标级联关联的信息
         try {
             platformChannelService.removeChannel(gbId);
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.error("[移除通道国标级联共享失败]", e);
         }
 
@@ -105,7 +106,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         // 移除国标级联关联的信息
         try {
             platformChannelService.removeChannels(new ArrayList<>(ids));
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.error("[移除通道国标级联共享失败]", e);
         }
         List<CommonGBChannel> channelListInDb = commonGBChannelMapper.queryByIds(ids);
@@ -160,14 +161,20 @@ public class GbChannelServiceImpl implements IGbChannelService {
             log.warn("[多个通道离线] 通道数量为0，更新失败");
             return 0;
         }
+
+        log.debug("[调试] 输入通道列表: {}", commonGBChannelList);
+
         List<CommonGBChannel> onlineChannelList = commonGBChannelMapper.queryInListByStatus(commonGBChannelList, "ON");
         if (onlineChannelList.isEmpty()) {
             log.info("[多个通道离线] 更新失败, 参数内通道已经离线, 无需更新");
             for (CommonGBChannel channel : commonGBChannelList) {
                 log.info("[通道已离线] 通道ID: {}, 名称: {}", channel.getGbId(), channel.getGbName());
-            }            
+            }
             return 0;
         }
+
+        log.debug("[调试] 在线通道列表: {}", onlineChannelList);
+
         int limitCount = 1000;
         int result = 0;
         if (onlineChannelList.size() > limitCount) {
@@ -217,7 +224,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
             log.warn("[多个通道上线] 通道数量为0，更新失败");
             return 0;
         }
-        List<CommonGBChannel> offlineChannelList = commonGBChannelMapper.queryInListByStatus(commonGBChannelList, "OFF");
+        List<CommonGBChannel> offlineChannelList = commonGBChannelMapper.queryInListByStatus(commonGBChannelList,
+                "OFF");
         if (offlineChannelList.isEmpty()) {
             log.warn("[多个通道上线] 更新失败, 参数内通道已经上线");
             return 0;
@@ -332,8 +340,6 @@ public class GbChannelServiceImpl implements IGbChannelService {
         }
     }
 
-
-
     @Override
     public CommonGBChannel getOne(int id) {
         return commonGBChannelMapper.queryById(id);
@@ -397,7 +403,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
     }
 
     @Override
-    public PageInfo<CommonGBChannel> queryListByCivilCode(int page, int count, String query, Boolean online, Integer channelType, String civilCode) {
+    public PageInfo<CommonGBChannel> queryListByCivilCode(int page, int count, String query, Boolean online,
+            Integer channelType, String civilCode) {
         PageHelper.startPage(page, count);
         if (query != null) {
             query = query.replaceAll("/", "//")
@@ -409,14 +416,16 @@ public class GbChannelServiceImpl implements IGbChannelService {
     }
 
     @Override
-    public PageInfo<CommonGBChannel> queryListByParentId(int page, int count, String query, Boolean online, Integer channelType, String groupDeviceId) {
+    public PageInfo<CommonGBChannel> queryListByParentId(int page, int count, String query, Boolean online,
+            Integer channelType, String groupDeviceId) {
         PageHelper.startPage(page, count);
         if (query != null) {
             query = query.replaceAll("/", "//")
                     .replaceAll("%", "/%")
                     .replaceAll("_", "/_");
         }
-        List<CommonGBChannel> all = commonGBChannelMapper.queryListByParentId(query, online, channelType, groupDeviceId);
+        List<CommonGBChannel> all = commonGBChannelMapper.queryListByParentId(query, online, channelType,
+                groupDeviceId);
         return new PageInfo<>(all);
     }
 
@@ -470,20 +479,20 @@ public class GbChannelServiceImpl implements IGbChannelService {
         Region region = regionMapper.queryByDeviceId(civilCode);
         if (region == null) {
             platformChannelService.checkRegionRemove(channelList, null);
-        }else {
+        } else {
             List<Region> regionList = new ArrayList<>();
             regionList.add(region);
             platformChannelService.checkRegionRemove(channelList, regionList);
         }
         // TODO 发送通知
-//        if (result > 0) {
-//            try {
-//                // 发送catalog
-//                eventPublisher.catalogEventPublish(null, channelList, CatalogEvent.UPDATE);
-//            }catch (Exception e) {
-//                log.warn("[多个通道添加行政区划] 发送失败，数量：{}", channelList.size(), e);
-//            }
-//        }
+        // if (result > 0) {
+        // try {
+        // // 发送catalog
+        // eventPublisher.catalogEventPublish(null, channelList, CatalogEvent.UPDATE);
+        // }catch (Exception e) {
+        // log.warn("[多个通道添加行政区划] 发送失败，数量：{}", channelList.size(), e);
+        // }
+        // }
     }
 
     @Override
@@ -496,19 +505,20 @@ public class GbChannelServiceImpl implements IGbChannelService {
 
         platformChannelService.checkRegionRemove(channelList, null);
         // TODO 发送通知
-//        if (result > 0) {
-//            try {
-//                // 发送catalog
-//                eventPublisher.catalogEventPublish(null, channelList, CatalogEvent.UPDATE);
-//            }catch (Exception e) {
-//                log.warn("[多个通道添加行政区划] 发送失败，数量：{}", channelList.size(), e);
-//            }
-//        }
+        // if (result > 0) {
+        // try {
+        // // 发送catalog
+        // eventPublisher.catalogEventPublish(null, channelList, CatalogEvent.UPDATE);
+        // }catch (Exception e) {
+        // log.warn("[多个通道添加行政区划] 发送失败，数量：{}", channelList.size(), e);
+        // }
+        // }
     }
 
     @Override
     public void addChannelToRegionByGbDevice(String civilCode, List<Integer> deviceIds) {
-        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value, deviceIds);
+        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value,
+                deviceIds);
         if (channelList.isEmpty()) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "所有通道Id不存在");
         }
@@ -529,7 +539,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
 
     @Override
     public void deleteChannelToRegionByGbDevice(List<Integer> deviceIds) {
-        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value, deviceIds);
+        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value,
+                deviceIds);
         if (channelList.isEmpty()) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "所有通道Id不存在");
         }
@@ -636,7 +647,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         Group group = groupMapper.queryOneByDeviceId(parentId, businessGroup);
         if (group == null) {
             platformChannelService.checkGroupRemove(channelList, null);
-        }else {
+        } else {
             List<Group> groupList = new ArrayList<>();
             groupList.add(group);
             platformChannelService.checkGroupRemove(channelList, groupList);
@@ -646,7 +657,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
     @Override
     @Transactional
     public void addChannelToGroupByGbDevice(String parentId, String businessGroup, List<Integer> deviceIds) {
-        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value, deviceIds);
+        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value,
+                deviceIds);
         if (channelList.isEmpty()) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "所有通道Id不存在");
         }
@@ -674,7 +686,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
 
     @Override
     public void deleteChannelToGroupByGbDevice(List<Integer> deviceIds) {
-        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value, deviceIds);
+        List<CommonGBChannel> channelList = commonGBChannelMapper.queryByGbDeviceIds(ChannelDataType.GB28181.value,
+                deviceIds);
         if (channelList.isEmpty()) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "所有通道Id不存在");
         }
@@ -688,7 +701,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         List<CommonGBChannel> channelList = platformChannelMapper.queryOneWithPlatform(platformId, channelDeviceId);
         if (!channelList.isEmpty()) {
             return channelList.get(channelList.size() - 1);
-        }else {
+        } else {
             return null;
         }
     }
@@ -720,19 +733,21 @@ public class GbChannelServiceImpl implements IGbChannelService {
     }
 
     @Override
-    public PageInfo<CommonGBChannel> queryList(int page, int count, String query, Boolean online, Boolean hasRecordPlan, Integer channelType) {
+    public PageInfo<CommonGBChannel> queryList(int page, int count, String query, Boolean online, Boolean hasRecordPlan,
+            Integer channelType) {
         PageHelper.startPage(page, count);
         if (query != null) {
             query = query.replaceAll("/", "//")
                     .replaceAll("%", "/%")
                     .replaceAll("_", "/_");
         }
-        List<CommonGBChannel> all = commonGBChannelMapper.queryList(query, online,  hasRecordPlan, channelType);
+        List<CommonGBChannel> all = commonGBChannelMapper.queryList(query, online, hasRecordPlan, channelType);
         return new PageInfo<>(all);
     }
 
     @Override
-    public void queryRecordInfo(CommonGBChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> callback) {
+    public void queryRecordInfo(CommonGBChannel channel, String startTime, String endTime,
+            ErrorCallback<RecordInfo> callback) {
         if (channel.getDataType() == ChannelDataType.GB28181.value) {
             deviceChannelService.queryRecordInfo(channel, startTime, endTime, callback);
         } else if (channel.getDataType() == ChannelDataType.STREAM_PROXY.value) {
@@ -751,7 +766,8 @@ public class GbChannelServiceImpl implements IGbChannelService {
     }
 
     @Override
-    public PageInfo<CommonGBChannel> queryListByCivilCodeForUnusual(int page, int count, String query, Boolean online, Integer channelType) {
+    public PageInfo<CommonGBChannel> queryListByCivilCodeForUnusual(int page, int count, String query, Boolean online,
+            Integer channelType) {
         PageHelper.startPage(page, count);
         if (query != null) {
             query = query.replaceAll("/", "//")
@@ -768,14 +784,15 @@ public class GbChannelServiceImpl implements IGbChannelService {
         List<Integer> channelIdsForClear;
         if (all != null && all) {
             channelIdsForClear = commonGBChannelMapper.queryAllForUnusualCivilCode();
-        }else {
+        } else {
             channelIdsForClear = channelIds;
         }
         commonGBChannelMapper.removeCivilCodeByChannelIds(channelIdsForClear);
     }
 
     @Override
-    public PageInfo<CommonGBChannel> queryListByParentForUnusual(int page, int count, String query, Boolean online, Integer channelType) {
+    public PageInfo<CommonGBChannel> queryListByParentForUnusual(int page, int count, String query, Boolean online,
+            Integer channelType) {
         PageHelper.startPage(page, count);
         if (query != null) {
             query = query.replaceAll("/", "//")
@@ -791,7 +808,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         List<Integer> channelIdsForClear;
         if (all != null && all) {
             channelIdsForClear = commonGBChannelMapper.queryAllForUnusualParent();
-        }else {
+        } else {
             channelIdsForClear = channelIds;
         }
         commonGBChannelMapper.removeParentIdByChannelIds(channelIdsForClear);
