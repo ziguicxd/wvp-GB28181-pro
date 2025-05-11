@@ -1,6 +1,7 @@
 package com.genersoft.iot.vmp.gb28181.event;
 
 import com.genersoft.iot.vmp.gb28181.bean.DeviceNotFoundEvent;
+import com.genersoft.iot.vmp.gb28181.bean.SipSendFailEvent;
 import com.genersoft.iot.vmp.gb28181.event.sip.SipEvent;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
@@ -29,14 +30,13 @@ public class SipSubscribe {
 
     private final DelayQueue<SipEvent> delayQueue = new DelayQueue<>();
 
-
-    @Scheduled(fixedDelay = 200)   //每200毫秒执行
-    public void execute(){
+    @Scheduled(fixedDelay = 200) // 每200毫秒执行
+    public void execute() {
         while (!delayQueue.isEmpty()) {
             try {
                 SipEvent take = delayQueue.take();
                 // 出现超时异常
-                if(take.getErrorEvent() != null) {
+                if (take.getErrorEvent() != null) {
                     EventResult<Object> eventResult = new EventResult<>();
                     eventResult.type = EventResultType.timeout;
                     eventResult.msg = "消息超时未回复";
@@ -58,13 +58,14 @@ public class SipSubscribe {
         }
     }
 
-    public interface Event { void response(EventResult eventResult);
+    public interface Event {
+        void response(EventResult eventResult);
     }
 
     /**
      *
      */
-    public enum EventResultType{
+    public enum EventResultType {
         // 超时
         timeout,
         // 回复
@@ -83,24 +84,24 @@ public class SipSubscribe {
         failedResult
     }
 
-    public static class EventResult<EventObject>{
+    public static class EventResult<T> {
         public int statusCode;
         public EventResultType type;
         public String msg;
         public String callId;
-        public EventObject event;
+        public T event;
 
         public EventResult() {
         }
 
-        public EventResult(EventObject event) {
+        public EventResult(T event) {
             this.event = event;
             if (event instanceof ResponseEvent) {
-                ResponseEvent responseEvent = (ResponseEvent)event;
-                SIPResponse response = (SIPResponse)responseEvent.getResponse();
+                ResponseEvent responseEvent = (ResponseEvent) event;
+                SIPResponse response = (SIPResponse) responseEvent.getResponse();
                 this.type = EventResultType.response;
                 if (response != null) {
-                    WarningHeader warningHeader = (WarningHeader)response.getHeader(WarningHeader.NAME);
+                    WarningHeader warningHeader = (WarningHeader) response.getHeader(WarningHeader.NAME);
                     if (warningHeader != null && !ObjectUtils.isEmpty(warningHeader.getText())) {
                         this.msg = "";
                         if (warningHeader.getCode() > 0) {
@@ -112,47 +113,56 @@ public class SipSubscribe {
                         if (warningHeader.getText() != null) {
                             this.msg += warningHeader.getText();
                         }
-                    }else {
+                    } else {
                         this.msg = response.getReasonPhrase();
                     }
                     this.statusCode = response.getStatusCode();
                     this.callId = response.getCallIdHeader().getCallId();
                 }
-            }else if (event instanceof TimeoutEvent) {
-                TimeoutEvent timeoutEvent = (TimeoutEvent)event;
+            } else if (event instanceof TimeoutEvent) {
+                TimeoutEvent timeoutEvent = (TimeoutEvent) event;
                 this.type = EventResultType.timeout;
                 this.msg = "消息超时未回复";
                 this.statusCode = -1024;
                 if (timeoutEvent.isServerTransaction()) {
-                    this.callId = ((SIPRequest)timeoutEvent.getServerTransaction().getRequest()).getCallIdHeader().getCallId();
-                }else {
-                    this.callId = ((SIPRequest)timeoutEvent.getClientTransaction().getRequest()).getCallIdHeader().getCallId();
+                    this.callId = ((SIPRequest) timeoutEvent.getServerTransaction().getRequest()).getCallIdHeader()
+                            .getCallId();
+                } else {
+                    this.callId = ((SIPRequest) timeoutEvent.getClientTransaction().getRequest()).getCallIdHeader()
+                            .getCallId();
                 }
-            }else if (event instanceof TransactionTerminatedEvent) {
-                TransactionTerminatedEvent transactionTerminatedEvent = (TransactionTerminatedEvent)event;
+            } else if (event instanceof TransactionTerminatedEvent) {
+                TransactionTerminatedEvent transactionTerminatedEvent = (TransactionTerminatedEvent) event;
                 this.type = EventResultType.transactionTerminated;
                 this.msg = "事务已结束";
                 this.statusCode = -1024;
                 if (transactionTerminatedEvent.isServerTransaction()) {
-                    this.callId = ((SIPRequest)transactionTerminatedEvent.getServerTransaction().getRequest()).getCallIdHeader().getCallId();
-                }else {
-                    this.callId = ((SIPRequest)transactionTerminatedEvent.getClientTransaction().getRequest()).getCallIdHeader().getCallId();
+                    this.callId = ((SIPRequest) transactionTerminatedEvent.getServerTransaction().getRequest())
+                            .getCallIdHeader().getCallId();
+                } else {
+                    this.callId = ((SIPRequest) transactionTerminatedEvent.getClientTransaction().getRequest())
+                            .getCallIdHeader().getCallId();
                 }
-            }else if (event instanceof DialogTerminatedEvent) {
-                DialogTerminatedEvent dialogTerminatedEvent = (DialogTerminatedEvent)event;
+            } else if (event instanceof DialogTerminatedEvent) {
+                DialogTerminatedEvent dialogTerminatedEvent = (DialogTerminatedEvent) event;
                 this.type = EventResultType.dialogTerminated;
                 this.msg = "会话已结束";
                 this.statusCode = -1024;
                 this.callId = dialogTerminatedEvent.getDialog().getCallId().getCallId();
-            }else if (event instanceof DeviceNotFoundEvent) {
+            } else if (event instanceof DeviceNotFoundEvent) {
                 this.type = EventResultType.deviceNotFoundEvent;
                 this.msg = "设备未找到";
                 this.statusCode = -1024;
                 this.callId = ((DeviceNotFoundEvent) event).getCallId();
+            } else if (event instanceof SipSendFailEvent) {
+                SipSendFailEvent sipSendFailEvent = (SipSendFailEvent) event;
+                this.type = EventResultType.deviceNotFoundEvent;
+                this.msg = sipSendFailEvent.getMsg();
+                this.statusCode = -1024;
+                this.callId = ((SipSendFailEvent) event).getCallId();
             }
         }
     }
-
 
     public void addSubscribe(String key, SipEvent event) {
         SipEvent sipEvent = subscribes.get(key);
@@ -169,7 +179,7 @@ public class SipSubscribe {
     }
 
     public void removeSubscribe(String key) {
-        if(key == null){
+        if (key == null) {
             return;
         }
         SipEvent sipEvent = subscribes.get(key);
@@ -179,7 +189,7 @@ public class SipSubscribe {
         }
     }
 
-    public boolean isEmpty(){
+    public boolean isEmpty() {
         return subscribes.isEmpty();
     }
 

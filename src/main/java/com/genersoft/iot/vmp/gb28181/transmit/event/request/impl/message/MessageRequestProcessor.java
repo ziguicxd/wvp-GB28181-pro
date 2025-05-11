@@ -33,7 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-public class MessageRequestProcessor extends SIPRequestProcessorParent implements InitializingBean, ISIPRequestProcessor {
+public class MessageRequestProcessor extends SIPRequestProcessorParent
+        implements InitializingBean, ISIPRequestProcessor {
 
     private final String method = "MESSAGE";
 
@@ -66,8 +67,8 @@ public class MessageRequestProcessor extends SIPRequestProcessorParent implement
 
     @Override
     public void process(RequestEvent evt) {
-        SIPRequest sipRequest = (SIPRequest)evt.getRequest();
-//        logger.info("接收到消息：" + evt.getRequest());
+        SIPRequest sipRequest = (SIPRequest) evt.getRequest();
+        // logger.info("接收到消息：" + evt.getRequest());
         String deviceId = SipUtils.getUserIdFromFromHeader(evt.getRequest());
         CallIdHeader callIdHeader = sipRequest.getCallIdHeader();
         CSeqHeader cSeqHeader = sipRequest.getCSeqHeader();
@@ -88,22 +89,21 @@ public class MessageRequestProcessor extends SIPRequestProcessorParent implement
                 int remotePort = request.getRemotePort();
                 if (device.getHostAddress().equals(hostAddress + ":" + remotePort)) {
                     parentPlatform = null;
-                }else {
+                } else {
                     device = null;
                 }
             }
             if (device == null && parentPlatform == null) {
                 // 不存在则回复404
-                responseAck(request, Response.NOT_FOUND, "device "+ deviceId +" not found");
+                responseAck(request, Response.NOT_FOUND, "device " + deviceId + " not found");
                 log.warn("[设备未找到 ]deviceId: {}, callId: {}", deviceId, callIdHeader.getCallId());
                 SipEvent sipEvent = sipSubscribe.getSubscribe(callIdHeader.getCallId() + cSeqHeader.getSeqNumber());
-                if (sipEvent != null && sipEvent.getErrorEvent() != null){
-                    DeviceNotFoundEvent deviceNotFoundEvent = new DeviceNotFoundEvent(evt.getDialog());
-                    deviceNotFoundEvent.setCallId(callIdHeader.getCallId());
+                if (sipEvent != null && sipEvent.getErrorEvent() != null) {
+                    DeviceNotFoundEvent deviceNotFoundEvent = new DeviceNotFoundEvent(callIdHeader.getCallId());
                     SipSubscribe.EventResult eventResult = new SipSubscribe.EventResult(deviceNotFoundEvent);
                     sipEvent.getErrorEvent().response(eventResult);
                 }
-            }else {
+            } else {
                 Element rootElement;
                 try {
                     rootElement = getRootElement(evt);
@@ -117,13 +117,14 @@ public class MessageRequestProcessor extends SIPRequestProcessorParent implement
                     if (messageHandler != null) {
                         if (device != null) {
                             messageHandler.handForDevice(evt, device, rootElement);
-                        }else { // 由于上面已经判断都为null则直接返回，所以这里device和parentPlatform必有一个不为null
+                        } else { // 由于上面已经判断都为null则直接返回，所以这里device和parentPlatform必有一个不为null
                             messageHandler.handForPlatform(evt, parentPlatform, rootElement);
                         }
-                    }else {
+                    } else {
                         // 不支持的message
                         // 不存在则回复415
-                        responseAck(request, Response.UNSUPPORTED_MEDIA_TYPE, "Unsupported message type, must Control/Notify/Query/Response");
+                        responseAck(request, Response.UNSUPPORTED_MEDIA_TYPE,
+                                "Unsupported message type, must Control/Notify/Query/Response");
                     }
                 } catch (DocumentException e) {
                     log.warn("解析XML消息内容异常", e);
@@ -139,6 +140,5 @@ public class MessageRequestProcessor extends SIPRequestProcessorParent implement
             log.warn("SIP回复时解析异常", e);
         }
     }
-
 
 }
