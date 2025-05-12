@@ -92,6 +92,9 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     @Autowired
     private ISIPCommander commander;
 
+    @Autowired
+    private DeviceChannelMapper deviceChannelMapper;
+
     // 记录录像查询的结果等待
     private final Map<String, SynchronousQueue<RecordInfo>> topicSubscribers = new ConcurrentHashMap<>();
 
@@ -110,7 +113,6 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     @Autowired
     private ISIPCommander cmder;
 
-
     @Override
     public int updateChannels(Device device, List<DeviceChannel> channels) {
         if (CollectionUtils.isEmpty(channels)) {
@@ -120,85 +122,85 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         List<DeviceChannel> updateChannels = new ArrayList<>();
         HashMap<String, DeviceChannel> channelsInStore = new HashMap<>();
         int result = 0;
-        if (channels != null && !channels.isEmpty()) {
-            List<DeviceChannel> channelList = channelMapper.queryChannelsByDeviceDbId(device.getId());
-            if (channelList.isEmpty()) {
-                for (DeviceChannel channel : channels) {
-                    channel.setDataDeviceId(device.getId());
-                    InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, channel.getId());
-                    if (inviteInfo != null && inviteInfo.getStreamInfo() != null) {
-                        channel.setStreamId(inviteInfo.getStreamInfo().getStream());
-                    }
+        List<DeviceChannel> channelList = channelMapper.queryChannelsByDeviceDbId(device.getId());
+        if (channelList.isEmpty()) {
+            for (DeviceChannel channel : channels) {
+                channel.setDataDeviceId(device.getId());
+                InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY,
+                        channel.getId());
+                if (inviteInfo != null && inviteInfo.getStreamInfo() != null) {
+                    channel.setStreamId(inviteInfo.getStreamInfo().getStream());
+                }
+
+                String now = DateUtil.getNow();
+                channel.setUpdateTime(now);
+                channel.setCreateTime(now);
+                addChannels.add(channel);
+            }
+        } else {
+            for (DeviceChannel deviceChannel : channelList) {
+                channelsInStore.put(deviceChannel.getDataDeviceId() + deviceChannel.getDeviceId(), deviceChannel);
+            }
+            for (DeviceChannel channel : channels) {
+                InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY,
+                        channel.getId());
+                if (inviteInfo != null && inviteInfo.getStreamInfo() != null) {
+                    channel.setStreamId(inviteInfo.getStreamInfo().getStream());
+
                     String now = DateUtil.getNow();
                     channel.setUpdateTime(now);
+
+                    updateChannels.add(channel);
+                } else {
                     channel.setCreateTime(now);
+                    channel.setUpdateTime(now);
                     addChannels.add(channel);
                 }
-            }else {
-                for (DeviceChannel deviceChannel : channelList) {
-                    channelsInStore.put(deviceChannel.getDataDeviceId() + deviceChannel.getDeviceId(), deviceChannel);
-                }
-                for (DeviceChannel channel : channels) {
-                    InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, channel.getId());
-                    if (inviteInfo != null && inviteInfo.getStreamInfo() != null) {
-                        channel.setStreamId(inviteInfo.getStreamInfo().getStream());
-                    }
-                    String now = DateUtil.getNow();
-                    channel.setUpdateTime(now);
-                    DeviceChannel deviceChannelInDb = channelsInStore.get(channel.getDataDeviceId() + channel.getDeviceId());
-                    if ( deviceChannelInDb != null) {
-                        channel.setId(deviceChannelInDb.getId());
-                        channel.setUpdateTime(now);
-                        updateChannels.add(channel);
-                    }else {
-                        channel.setCreateTime(now);
-                        channel.setUpdateTime(now);
-                        addChannels.add(channel);
-                    }
-                }
             }
-            Set<String> channelSet = new HashSet<>();
-            // 滤重
-            List<DeviceChannel> addChannelList = new ArrayList<>();
-            List<DeviceChannel> updateChannelList = new ArrayList<>();
-            addChannels.forEach(channel -> {
-                if (channelSet.add(channel.getDeviceId())) {
-                    addChannelList.add(channel);
-                }
-            });
-            channelSet.clear();
-            updateChannels.forEach(channel -> {
-                if (channelSet.add(channel.getDeviceId())) {
-                    updateChannelList.add(channel);
-                }
-            });
 
-            int limitCount = 500;
-            if (!addChannelList.isEmpty()) {
-                if (addChannelList.size() > limitCount) {
-                    for (int i = 0; i < addChannelList.size(); i += limitCount) {
-                        int toIndex = i + limitCount;
-                        if (i + limitCount > addChannelList.size()) {
-                            toIndex = addChannelList.size();
-                        }
-                        result += channelMapper.batchAdd(addChannelList.subList(i, toIndex));
-                    }
-                }else {
-                    result += channelMapper.batchAdd(addChannelList);
-                }
+        }
+        Set<String> channelSet = new HashSet<>();
+        // 滤重
+        List<DeviceChannel> addChannelList = new ArrayList<>();
+        List<DeviceChannel> updateChannelList = new ArrayList<>();
+        addChannels.forEach(channel -> {
+            if (channelSet.add(channel.getDeviceId())) {
+                addChannelList.add(channel);
             }
-            if (!updateChannelList.isEmpty()) {
-                if (updateChannelList.size() > limitCount) {
-                    for (int i = 0; i < updateChannelList.size(); i += limitCount) {
-                        int toIndex = i + limitCount;
-                        if (i + limitCount > updateChannelList.size()) {
-                            toIndex = updateChannelList.size();
-                        }
-                        result += channelMapper.batchUpdate(updateChannelList.subList(i, toIndex));
+        });
+        channelSet.clear();
+        updateChannels.forEach(channel -> {
+            if (channelSet.add(channel.getDeviceId())) {
+                updateChannelList.add(channel);
+            }
+        });
+
+        int limitCount = 500;
+        if (!addChannelList.isEmpty()) {
+            if (addChannelList.size() > limitCount) {
+                for (int i = 0; i < addChannelList.size(); i += limitCount) {
+                    int toIndex = i + limitCount;
+                    if (i + limitCount > addChannelList.size()) {
+                        toIndex = addChannelList.size();
                     }
-                }else {
-                    result += channelMapper.batchUpdate(updateChannelList);
+                    result += channelMapper.batchAdd(addChannelList.subList(i, toIndex));
                 }
+            } else {
+                result += channelMapper.batchAdd(addChannelList);
+            }
+        }
+        if (!updateChannelList.isEmpty()) {
+            if (updateChannelList.size() > limitCount) {
+                for (int i = 0; i < updateChannelList.size(); i += limitCount) {
+                    int toIndex = i + limitCount;
+                    if (i + limitCount > updateChannelList.size()) {
+                        toIndex = updateChannelList.size();
+                    }
+
+                    result += channelMapper.batchUpdate(updateChannelList.subList(i, toIndex));
+                }
+            } else {
+                result += channelMapper.batchUpdate(updateChannelList);
             }
         }
         return result;
@@ -211,16 +213,17 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         return new ResourceBaseInfo(total, online);
     }
 
-
     @Override
     public List<ChannelReduce> queryAllChannelList(String platformId) {
         return channelMapper.queryChannelListInAll(null, null, null, platformId, null);
     }
 
     @Override
-    public PageInfo<ChannelReduce> queryAllChannelList(int page, int count, String query, Boolean online, Boolean channelType, String platformId, String catalogId) {
+    public PageInfo<ChannelReduce> queryAllChannelList(int page, int count, String query, Boolean online,
+            Boolean channelType, String platformId, String catalogId) {
         PageHelper.startPage(page, count);
-        List<ChannelReduce> all = channelMapper.queryChannelListInAll(query, online, channelType, platformId, catalogId);
+        List<ChannelReduce> all = channelMapper.queryChannelListInAll(query, online, channelType, platformId,
+                catalogId);
         return new PageInfo<>(all);
     }
 
@@ -244,7 +247,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     result += channelMapper.batchDel(channels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 result += channelMapper.batchDel(channels);
             }
         }
@@ -265,7 +268,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     result += channelMapper.batchUpdateStatus(channels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 result += channelMapper.batchUpdateStatus(channels);
             }
         }
@@ -288,7 +291,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     }
 
     @Override
-    public DeviceChannel getOne(String deviceId, String channelId){
+    public DeviceChannel getOne(String deviceId, String channelId) {
         Device device = deviceMapper.getDeviceByDeviceId(deviceId);
         if (device == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "未找到设备：" + deviceId);
@@ -297,7 +300,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     }
 
     @Override
-    public DeviceChannel getOneForSource(String deviceId, String channelId){
+    public DeviceChannel getOneForSource(String deviceId, String channelId) {
         Device device = deviceMapper.getDeviceByDeviceId(deviceId);
         if (device == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "未找到设备：" + deviceId);
@@ -332,7 +335,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     channelMapper.batchUpdateForNotify(channels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 channelMapper.batchUpdateForNotify(channels);
             }
         }
@@ -356,7 +359,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     channelMapper.batchAdd(channels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 channelMapper.batchAdd(channels);
             }
         }
@@ -372,13 +375,13 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         Assert.hasLength(channel.getStreamIdentification(), "码流标识必须存在");
         if (ObjectUtils.isEmpty(channel.getStreamIdentification())) {
             log.info("[重置通道码流类型] 设备: {}, 码流： {}", channel.getDeviceId(), channel.getStreamIdentification());
-        }else {
+        } else {
             log.info("[更新通道码流类型] 设备: {}, 通道：{}， 码流： {}", channel.getDeviceId(), channel.getDeviceId(),
                     channel.getStreamIdentification());
         }
         if (channel.getId() > 0) {
             channelMapper.updateChannelStreamIdentification(channel);
-        }else {
+        } else {
             channelMapper.updateAllChannelStreamIdentification(channel.getStreamIdentification());
         }
     }
@@ -403,7 +406,8 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     }
 
     @Override
-    public void handlePtzCmd(@NotNull Integer dataDeviceId, @NotNull Integer gbId, Element rootElement, DeviceControlType type, ErrorCallback<String> callback) {
+    public void handlePtzCmd(@NotNull Integer dataDeviceId, @NotNull Integer gbId, Element rootElement,
+            DeviceControlType type, ErrorCallback<String> callback) {
 
         // 根据通道ID，获取所属设备
         Device device = deviceMapper.query(dataDeviceId);
@@ -421,15 +425,15 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             callback.run(Response.NOT_FOUND, "channel  not found", null);
             return;
         }
-        log.info("[deviceControl] 命令: {}, 设备： {}（{}）， 通道{}（{}", type,  device.getName(), device.getDeviceId(),
+        log.info("[deviceControl] 命令: {}, 设备： {}（{}）， 通道{}（{}", type, device.getName(), device.getDeviceId(),
                 deviceChannel.getName(), deviceChannel.getDeviceId());
         String cmdString = getText(rootElement, type.getVal());
         try {
-            cmder.fronEndCmd(device, deviceChannel.getDeviceId(), cmdString, errorResult->{
-                        callback.run(errorResult.statusCode, errorResult.msg, null);
-                    }, errorResult->{
-                        callback.run(errorResult.statusCode, errorResult.msg, null);
-                    });
+            cmder.fronEndCmd(device, deviceChannel.getDeviceId(), cmdString, errorResult -> {
+                callback.run(errorResult.statusCode, errorResult.msg, null);
+            }, errorResult -> {
+                callback.run(errorResult.statusCode, errorResult.msg, null);
+            });
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[命令发送失败] 云台/前端: {}", e.getMessage());
         }
@@ -458,7 +462,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             // 有的设备这里上报的deviceId与通道Id是一样，这种情况更新设备下的全部通道
             List<DeviceChannel> deviceChannelsInDb = queryChaneListByDeviceId(device.getDeviceId());
             deviceChannels.addAll(deviceChannelsInDb);
-        }else {
+        } else {
             deviceChannels.add(deviceChannel);
         }
         if (deviceChannels.isEmpty()) {
@@ -473,7 +477,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             mobilePosition.setChannelId(channel.getId());
             try {
                 eventPublisher.mobilePositionEventPublish(mobilePosition);
-            }catch (Exception e) {
+            } catch (Exception e) {
                 log.error("[向上级转发移动位置失败] ", e);
             }
             // 发送redis消息。 通知位置信息的变化
@@ -511,15 +515,15 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         }
         int count = 1000;
         if (channelList.size() > count) {
-            for (int i = 0; i < channelList.size(); i+=count) {
-                int toIndex = i+count;
-                if ( i + count > channelList.size()) {
+            for (int i = 0; i < channelList.size(); i += count) {
+                int toIndex = i + count;
+                if (i + count > channelList.size()) {
                     toIndex = channelList.size();
                 }
                 List<DeviceChannel> channels = channelList.subList(i, toIndex);
                 channelMapper.batchUpdatePosition(channels);
             }
-        }else {
+        } else {
             channelMapper.batchUpdatePosition(channelList);
         }
     }
@@ -527,19 +531,20 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     @Override
     @Transactional
     public void batchAddMobilePosition(List<MobilePosition> mobilePositions) {
-//        int count = 500;
-//        if (mobilePositions.size() > count) {
-//            for (int i = 0; i < mobilePositions.size(); i+=count) {
-//                int toIndex = i+count;
-//                if ( i + count > mobilePositions.size()) {
-//                    toIndex = mobilePositions.size();
-//                }
-//                List<MobilePosition> mobilePositionsSub = mobilePositions.subList(i, toIndex);
-//                deviceMobilePositionMapper.batchadd(mobilePositionsSub);
-//            }
-//        }else {
-//            deviceMobilePositionMapper.batchadd(mobilePositions);
-//        }
+        // int count = 500;
+        // if (mobilePositions.size() > count) {
+        // for (int i = 0; i < mobilePositions.size(); i+=count) {
+        // int toIndex = i+count;
+        // if ( i + count > mobilePositions.size()) {
+        // toIndex = mobilePositions.size();
+        // }
+        // List<MobilePosition> mobilePositionsSub = mobilePositions.subList(i,
+        // toIndex);
+        // deviceMobilePositionMapper.batchadd(mobilePositionsSub);
+        // }
+        // }else {
+        // deviceMobilePositionMapper.batchadd(mobilePositions);
+        // }
         deviceMobilePositionMapper.batchadd(mobilePositions);
     }
 
@@ -555,7 +560,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             return false;
         }
         List<DeviceChannel> allChannels = channelMapper.queryAllChannelsForRefresh(deviceDbId);
-        Map<String,DeviceChannel> allChannelMap = new HashMap<>();
+        Map<String, DeviceChannel> allChannelMap = new HashMap<>();
         if (!allChannels.isEmpty()) {
             for (DeviceChannel deviceChannel : allChannels) {
                 allChannelMap.put(deviceChannel.getDataDeviceId() + deviceChannel.getDeviceId(), deviceChannel);
@@ -571,22 +576,26 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         Map<String, Integer> subContMap = new HashMap<>();
 
         for (DeviceChannel deviceChannel : deviceChannelList) {
-            DeviceChannel channelInDb = allChannelMap.get(deviceChannel.getDataDeviceId() + deviceChannel.getDeviceId());
+            DeviceChannel channelInDb = allChannelMap
+                    .get(deviceChannel.getDataDeviceId() + deviceChannel.getDeviceId());
             if (channelInDb != null) {
                 deviceChannel.setStreamId(channelInDb.getStreamId());
                 deviceChannel.setHasAudio(channelInDb.isHasAudio());
                 deviceChannel.setId(channelInDb.getId());
-                if (channelInDb.getStatus() != null && channelInDb.getStatus().equalsIgnoreCase(deviceChannel.getStatus())){
-                    List<Platform> platformList = platformChannelMapper.queryParentPlatformByChannelId(deviceChannel.getDeviceId());
-                    if (!CollectionUtils.isEmpty(platformList)){
-                        platformList.forEach(platform->{
-                            eventPublisher.catalogEventPublish(platform, deviceChannel.buildCommonGBChannelForStatus(), deviceChannel.getStatus().equals("ON")? CatalogEvent.ON:CatalogEvent.OFF);
+                if (channelInDb.getStatus() != null
+                        && channelInDb.getStatus().equalsIgnoreCase(deviceChannel.getStatus())) {
+                    List<Platform> platformList = platformChannelMapper
+                            .queryParentPlatformByChannelId(deviceChannel.getDeviceId());
+                    if (!CollectionUtils.isEmpty(platformList)) {
+                        platformList.forEach(platform -> {
+                            eventPublisher.catalogEventPublish(platform, deviceChannel.buildCommonGBChannelForStatus(),
+                                    deviceChannel.getStatus().equals("ON") ? CatalogEvent.ON : CatalogEvent.OFF);
                         });
                     }
                 }
                 deviceChannel.setUpdateTime(DateUtil.getNow());
                 updateChannels.add(deviceChannel);
-            }else {
+            } else {
                 deviceChannel.setCreateTime(DateUtil.getNow());
                 deviceChannel.setUpdateTime(DateUtil.getNow());
                 addChannels.add(deviceChannel);
@@ -596,7 +605,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             if (!ObjectUtils.isEmpty(deviceChannel.getParentId())) {
                 if (subContMap.get(deviceChannel.getParentId()) == null) {
                     subContMap.put(deviceChannel.getParentId(), 1);
-                }else {
+                } else {
                     Integer count = subContMap.get(deviceChannel.getParentId());
                     subContMap.put(deviceChannel.getParentId(), count++);
                 }
@@ -605,7 +614,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         deleteChannels.addAll(allChannelMap.values());
         if (!channels.isEmpty()) {
             for (DeviceChannel channel : channels) {
-                if (subContMap.get(channel.getDeviceId()) != null){
+                if (subContMap.get(channel.getDeviceId()) != null) {
                     Integer count = subContMap.get(channel.getDeviceId());
                     if (count > 0) {
                         channel.setSubCount(count);
@@ -616,10 +625,10 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         }
 
         if (stringBuilder.length() > 0) {
-            log.info("[目录查询]收到的数据存在重复： {}" , stringBuilder);
+            log.info("[目录查询]收到的数据存在重复： {}", stringBuilder);
         }
-        if(CollectionUtils.isEmpty(channels)){
-            log.info("通道重设，数据为空={}" , deviceChannelList);
+        if (CollectionUtils.isEmpty(channels)) {
+            log.info("通道重设，数据为空={}", deviceChannelList);
             return false;
         }
         int limitCount = 500;
@@ -632,7 +641,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     channelMapper.batchAdd(addChannels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 channelMapper.batchAdd(addChannels);
             }
         }
@@ -645,7 +654,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     channelMapper.batchUpdate(updateChannels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 channelMapper.batchUpdate(updateChannels);
             }
             // 不对收到的通道做比较，已确定是否真的发生变化，所以不发送更新通知
@@ -659,7 +668,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     ids.add(deviceChannel.getId());
                 });
                 platformChannelService.removeChannels(ids);
-            }catch (Exception e) {
+            } catch (Exception e) {
                 log.error("[移除通道国标级联共享失败]", e);
             }
             if (deleteChannels.size() > limitCount) {
@@ -670,7 +679,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     }
                     channelMapper.batchDel(deleteChannels.subList(i, toIndex));
                 }
-            }else {
+            } else {
                 channelMapper.batchDel(deleteChannels);
             }
         }
@@ -679,18 +688,19 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     }
 
     @Override
-    public PageInfo<DeviceChannel> getSubChannels(int deviceDbId, String channelId, String query, Boolean channelType, Boolean online, int page, int count) {
+    public PageInfo<DeviceChannel> getSubChannels(int deviceDbId, String channelId, String query, Boolean channelType,
+            Boolean online, int page, int count) {
         PageHelper.startPage(page, count);
         String civilCode = null;
         String parentId = null;
         String businessGroupId = null;
         if (channelId.length() <= 8) {
             civilCode = channelId;
-        }else {
+        } else {
             GbCode decode = GbCode.decode(channelId);
             if (Integer.parseInt(decode.getTypeCode()) == 215) {
                 businessGroupId = channelId;
-            }else {
+            } else {
                 parentId = channelId;
             }
         }
@@ -699,17 +709,20 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     .replaceAll("%", "/%")
                     .replaceAll("_", "/_");
         }
-        List<DeviceChannel> all = channelMapper.queryChannels(deviceDbId, civilCode, businessGroupId, parentId, query, channelType, online,null);
+        List<DeviceChannel> all = channelMapper.queryChannels(deviceDbId, civilCode, businessGroupId, parentId, query,
+                channelType, online, null);
         return new PageInfo<>(all);
     }
 
     @Override
-    public List<DeviceChannelExtend> queryChannelExtendsByDeviceId(String deviceId, List<String> channelIds, Boolean online) {
-        return channelMapper.queryChannelsWithDeviceInfo(deviceId, null,null, null, online,channelIds);
+    public List<DeviceChannelExtend> queryChannelExtendsByDeviceId(String deviceId, List<String> channelIds,
+            Boolean online) {
+        return channelMapper.queryChannelsWithDeviceInfo(deviceId, null, null, null, online, channelIds);
     }
 
     @Override
-    public PageInfo queryChannelsByDeviceId(String deviceId, String query, Boolean hasSubChannel, Boolean online, int page, int count) {
+    public PageInfo queryChannelsByDeviceId(String deviceId, String query, Boolean hasSubChannel, Boolean online,
+            int page, int count) {
         Device device = deviceMapper.getDeviceByDeviceId(deviceId);
         if (device == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "未找到设备：" + deviceId);
@@ -720,7 +733,8 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                     .replaceAll("_", "/_");
         }
         PageHelper.startPage(page, count);
-        List<DeviceChannel> all = channelMapper.queryChannels(device.getId(), null,null, null, query, hasSubChannel, online,null);
+        List<DeviceChannel> all = channelMapper.queryChannels(device.getId(), null, null, null, query, hasSubChannel,
+                online, null);
         return new PageInfo<>(all);
     }
 
@@ -782,42 +796,47 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
     }
 
     @Override
-    public void queryRecordInfo(Device device, DeviceChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> callback) {
-        if (!userSetting.getServerId().equals(device.getServerId())){
+    public void queryRecordInfo(Device device, DeviceChannel channel, String startTime, String endTime,
+            ErrorCallback<RecordInfo> callback) {
+        if (!userSetting.getServerId().equals(device.getServerId())) {
             redisRpcPlayService.queryRecordInfo(device.getServerId(), channel.getId(), startTime, endTime, callback);
             return;
         }
         try {
-            int sn  =  (int)((Math.random()*9+1)*100000);
-            commander.recordInfoQuery(device, channel.getDeviceId(), startTime, endTime, sn, null, null, eventResult -> {
-                try {
-                    // 消息发送成功, 监听等待数据到来
-                    SynchronousQueue<RecordInfo> queue = new SynchronousQueue<>();
-                    topicSubscribers.put("record" + sn, queue);
-                    RecordInfo recordInfo = queue.poll(userSetting.getRecordInfoTimeout(), TimeUnit.MILLISECONDS);
-                    if (recordInfo != null) {
-                        callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), recordInfo);
-                    }else {
-                        callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), recordInfo);
-                    }
-                } catch (InterruptedException e) {
-                    callback.run(ErrorCode.ERROR100.getCode(), e.getMessage(), null);
-                } finally {
-                    this.topicSubscribers.remove("record" + sn);
-                }
+            int sn = (int) ((Math.random() * 9 + 1) * 100000);
+            commander.recordInfoQuery(device, channel.getDeviceId(), startTime, endTime, sn, null, null,
+                    eventResult -> {
+                        try {
+                            // 消息发送成功, 监听等待数据到来
+                            SynchronousQueue<RecordInfo> queue = new SynchronousQueue<>();
+                            topicSubscribers.put("record" + sn, queue);
+                            RecordInfo recordInfo = queue.poll(userSetting.getRecordInfoTimeout(),
+                                    TimeUnit.MILLISECONDS);
+                            if (recordInfo != null) {
+                                callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), recordInfo);
+                            } else {
+                                callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), recordInfo);
+                            }
+                        } catch (InterruptedException e) {
+                            callback.run(ErrorCode.ERROR100.getCode(), e.getMessage(), null);
+                        } finally {
+                            this.topicSubscribers.remove("record" + sn);
+                        }
 
-            }, (eventResult -> {
-                callback.run(ErrorCode.ERROR100.getCode(), "查询录像失败, status: " +  eventResult.statusCode + ", message: " + eventResult.msg, null);
-            }));
+                    }, (eventResult -> {
+                        callback.run(ErrorCode.ERROR100.getCode(),
+                                "查询录像失败, status: " + eventResult.statusCode + ", message: " + eventResult.msg, null);
+                    }));
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[命令发送失败] 查询录像: {}", e.getMessage());
-            throw new ControllerException(ErrorCode.ERROR100.getCode(), "命令发送失败: " +  e.getMessage());
+            throw new ControllerException(ErrorCode.ERROR100.getCode(), "命令发送失败: " + e.getMessage());
         }
     }
 
     @Override
-    public void queryRecordInfo(CommonGBChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> callback) {
-        if (channel.getDataType() != ChannelDataType.GB28181.value){
+    public void queryRecordInfo(CommonGBChannel channel, String startTime, String endTime,
+            ErrorCallback<RecordInfo> callback) {
+        if (channel.getDataType() != ChannelDataType.GB28181.value) {
             // 只支持国标的语音喊话
             log.warn("[INFO 消息] 非国标设备， 通道ID： {}", channel.getGbId());
             callback.run(ErrorCode.ERROR100.getCode(), "非国标设备", null);
@@ -833,4 +852,18 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         queryRecordInfo(device, deviceChannel, startTime, endTime, callback);
 
     }
+
+    /**
+     * 根据设备ID和状态查询通道
+     * 
+     * @param deviceId 设备ID
+     * @param status   通道状态
+     * @return 状态匹配的通道列表
+     */
+    @Override
+    public List<DeviceChannel> selectChannelsByStatus(int id, String status) {
+        log.info("通道 ID: {} 的状态为 {} 的通道", id, status);
+        return deviceChannelMapper.queryChannelsByStatus(id, status);
+    }
+
 }

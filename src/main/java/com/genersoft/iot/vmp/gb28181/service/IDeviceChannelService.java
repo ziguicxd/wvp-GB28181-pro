@@ -2,9 +2,6 @@ package com.genersoft.iot.vmp.gb28181.service;
 
 import com.genersoft.iot.vmp.gb28181.bean.*;
 import com.genersoft.iot.vmp.common.enums.DeviceControlType;
-import com.genersoft.iot.vmp.gb28181.bean.Device;
-import com.genersoft.iot.vmp.gb28181.bean.DeviceChannel;
-import com.genersoft.iot.vmp.gb28181.bean.MobilePosition;
 import com.genersoft.iot.vmp.gb28181.controller.bean.ChannelReduce;
 import com.genersoft.iot.vmp.service.bean.ErrorCallback;
 import com.genersoft.iot.vmp.vmanager.bean.ResourceBaseInfo;
@@ -17,6 +14,7 @@ import java.util.List;
 
 /**
  * 国标通道业务类
+ * 
  * @author lin
  */
 public interface IDeviceChannelService {
@@ -28,18 +26,21 @@ public interface IDeviceChannelService {
 
     /**
      * 获取统计信息
+     * 
      * @return
      */
     ResourceBaseInfo getOverview();
 
     /**
      * 查询所有未分配的通道
+     * 
      * @param platformId
      * @return
      */
     List<ChannelReduce> queryAllChannelList(String platformId);
 
-    PageInfo<ChannelReduce> queryAllChannelList(int page, int count, String query, Boolean online, Boolean channelType, String platformId, String catalogId);
+    PageInfo<ChannelReduce> queryAllChannelList(int page, int count, String query, Boolean online, Boolean channelType,
+            String platformId, String catalogId);
 
     /**
      * 查询通道所属的设备
@@ -48,6 +49,7 @@ public interface IDeviceChannelService {
 
     /**
      * 批量删除通道
+     * 
      * @param deleteChannelList 待删除的通道列表
      */
     int deleteChannelsForNotify(List<DeviceChannel> deleteChannelList);
@@ -55,7 +57,7 @@ public interface IDeviceChannelService {
     int updateChannelsStatus(List<DeviceChannel> channels);
 
     /**
-     *  获取一个通道
+     * 获取一个通道
      */
     DeviceChannel getOne(String deviceId, String channelId);
 
@@ -98,12 +100,13 @@ public interface IDeviceChannelService {
 
     boolean resetChannels(int deviceDbId, List<DeviceChannel> deviceChannels);
 
-    PageInfo<DeviceChannel> getSubChannels(int deviceDbId, String channelId, String query, Boolean channelType, Boolean online, int page, int count);
+    PageInfo<DeviceChannel> getSubChannels(int deviceDbId, String channelId, String query, Boolean channelType,
+            Boolean online, int page, int count);
 
     List<DeviceChannelExtend> queryChannelExtendsByDeviceId(String deviceId, List<String> channelIds, Boolean online);
 
-    PageInfo<DeviceChannel> queryChannelsByDeviceId(String deviceId, String query, Boolean channelType, Boolean online, int page, int count);
-
+    PageInfo<DeviceChannel> queryChannelsByDeviceId(String deviceId, String query, Boolean channelType, Boolean online,
+            int page, int count);
 
     List<Device> queryDeviceWithAsMessageChannel();
 
@@ -131,10 +134,21 @@ public interface IDeviceChannelService {
 
     List<Integer> queryChaneIdListByDeviceDbIds(List<Integer> deviceDbId);
 
-    void handlePtzCmd(@NotNull Integer dataDeviceId, @NotNull Integer gbId, Element rootElement, DeviceControlType type, ErrorCallback<String> callback);
+    void handlePtzCmd(@NotNull Integer dataDeviceId, @NotNull Integer gbId, Element rootElement, DeviceControlType type,
+            ErrorCallback<String> callback);
 
-    void queryRecordInfo(Device device, DeviceChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> object);
+    void queryRecordInfo(Device device, DeviceChannel channel, String startTime, String endTime,
+            ErrorCallback<RecordInfo> object);
 
     void queryRecordInfo(CommonGBChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> object);
+
+    /**
+     * 根据设备ID和状态查询通道
+     * 
+     * @param id     通道数据库自增ID
+     * @param status 通道状态
+     * @return 状态匹配的通道列表
+     */
+    List<DeviceChannel> selectChannelsByStatus(int id, String status);
 
 }
