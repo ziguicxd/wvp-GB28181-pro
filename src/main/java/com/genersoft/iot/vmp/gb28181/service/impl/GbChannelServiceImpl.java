@@ -214,7 +214,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
                 log.warn("[通道上线通知] 发送失败，{}", commonGBChannel.getGbDeviceId(), e);
             }
         }
-        return 0;
+        return result;
     }
 
     @Override
