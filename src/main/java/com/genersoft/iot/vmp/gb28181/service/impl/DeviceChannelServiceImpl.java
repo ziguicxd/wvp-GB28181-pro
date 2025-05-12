@@ -146,10 +146,15 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
                         channel.getId());
                 if (inviteInfo != null && inviteInfo.getStreamInfo() != null) {
                     channel.setStreamId(inviteInfo.getStreamInfo().getStream());
+                }
 
-                    String now = DateUtil.getNow();
+                String now = DateUtil.getNow();
+                channel.setUpdateTime(now);
+                DeviceChannel deviceChannelInDb = channelsInStore
+                        .get(channel.getDataDeviceId() + channel.getDeviceId());
+                if (deviceChannelInDb != null) {
+                    channel.setId(deviceChannelInDb.getId());
                     channel.setUpdateTime(now);
-
                     updateChannels.add(channel);
                 } else {
                     channel.setCreateTime(now);
