@@ -162,7 +162,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
             return 0;
         }
 
-        log.info("[调试] 输入通道列表: {}", commonGBChannelList);
+        log.debug("[调试] 输入通道列表: {}", commonGBChannelList);
 
         // List<CommonGBChannel> onlineChannelList =
         // commonGBChannelMapper.queryInListByStatus(commonGBChannelList, "ON");
