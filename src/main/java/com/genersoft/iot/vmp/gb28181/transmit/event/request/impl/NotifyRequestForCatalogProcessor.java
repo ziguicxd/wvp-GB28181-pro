@@ -2,9 +2,11 @@ package com.genersoft.iot.vmp.gb28181.transmit.event.request.impl;
 
 import com.genersoft.iot.vmp.conf.UserSetting;
 import com.genersoft.iot.vmp.gb28181.bean.*;
+import com.genersoft.iot.vmp.gb28181.dao.CommonGBChannelMapper;
 import com.genersoft.iot.vmp.gb28181.event.EventPublisher;
 import com.genersoft.iot.vmp.gb28181.event.subscribe.catalog.CatalogEvent;
 import com.genersoft.iot.vmp.gb28181.service.IDeviceChannelService;
+import com.genersoft.iot.vmp.gb28181.service.IGbChannelService;
 import com.genersoft.iot.vmp.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.genersoft.iot.vmp.gb28181.utils.SipUtils;
 import com.genersoft.iot.vmp.storager.IRedisCatchStorage;
@@ -25,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import org.springframework.context.ApplicationContext;
 
 /**
  * SIP命令类型： NOTIFY请求中的目录请求处理
@@ -49,6 +52,8 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 	@Autowired
 	private IDeviceChannelService deviceChannelService;
 
+	@Autowired
+	private ApplicationContext applicationContext;
 	// @Scheduled(fixedRate = 2000) //每400毫秒执行一次
 	// public void showSize(){
 	// log.warn("[notify-目录订阅] 待处理消息数量： {}", taskQueue.size() );
@@ -294,7 +299,24 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 			try {
 				switch (notifyCatalogChannel.getType()) {
 					case STATUS_CHANGED:
+						// 更新 status 字段
 						deviceChannelService.updateChannelStatus(notifyCatalogChannel.getChannel());
+						// 同时更新 gb_status 字段
+						DeviceChannel channel = notifyCatalogChannel.getChannel();
+						if (channel.getId() > 0) {
+							// 直接使用 CommonGBChannelMapper 更新 gb_status
+							try {
+								// 获取 CommonGBChannelMapper 的实例
+								CommonGBChannelMapper commonGBChannelMapper = applicationContext
+										.getBean(CommonGBChannelMapper.class);
+								// 直接调用 updateStatusById 方法
+								commonGBChannelMapper.updateStatusById(channel.getId(), channel.getStatus());
+								log.info("[通道状态同步] 已同步通道 {} 的 gb_status 为 {}",
+										channel.getDeviceId(), channel.getStatus());
+							} catch (Exception e) {
+								log.error("[通道状态同步] 同步 gb_status 失败: {}", e.getMessage());
+							}
+						}
 						break;
 					case ADD:
 						deviceChannelService.addChannel(notifyCatalogChannel.getChannel());
