@@ -712,6 +712,6 @@ public interface DeviceChannelMapper {
          * @param status   通道状态（如 "ON" 或 "OFF"）
          * @return 状态匹配的通道列表
          */
-        @Select("SELECT * FROM wvp_device_channel WHERE id=#{id} AND status = #{status}")
+        @Select("SELECT * FROM wvp_device_channel WHERE data_device_id=#{id} AND status = #{status}")
         List<DeviceChannel> queryChannelsByStatus(@Param("id") int id, @Param("status") String status);
 }

@@ -163,6 +163,7 @@ public class DeviceServiceImpl implements IDeviceService {
                 device.setOnLine(true);
                 device.setCreateTime(now);
                 deviceMapper.update(device);
+                handleDeviceOnline(device);
                 redisCatchStorage.updateDevice(device);
                 if (userSetting.getSyncChannelOnDeviceOnline()) {
                     log.info("[设备上线,离线状态下重新注册]: {}，查询设备信息以及通道信息", device.getDeviceId());
@@ -173,7 +174,7 @@ public class DeviceServiceImpl implements IDeviceService {
                     }
                     sync(device);
                     // 延迟执行通道上线逻辑
-                    handleDeviceOnline(device);
+
                     // TODO 如果设备下的通道级联到了其他平台，那么需要发送事件或者notify给上级平台
                 }
                 // 上线添加订阅
@@ -1025,6 +1026,8 @@ public class DeviceServiceImpl implements IDeviceService {
 
                 // 查询设备下的所有通道
                 List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
+                log.info("设备 {} 的通道列表有：{}", device.getId(), allChannels);
+
                 if (allChannels == null || allChannels.isEmpty()) {
                     log.debug("[设备上线] 设备ID: {} 无关联通道", device.getId());
                     return;
@@ -1034,6 +1037,7 @@ public class DeviceServiceImpl implements IDeviceService {
                 // 根据设备ID和状态查询状态为 ON 的通道
                 List<DeviceChannel> onlineChannels = deviceChannelService.selectChannelsByStatus(device.getId(),
                         "ON");
+
                 if (onlineChannels == null || onlineChannels.isEmpty()) {
                     log.debug("[设备上线] 设备ID: {} 无状态为 ON 的通道，无需更新", device.getId());
                     return;
@@ -1052,12 +1056,12 @@ public class DeviceServiceImpl implements IDeviceService {
                         })
                         .collect(Collectors.toList());
 
-                log.debug("[设备上线] 设备ID: {} 的通道已转换为 CommonGBChannel，共 {} 个通道", device.getId(),
+                log.info("[设备上线] 设备ID: {} 的通道已转换为 CommonGBChannel，共 {} 个通道", device.getId(),
                         commonGBChannels.size());
 
                 // 调用 GbChannelServiceImpl 的 online 方法
                 int onlineResult = gbChannelService.online(commonGBChannels);
-                log.debug("[设备上线] 调用 GbChannelServiceImpl.online 完成，更新通道状态 {} 个", onlineResult);
+                log.info("[设备上线] 调用 GbChannelServiceImpl.online 完成，更新通道状态 {} 个", onlineResult);
 
                 log.info("[设备上线] 已处理设备ID {} 的通道上线，共 {} 个通道", device.getId(), commonGBChannels.size());
             } catch (Exception e) {

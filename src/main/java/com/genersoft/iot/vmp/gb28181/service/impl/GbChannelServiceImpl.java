@@ -162,7 +162,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
             return 0;
         }
 
-        log.debug("[调试] 输入通道列表: {}", commonGBChannelList);
+        log.info("[调试] 输入通道列表: {}", commonGBChannelList);
 
         // List<CommonGBChannel> onlineChannelList =
         // commonGBChannelMapper.queryInListByStatus(commonGBChannelList, "ON");
@@ -174,7 +174,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         // return 0;
         // }
 
-        // log.debug("[调试] 在线通道列表: {}", onlineChannelList);
+        log.info("[调试] 在线通道列表: {}", commonGBChannelList);
 
         int limitCount = 1000;
         int result = 0;
@@ -206,6 +206,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
             log.warn("[通道上线] 未找到数据库ID，更新失败， {}({})", commonGBChannel.getGbName(), commonGBChannel.getGbDeviceId());
             return 0;
         }
+
         int result = commonGBChannelMapper.updateStatusById(commonGBChannel.getGbId(), "ON");
         if (result > 0) {
             try {
@@ -225,6 +226,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
             log.warn("[多个通道上线] 通道数量为0，更新失败");
             return 0;
         }
+        log.info("[调试] 输入通道列表: {}", commonGBChannelList);
         // List<CommonGBChannel> offlineChannelList =
         // commonGBChannelMapper.queryInListByStatus(commonGBChannelList,
         // "OFF");
