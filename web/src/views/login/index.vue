@@ -8,6 +8,7 @@
         class="login-form"
         auto-complete="on"
         label-position="left"
+        @submit.native.prevent="handleLogin"
       >
         <!-- 标题 -->
         <div class="title-container">
@@ -27,6 +28,7 @@
             type="text"
             tabindex="1"
             auto-complete="on"
+            @keyup.enter.native="handleLogin"
           />
         </el-form-item>
 
@@ -44,7 +46,7 @@
             name="password"
             tabindex="2"
             auto-complete="on"
-            @keyup.enter="handleLogin"
+            @keyup.enter.native="handleLogin"
           />
           <span class="show-pwd" @click="togglePasswordVisibility">
             <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
@@ -63,6 +65,7 @@
               name="captcha"
               tabindex="3"
               auto-complete="off"
+              @keyup.enter.native="handleLogin"
             />
             <img
               :src="captchaSrc"
@@ -264,8 +267,19 @@ $input-bg: rgba(0, 0, 0, 0.1);
       &:-webkit-autofill {
         box-shadow: 0 0 0px 1000px $bg-color inset !important;
         -webkit-text-fill-color: $text-color-light !important;
+        transition: background-color 5000s ease-in-out 0s; /* 防止Chrome自动填充背景色 */
       }
     }
+  }
+
+  /* 修复自动填充的黑框问题 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    transition: background-color 5000s ease-in-out 0s;
+    -webkit-text-fill-color: $text-color-light !important;
+    box-shadow: 0 0 0px 1000px $bg-color inset !important;
   }
 
   .el-form-item {
