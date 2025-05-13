@@ -6,7 +6,6 @@ import com.genersoft.iot.vmp.gb28181.dao.CommonGBChannelMapper;
 import com.genersoft.iot.vmp.gb28181.event.EventPublisher;
 import com.genersoft.iot.vmp.gb28181.event.subscribe.catalog.CatalogEvent;
 import com.genersoft.iot.vmp.gb28181.service.IDeviceChannelService;
-import com.genersoft.iot.vmp.gb28181.service.IGbChannelService;
 import com.genersoft.iot.vmp.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.genersoft.iot.vmp.gb28181.utils.SipUtils;
 import com.genersoft.iot.vmp.storager.IRedisCatchStorage;
@@ -27,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import org.springframework.context.ApplicationContext;
 
 /**
  * SIP命令类型： NOTIFY请求中的目录请求处理
@@ -53,7 +51,8 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 	private IDeviceChannelService deviceChannelService;
 
 	@Autowired
-	private ApplicationContext applicationContext;
+	private CommonGBChannelMapper commonGBChannelMapper;
+
 	// @Scheduled(fixedRate = 2000) //每400毫秒执行一次
 	// public void showSize(){
 	// log.warn("[notify-目录订阅] 待处理消息数量： {}", taskQueue.size() );
@@ -139,6 +138,18 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 								// 上线
 								log.info("[收到通道上线通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
 										catalogChannelEvent.getChannel().getDeviceId());
+								// 查询通道是否存在，获取完整信息
+								DeviceChannel existingChannel = deviceChannelService.getOneForSource(device.getId(),
+										catalogChannelEvent.getChannel().getDeviceId());
+
+								if (existingChannel != null) {
+									// 使用数据库中的ID和其他信息
+									log.info("[通道上线] 找到已存在通道，ID: {}", existingChannel.getId());
+									channel.setId(existingChannel.getId());
+									channel.setHasAudio(existingChannel.isHasAudio());
+								} else {
+									log.warn("[通道上线] 通道不存在于数据库中: {}", catalogChannelEvent.getChannel().getDeviceId());
+								}
 								channel.setStatus("ON");
 								channelList.add(NotifyCatalogChannel
 										.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
@@ -156,6 +167,20 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 									log.info("[收到通道离线通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(),
 											catalogChannelEvent.getChannel().getDeviceId());
 								} else {
+									// 查询通道是否存在，获取完整信息
+									DeviceChannel existingChannelOff = deviceChannelService.getOneForSource(
+											device.getId(),
+											catalogChannelEvent.getChannel().getDeviceId());
+
+									if (existingChannelOff != null) {
+										// 使用数据库中的ID和其他信息
+										log.info("[通道离线] 找到已存在通道，ID: {}", existingChannelOff.getId());
+										channel.setId(existingChannelOff.getId());
+										channel.setHasAudio(existingChannelOff.isHasAudio());
+									} else {
+										log.warn("[通道离线] 通道不存在于数据库中: {}",
+												catalogChannelEvent.getChannel().getDeviceId());
+									}
 									channel.setStatus("OFF");
 									channelList.add(NotifyCatalogChannel
 											.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
@@ -174,6 +199,20 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 									log.info("[收到通道视频丢失通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(),
 											catalogChannelEvent.getChannel().getDeviceId());
 								} else {
+									// 查询通道是否存在，获取完整信息
+									DeviceChannel existingChannelVlost = deviceChannelService.getOneForSource(
+											device.getId(),
+											catalogChannelEvent.getChannel().getDeviceId());
+
+									if (existingChannelVlost != null) {
+										// 使用数据库中的ID和其他信息
+										log.info("[通道视频丢失] 找到已存在通道，ID: {}", existingChannelVlost.getId());
+										channel.setId(existingChannelVlost.getId());
+										channel.setHasAudio(existingChannelVlost.isHasAudio());
+									} else {
+										log.warn("[通道视频丢失] 通道不存在于数据库中: {}",
+												catalogChannelEvent.getChannel().getDeviceId());
+									}
 									channel.setStatus("OFF");
 									channelList.add(NotifyCatalogChannel
 											.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
@@ -192,6 +231,20 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 									log.info("[收到通道视频故障通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(),
 											catalogChannelEvent.getChannel().getDeviceId());
 								} else {
+									// 查询通道是否存在，获取完整信息
+									DeviceChannel existingChannelDefect = deviceChannelService.getOneForSource(
+											device.getId(),
+											catalogChannelEvent.getChannel().getDeviceId());
+
+									if (existingChannelDefect != null) {
+										// 使用数据库中的ID和其他信息
+										log.info("[通道故障] 找到已存在通道，ID: {}", existingChannelDefect.getId());
+										channel.setId(existingChannelDefect.getId());
+										channel.setHasAudio(existingChannelDefect.isHasAudio());
+									} else {
+										log.warn("[通道故障] 通道不存在于数据库中: {}",
+												catalogChannelEvent.getChannel().getDeviceId());
+									}
 									channel.setStatus("OFF");
 									channelList.add(NotifyCatalogChannel
 											.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
@@ -290,10 +343,13 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 	@Transactional
 	public void executeSave() {
 		int size = channelList.size();
+		log.debug("[executeSave] 开始处理通道状态变更，队列大小: {}", size);
 		List<NotifyCatalogChannel> channelListForSave = new ArrayList<>();
 		for (int i = 0; i < size; i++) {
 			channelListForSave.add(channelList.poll());
 		}
+
+		log.debug("[executeSave] 待处理通道列表大小: {}", channelListForSave.size());
 
 		for (NotifyCatalogChannel notifyCatalogChannel : channelListForSave) {
 			try {
@@ -303,19 +359,20 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 						deviceChannelService.updateChannelStatus(notifyCatalogChannel.getChannel());
 						// 同时更新 gb_status 字段
 						DeviceChannel channel = notifyCatalogChannel.getChannel();
+						log.debug("[通道状态变更] 通道ID: {}, 设备ID: {}, 状态: {}",
+								channel.getId(), channel.getDeviceId(), channel.getStatus());
 						if (channel.getId() > 0) {
 							// 直接使用 CommonGBChannelMapper 更新 gb_status
 							try {
-								// 获取 CommonGBChannelMapper 的实例
-								CommonGBChannelMapper commonGBChannelMapper = applicationContext
-										.getBean(CommonGBChannelMapper.class);
-								// 直接调用 updateStatusById 方法
-								commonGBChannelMapper.updateStatusById(channel.getId(), channel.getStatus());
-								log.info("[通道状态同步] 已同步通道 {} 的 gb_status 为 {}",
-										channel.getDeviceId(), channel.getStatus());
+								int result = commonGBChannelMapper.updateStatusById(channel.getId(),
+										channel.getStatus());
+								log.info("[通道状态同步] 已同步通道 {} 的 gb_status 为 {}, 结果: {}",
+										channel.getDeviceId(), channel.getStatus(), result);
 							} catch (Exception e) {
 								log.error("[通道状态同步] 同步 gb_status 失败: {}", e.getMessage());
 							}
+						} else {
+							log.warn("[通道状态同步] 通道ID无效: {}, ID: {}", channel.getDeviceId(), channel.getId());
 						}
 						break;
 					case ADD:
