@@ -200,17 +200,21 @@ $input-bg: rgba(0, 0, 0, 0.1);
     position: relative;
     width: 448px;
     max-width: 100%;
-    height: 63vh;
-    padding: 160px 35px 0;
+    min-height: 420px;
+    max-height: 80vh;
+    padding: 40px 35px;
     margin: 0 auto;
     border-radius: 24px;
     border: 1px solid rgba(160, 174, 192, 0.25);
     -webkit-backdrop-filter: blur(30px);
     backdrop-filter: blur(30px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 
     .title-container {
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
 
       .title {
         font-size: 26px;
@@ -240,7 +244,8 @@ $input-bg: rgba(0, 0, 0, 0.1);
 
     .login-button {
       width: 100%;
-      margin-bottom: 30px;
+      margin-bottom: 10px;
+      margin-top: 10px;
     }
   }
 
@@ -268,6 +273,7 @@ $input-bg: rgba(0, 0, 0, 0.1);
     background: $input-bg;
     border-radius: 5px;
     color: $text-color-dark;
+    margin-bottom: 20px;
   }
 
   .show-pwd {
