@@ -174,7 +174,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         // return 0;
         // }
 
-        log.info("[调试] 在线通道列表: {}", commonGBChannelList);
+        log.debug("[调试] 在线通道列表: {}", commonGBChannelList);
 
         int limitCount = 1000;
         int result = 0;
@@ -226,7 +226,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
             log.warn("[多个通道上线] 通道数量为0，更新失败");
             return 0;
         }
-        log.info("[调试] 输入通道列表: {}", commonGBChannelList);
+        log.debug("[调试] 输入通道列表: {}", commonGBChannelList);
         // List<CommonGBChannel> offlineChannelList =
         // commonGBChannelMapper.queryInListByStatus(commonGBChannelList,
         // "OFF");

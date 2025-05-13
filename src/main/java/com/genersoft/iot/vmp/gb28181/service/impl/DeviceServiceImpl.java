@@ -1026,13 +1026,13 @@ public class DeviceServiceImpl implements IDeviceService {
 
                 // 查询设备下的所有通道
                 List<DeviceChannel> allChannels = deviceChannelMapper.queryChannelsByDeviceDbId(device.getId());
-                log.info("设备 {} 的通道列表有：{}", device.getId(), allChannels);
+                log.debug("设备 {} 的通道列表有：{}", device.getId(), allChannels);
 
                 if (allChannels == null || allChannels.isEmpty()) {
                     log.debug("[设备上线] 设备ID: {} 无关联通道", device.getId());
                     return;
                 }
-                log.info("[设备上线] 设备ID: {} 查询到 {} 个通道", device.getId(), allChannels.size());
+                log.debug("[设备上线] 设备ID: {} 查询到 {} 个通道", device.getId(), allChannels.size());
 
                 // 根据设备ID和状态查询状态为 ON 的通道
                 List<DeviceChannel> onlineChannels = deviceChannelService.selectChannelsByStatus(device.getId(),
@@ -1056,12 +1056,12 @@ public class DeviceServiceImpl implements IDeviceService {
                         })
                         .collect(Collectors.toList());
 
-                log.info("[设备上线] 设备ID: {} 的通道已转换为 CommonGBChannel，共 {} 个通道", device.getId(),
+                log.debug("[设备上线] 设备ID: {} 的通道已转换为 CommonGBChannel，共 {} 个通道", device.getId(),
                         commonGBChannels.size());
 
                 // 调用 GbChannelServiceImpl 的 online 方法
                 int onlineResult = gbChannelService.online(commonGBChannels);
-                log.info("[设备上线] 调用 GbChannelServiceImpl.online 完成，更新通道状态 {} 个", onlineResult);
+                log.debug("[设备上线] 调用 GbChannelServiceImpl.online 完成，更新通道状态 {} 个", onlineResult);
 
                 log.info("[设备上线] 已处理设备ID {} 的通道上线，共 {} 个通道", device.getId(), commonGBChannels.size());
             } catch (Exception e) {
