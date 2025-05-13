@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Component
 public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent {
 
-    private final ConcurrentLinkedQueue<NotifyCatalogChannel> channelList = new ConcurrentLinkedQueue<>();
+	private final ConcurrentLinkedQueue<NotifyCatalogChannel> channelList = new ConcurrentLinkedQueue<>();
 
 	private final ConcurrentLinkedQueue<HandlerCatchData> taskQueue = new ConcurrentLinkedQueue<>();
 
@@ -49,10 +49,10 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 	@Autowired
 	private IDeviceChannelService deviceChannelService;
 
-//	@Scheduled(fixedRate = 2000)   //每400毫秒执行一次
-//	public void showSize(){
-//		log.warn("[notify-目录订阅] 待处理消息数量： {}", taskQueue.size() );
-//	}
+	// @Scheduled(fixedRate = 2000) //每400毫秒执行一次
+	// public void showSize(){
+	// log.warn("[notify-目录订阅] 待处理消息数量： {}", taskQueue.size() );
+	// }
 
 	public void process(RequestEvent evt) {
 		if (taskQueue.size() >= userSetting.getMaxNotifyCountQueue()) {
@@ -62,8 +62,8 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 		taskQueue.offer(new HandlerCatchData(evt, null, null));
 	}
 
-	@Scheduled(fixedDelay = 400)   //每400毫秒执行一次
-	public void executeTaskQueue(){
+	@Scheduled(fixedDelay = 400) // 每400毫秒执行一次
+	public void executeTaskQueue() {
 		if (taskQueue.isEmpty()) {
 			return;
 		}
@@ -109,20 +109,22 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 					while (deviceListIterator.hasNext()) {
 						Element itemDevice = deviceListIterator.next();
 						CatalogChannelEvent catalogChannelEvent = null;
-                        try {
-                            catalogChannelEvent = CatalogChannelEvent.decode(itemDevice);
+						try {
+							catalogChannelEvent = CatalogChannelEvent.decode(itemDevice);
 							if (catalogChannelEvent.getChannel() == null) {
-								log.info("[解析CatalogChannelEvent]成功：但是解析通道信息失败， 原文如下： \n{}", new String(evt.getRequest().getRawContent()));
+								log.info("[解析CatalogChannelEvent]成功：但是解析通道信息失败， 原文如下： \n{}",
+										new String(evt.getRequest().getRawContent()));
 								continue;
 							}
 							catalogChannelEvent.getChannel().setDataDeviceId(device.getId());
-                        } catch (InvocationTargetException | NoSuchMethodException | InstantiationException |
-                                 IllegalAccessException e) {
-                            log.error("[解析CatalogChannelEvent]失败，", e);
-                            log.error("[解析CatalogChannelEvent]失败原文: \n{}", new String(evt.getRequest().getRawContent(), Charset.forName(device.getCharset())));
+						} catch (InvocationTargetException | NoSuchMethodException | InstantiationException
+								| IllegalAccessException e) {
+							log.error("[解析CatalogChannelEvent]失败，", e);
+							log.error("[解析CatalogChannelEvent]失败原文: \n{}",
+									new String(evt.getRequest().getRawContent(), Charset.forName(device.getCharset())));
 							continue;
-                        }
-						if (log.isDebugEnabled()){
+						}
+						if (log.isDebugEnabled()) {
 							log.debug("[收到目录订阅]：{}/{}-{}", device.getDeviceId(),
 									catalogChannelEvent.getChannel().getDeviceId(), catalogChannelEvent.getEvent());
 						}
@@ -130,105 +132,134 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 						switch (catalogChannelEvent.getEvent()) {
 							case CatalogEvent.ON:
 								// 上线
-								log.info("[收到通道上线通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+								log.info("[收到通道上线通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								channel.setStatus("ON");
-								channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
+								channelList.add(NotifyCatalogChannel
+										.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
 								if (userSetting.getDeviceStatusNotify()) {
 									// 发送redis消息
-									redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), true);
+									redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(),
+											catalogChannelEvent.getChannel().getDeviceId(), true);
 								}
 								break;
 							case CatalogEvent.OFF:
 								// 离线
-								log.info("[收到通道离线通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+								log.info("[收到通道离线通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								if (userSetting.getRefuseChannelStatusChannelFormNotify()) {
-									log.info("[收到通道离线通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+									log.info("[收到通道离线通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(),
+											catalogChannelEvent.getChannel().getDeviceId());
 								} else {
 									channel.setStatus("OFF");
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
+									channelList.add(NotifyCatalogChannel
+											.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
 									if (userSetting.getDeviceStatusNotify()) {
 										// 发送redis消息
-										redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), false);
+										redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(),
+												catalogChannelEvent.getChannel().getDeviceId(), false);
 									}
 								}
 								break;
 							case CatalogEvent.VLOST:
 								// 视频丢失
-								log.info("[收到通道视频丢失通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+								log.info("[收到通道视频丢失通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								if (userSetting.getRefuseChannelStatusChannelFormNotify()) {
-									log.info("[收到通道视频丢失通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+									log.info("[收到通道视频丢失通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(),
+											catalogChannelEvent.getChannel().getDeviceId());
 								} else {
 									channel.setStatus("OFF");
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
+									channelList.add(NotifyCatalogChannel
+											.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
 									if (userSetting.getDeviceStatusNotify()) {
 										// 发送redis消息
-										redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), false);
+										redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(),
+												catalogChannelEvent.getChannel().getDeviceId(), false);
 									}
 								}
 								break;
 							case CatalogEvent.DEFECT:
 								// 故障
-								log.info("[收到通道视频故障通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+								log.info("[收到通道视频故障通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								if (userSetting.getRefuseChannelStatusChannelFormNotify()) {
-									log.info("[收到通道视频故障通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+									log.info("[收到通道视频故障通知] 但是平台已配置拒绝此消息，来自设备: {}, 通道 {}", device.getDeviceId(),
+											catalogChannelEvent.getChannel().getDeviceId());
 								} else {
 									channel.setStatus("OFF");
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
+									channelList.add(NotifyCatalogChannel
+											.getInstance(NotifyCatalogChannel.Type.STATUS_CHANGED, channel));
 									if (userSetting.getDeviceStatusNotify()) {
 										// 发送redis消息
-										redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), false);
+										redisCatchStorage.sendDeviceOrChannelStatus(device.getDeviceId(),
+												catalogChannelEvent.getChannel().getDeviceId(), false);
 									}
 								}
 								break;
 							case CatalogEvent.ADD:
 								// 增加
-								log.info("[收到增加通道通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+								log.info("[收到增加通道通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								// 判断此通道是否存在
-								DeviceChannel deviceChannel = deviceChannelService.getOneForSource(device.getId(), catalogChannelEvent.getChannel().getDeviceId());
+								DeviceChannel deviceChannel = deviceChannelService.getOneForSource(device.getId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								if (deviceChannel != null) {
-									log.info("[增加通道] 已存在，不发送通知只更新，设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+									log.info("[增加通道] 已存在，不发送通知只更新，设备: {}, 通道 {}", device.getDeviceId(),
+											catalogChannelEvent.getChannel().getDeviceId());
 									channel.setId(deviceChannel.getId());
 									channel.setHasAudio(deviceChannel.isHasAudio());
 									channel.setUpdateTime(DateUtil.getNow());
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.UPDATE, channel));
+									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.UPDATE,
+											channel));
 								} else {
 									catalogChannelEvent.getChannel().setUpdateTime(DateUtil.getNow());
 									catalogChannelEvent.getChannel().setCreateTime(DateUtil.getNow());
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.ADD, channel));
+									channelList.add(
+											NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.ADD, channel));
 									if (userSetting.getDeviceStatusNotify()) {
 										// 发送redis消息
-										redisCatchStorage.sendChannelAddOrDelete(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), true);
+										redisCatchStorage.sendChannelAddOrDelete(device.getDeviceId(),
+												catalogChannelEvent.getChannel().getDeviceId(), true);
 									}
 								}
 
 								break;
 							case CatalogEvent.DEL:
 								// 删除
-								log.info("[收到删除通道通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
-								channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.DELETE, channel));
+								log.info("[收到删除通道通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
+								channelList.add(
+										NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.DELETE, channel));
 								if (userSetting.getDeviceStatusNotify()) {
 									// 发送redis消息
-									redisCatchStorage.sendChannelAddOrDelete(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), false);
+									redisCatchStorage.sendChannelAddOrDelete(device.getDeviceId(),
+											catalogChannelEvent.getChannel().getDeviceId(), false);
 								}
 								break;
 							case CatalogEvent.UPDATE:
 								// 更新
-								log.info("[收到更新通道通知] 来自设备: {}, 通道 {}", device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId());
+								log.info("[收到更新通道通知] 来自设备: {}, 通道 {}", device.getDeviceId(),
+										catalogChannelEvent.getChannel().getDeviceId());
 								// 判断此通道是否存在
-								DeviceChannel deviceChannelForUpdate = deviceChannelService.getOneForSource(device.getId(), catalogChannelEvent.getChannel().getDeviceId());
+								DeviceChannel deviceChannelForUpdate = deviceChannelService.getOneForSource(
+										device.getId(), catalogChannelEvent.getChannel().getDeviceId());
 								if (deviceChannelForUpdate != null) {
 									channel.setId(deviceChannelForUpdate.getId());
 									channel.setHasAudio(deviceChannelForUpdate.isHasAudio());
 									channel.setUpdateTime(DateUtil.getNow());
 									channel.setUpdateTime(DateUtil.getNow());
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.UPDATE, channel));
+									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.UPDATE,
+											channel));
 								} else {
 									catalogChannelEvent.getChannel().setCreateTime(DateUtil.getNow());
 									catalogChannelEvent.getChannel().setUpdateTime(DateUtil.getNow());
-									channelList.add(NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.ADD, channel));
+									channelList.add(
+											NotifyCatalogChannel.getInstance(NotifyCatalogChannel.Type.ADD, channel));
 									if (userSetting.getDeviceStatusNotify()) {
 										// 发送redis消息
-										redisCatchStorage.sendChannelAddOrDelete(device.getDeviceId(), catalogChannelEvent.getChannel().getDeviceId(), true);
+										redisCatchStorage.sendChannelAddOrDelete(device.getDeviceId(),
+												catalogChannelEvent.getChannel().getDeviceId(), true);
 									}
 								}
 								break;
@@ -237,7 +268,8 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 
 						}
 						// 转发变化信息
-						eventPublisher.catalogEventPublish(null, catalogChannelEvent.getChannel(), catalogChannelEvent.getEvent());
+						eventPublisher.catalogEventPublish(null, catalogChannelEvent.getChannel(),
+								catalogChannelEvent.getEvent());
 					}
 				}
 
@@ -274,7 +306,7 @@ public class NotifyRequestForCatalogProcessor extends SIPRequestProcessorParent 
 						deviceChannelService.delete(notifyCatalogChannel.getChannel());
 						break;
 				}
-			}catch (Exception e) {
+			} catch (Exception e) {
 				log.error("[存储收到的通道]类型：{}，编号：{}", notifyCatalogChannel.getType(),
 						notifyCatalogChannel.getChannel().getDeviceId(), e);
 			}
