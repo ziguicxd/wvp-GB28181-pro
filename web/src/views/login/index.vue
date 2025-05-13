@@ -9,6 +9,11 @@
         auto-complete="on"
         label-position="left"
       >
+        <!-- 隐藏字段，用于欺骗浏览器自动填充 -->
+        <div style="display:none">
+          <input type="text" name="fakeusernameremembered" />
+          <input type="password" name="fakepasswordremembered" />
+        </div>      
         <!-- 标题 -->
         <div class="title-container">
           <h3 class="title">WVP视频平台</h3>
@@ -27,6 +32,7 @@
             type="text"
             tabindex="1"
             auto-complete="on"
+            @keyup.enter.native="handleLogin"
           />
         </el-form-item>
 
@@ -44,7 +50,7 @@
             name="password"
             tabindex="2"
             auto-complete="on"
-            @keyup.enter="handleLogin"
+            @keyup.enter.native="handleLogin"
           />
           <span class="show-pwd" @click="togglePasswordVisibility">
             <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
@@ -63,6 +69,7 @@
               name="captcha"
               tabindex="3"
               auto-complete="off"
+              @keyup.enter.native="handleLogin"
             />
             <img
               :src="captchaSrc"
@@ -133,6 +140,20 @@ export default {
       passwordType: 'password', // 密码显示类型
       captchaSrc: '/api/captcha?' + new Date().getTime(), // 验证码图片地址
     };
+  },
+    mounted() {
+    // 清除自动填充
+    this.$nextTick(() => {
+      setTimeout(() => {
+        // 延迟清除输入框的值，防止浏览器自动填充
+        document.querySelectorAll('input[type="text"], input[type="password"]').forEach(input => {
+          input.value = '';
+        });
+        this.loginForm.username = '';
+        this.loginForm.password = '';
+        this.loginForm.captcha = '';
+      }, 100);
+    });
   },
   methods: {
     // 切换密码可见性
