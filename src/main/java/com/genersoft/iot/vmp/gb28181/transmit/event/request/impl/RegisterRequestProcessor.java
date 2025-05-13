@@ -43,7 +43,8 @@ import java.util.Locale;
  */
 @Slf4j
 @Component
-public class RegisterRequestProcessor extends SIPRequestProcessorParent implements InitializingBean, ISIPRequestProcessor {
+public class RegisterRequestProcessor extends SIPRequestProcessorParent
+        implements InitializingBean, ISIPRequestProcessor {
 
     public final String method = "REGISTER";
 
@@ -70,8 +71,6 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
 
     /**
      * 收到注册请求 处理
-     *
-     * @param evt
      */
     @Override
     public void process(RequestEvent evt) {
@@ -105,7 +104,8 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
                     device.setExpires(request.getExpires().getExpires());
                     device.setIp(remoteAddressInfo.getIp());
                     device.setPort(remoteAddressInfo.getPort());
-                    device.setHostAddress(remoteAddressInfo.getIp().concat(":").concat(String.valueOf(remoteAddressInfo.getPort())));
+                    device.setHostAddress(
+                            remoteAddressInfo.getIp().concat(":").concat(String.valueOf(remoteAddressInfo.getPort())));
 
                     device.setLocalIp(request.getLocalAddress().getHostAddress());
                     Response registerOkResponse = getRegisterOkResponse(request);
@@ -122,12 +122,14 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
                 }
                 return;
             }
-            String password = (device != null && !ObjectUtils.isEmpty(device.getPassword())) ? device.getPassword() : sipConfig.getPassword();
+            String password = (device != null && !ObjectUtils.isEmpty(device.getPassword())) ? device.getPassword()
+                    : sipConfig.getPassword();
             AuthorizationHeader authHead = (AuthorizationHeader) request.getHeader(AuthorizationHeader.NAME);
             if (authHead == null && !ObjectUtils.isEmpty(password)) {
                 log.info(title + " 设备：{}, 回复401: {}", deviceId, requestAddress);
                 response = getMessageFactory().createResponse(Response.UNAUTHORIZED, request);
-                new DigestServerAuthenticationHelper().generateChallenge(getHeaderFactory(), response, sipConfig.getDomain());
+                new DigestServerAuthenticationHelper().generateChallenge(getHeaderFactory(), response,
+                        sipConfig.getDomain());
                 sipSender.transmitRequest(request.getLocalAddress().getHostAddress(), response);
                 return;
             }
@@ -186,7 +188,8 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
             device.setServerId(userSetting.getServerId());
             device.setIp(remoteAddressInfo.getIp());
             device.setPort(remoteAddressInfo.getPort());
-            device.setHostAddress(remoteAddressInfo.getIp().concat(":").concat(String.valueOf(remoteAddressInfo.getPort())));
+            device.setHostAddress(
+                    remoteAddressInfo.getIp().concat(":").concat(String.valueOf(remoteAddressInfo.getPort())));
             device.setLocalIp(request.getLocalAddress().getHostAddress());
             if (request.getExpires().getExpires() == 0) {
                 // 注销成功
