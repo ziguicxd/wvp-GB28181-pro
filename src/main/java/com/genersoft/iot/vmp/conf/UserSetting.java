@@ -137,7 +137,6 @@ public class UserSetting {
      */
     private String serverId = "000000";
 
-
     /**
      * 国标级联语音喊话发流模式 * UDP:udp传输 TCP-ACTIVE：tcp主动模式 TCP-PASSIVE：tcp被动模式
      */
@@ -169,14 +168,14 @@ public class UserSetting {
     private boolean registerKeepIntDialog = false;
 
     /**
-     *     # 国标设备离线后的上线策略，
-     *     # 0： 国标标准实现，设备离线后不回复心跳，直到设备重新注册上线，
-     *     # 1（默认）： 对于离线设备，收到心跳就把设备设置为上线，并更新注册时间为上次这次心跳的时间。防止过期时间判断异常
+     * # 国标设备离线后的上线策略，
+     * # 0： 国标标准实现，设备离线后不回复心跳，直到设备重新注册上线，
+     * # 1（默认）： 对于离线设备，收到心跳就把设备设置为上线，并更新注册时间为上次这次心跳的时间。防止过期时间判断异常
      */
     private int gbDeviceOnline = 1;
 
     /**
-     *    登录超时时间(分钟)，
+     * 登录超时时间(分钟)，
      */
     private long loginTimeout = 60;
 
@@ -195,6 +194,13 @@ public class UserSetting {
      */
     private boolean sendPositionOnDemand = true;
 
-
+    /**
+     * 部分设备会在短时间内发送大量注册， 导致协议栈内存溢出， 开启此项可以防止这部分设备注册， 避免服务崩溃，但是会降低系统性能， 描述如下
+     * 默认值为 true。
+     * 将此设置为 false 会使 Stack 在 Server Transaction 进入 TERMINATED 状态后关闭服务器套接字。
+     * 这允许服务器防止客户端发起的基于 TCP 的拒绝服务攻击（即发起数百个客户端事务）。
+     * 如果为 true（默认作），则堆栈将保持套接字打开，以便以牺牲线程和内存资源为代价来最大化性能 - 使自身容易受到 DOS 攻击。
+     */
+    private boolean sipCacheServerConnections = true;
 
 }

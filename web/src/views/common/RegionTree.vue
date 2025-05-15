@@ -1,5 +1,5 @@
 <template>
-  <div id="DeviceTree" style="border-right: 1px solid #EBEEF5; padding: 0 20px">
+  <div id="DeviceTree" style="border-right: 1px solid #EBEEF5; padding: 0 20px 0 1px">
     <div v-if="showHeader" class="page-header">
       <el-form :inline="true" size="mini">
         <el-form-item style="visibility: hidden">
@@ -28,7 +28,7 @@
       />
       <vue-easy-tree
         ref="veTree"
-        class="flow-tree"
+        class="flow-tree region-tree"
         node-key="treeId"
         :height="treeHeight?treeHeight:'78vh'"
         lazy
@@ -302,53 +302,52 @@ export default {
             node.expand()
           }).catch(function(error) {
             console.log(error)
-          }).finally(() => {
-            this.loading = false
           })
       })
     },
     addChannel: function(id, node) {
-      this.$refs.gbChannelSelect.openDialog((data) => {
-        console.log('选择的数据')
-        console.log(data)
-        this.addChannelToCivilCode(node.data.deviceId, data)
+      this.$refs.gbChannelSelect.openDialog((rows) => {
+        const channelIds = []
+        for (let i = 0; i < rows.length; i++) {
+          channelIds.push(rows[i].id)
+        }
+        this.$store.dispatch('commonChanel/addChannelToRegion', {
+          civilCode: node.data.deviceId,
+          channelIds: channelIds
+        }).then((data) => {
+          this.$message.success({
+            showClose: true,
+            message: '保存成功'
+          })
+          if (this.onChannelChange) {
+            this.onChannelChange()
+          }
+          node.loaded = false
+          node.expand()
+        }).catch(function(error) {
+          console.log(error)
+        }).finally(() => {
+          this.loading = false
+        })
       })
     },
     refreshNode: function(node) {
       node.loaded = false
       node.expand()
     },
-    refresh: function(id) {
-      console.log(id)
-      // 查询node
-      const node = this.$refs.veTree.getNode(id)
-      if (node) {
-        node.loaded = false
-        node.expand()
-      }
-    },
     addRegion: function(id, node) {
-      console.log(node)
-
-      this.$refs.regionEdit.openDialog(form => {
+      this.$refs.regionEdit.openDialog(node.data.deviceId, (data) => {
         node.loaded = false
         node.expand()
-      }, {
-        deviceId: '',
-        name: '',
-        parentId: node.data.id,
-        parentDeviceId: node.data.deviceId
       })
     },
     editCatalog: function(data, node) {
-      // 打开添加弹窗
-      this.$refs.regionEdit.openDialog(form => {
-        node.loaded = false
-        node.expand()
-      }, node.data)
+      this.$refs.regionEdit.openEditDialog(data, (data) => {
+        node.parent.loaded = false
+        node.parent.expand()
+      })
     },
-    nodeClickHandler: function(data, node, tree) {
-      this.chooseId = data.deviceId
+    nodeClickHandler: function(data, node) {
       if (this.clickEvent) {
         this.clickEvent(data)
       }
@@ -358,35 +357,18 @@ export default {
 </script>
 
 <style>
-.device-tree-main-box {
-  text-align: left;
+/* 根资源组左对齐，后续节点保持树状结构 */
+.region-tree .vue-easy-tree-node[data-level="1"] > .vue-easy-tree-node-content {
+  padding-left: 1px !important;
 }
-
-.device-online {
-  color: #252525;
+.region-tree .vue-easy-tree-node[data-level="1"] > .vue-easy-tree-node-content .vue-easy-tree-node-expand {
+  margin-left: 0;
 }
-
-.device-offline {
-  color: #727272;
+.region-tree .vue-easy-tree-node:not([data-level="1"]) > .vue-easy-tree-node-content {
+  padding-left: 18px !important;
 }
-
-.custom-tree-node .el-radio__label {
-  padding-left: 4px !important;
+/* 调整整个树容器的位置 */
+.flow-tree.region-tree {
+  padding-left: 1px !important;
 }
-
-.tree-scroll{
-  width: 200px;
-  border: 1px solid #E7E7E7;
-  height: 100%;
-}
-
-.flow-tree {
-  overflow: auto;
-  margin: 10px;
-}
-.flow-tree  .vue-recycle-scroller__item-wrapper{
-  height: 100%;
-  overflow-x: auto;
-}
-
 </style>

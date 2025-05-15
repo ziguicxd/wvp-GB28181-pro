@@ -1,20 +1,29 @@
 <template>
-  <div id="DeviceTree" style="width: 100%;height: 100%; background-color: #FFFFFF; overflow: auto; padding: 30px">
-    <div style="height: 30px; display: grid; grid-template-columns: auto auto">
+  <div id="DeviceTree" :class="{'collapsed': isCollapsed}" style="width: 100%;height: 100%; background-color: #FFFFFF; overflow: auto; padding: 30px 30px 30px 10px">
+    <div v-if="!isCollapsed" style="height: 30px; display: grid; grid-template-columns: auto auto auto; align-items: center; margin-bottom: 10px; padding-left: 10px">
       <div>通道列表</div>
-      <div>
-        <el-switch
-          v-model="showRegion"
-          active-color="#13ce66"
-          inactive-color="rgb(64, 158, 255)"
-          active-text="行政区划"
-          inactive-text="业务分组"
-        />
+      <div style="width: 120px">
+        <el-select v-model="viewMode" size="small" placeholder="请选择">
+          <el-option label="行政区划" value="region"></el-option>
+          <el-option label="业务分组" value="group"></el-option>
+          <el-option label="设备树" value="device"></el-option>
+        </el-select>
+      </div>
+      <div style="text-align: right">
+        <el-button type="text" @click="toggleCollapse">
+          <i class="el-icon-d-arrow-left"></i>
+        </el-button>
       </div>
     </div>
-    <div>
-      <RegionTree v-if="showRegion" ref="regionTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
-      <GroupTree v-if="!showRegion" ref="groupTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+    <div v-else class="collapsed-button">
+      <el-button type="text" @click="toggleCollapse">
+        <i class="el-icon-d-arrow-right"></i>
+      </el-button>
+    </div>
+    <div v-if="!isCollapsed" class="tree-container">
+      <RegionTree v-if="viewMode === 'region'" ref="regionTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+      <GroupTree v-if="viewMode === 'group'" ref="groupTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+      <DeviceListTree v-if="viewMode === 'device'" ref="deviceListTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
     </div>
   </div>
 </template>
@@ -22,19 +31,34 @@
 <script>
 import RegionTree from './RegionTree.vue'
 import GroupTree from './GroupTree.vue'
+import DeviceListTree from './DeviceListTree.vue'
 
 export default {
   name: 'DeviceTree',
-  components: { GroupTree, RegionTree },
+  components: { GroupTree, RegionTree, DeviceListTree },
   props: ['device', 'onlyCatalog', 'clickEvent', 'contextMenuEvent'],
   data() {
     return {
-      showRegion: true,
+      viewMode: 'device',
+      isCollapsed: false,
       defaultProps: {
         children: 'children',
         label: 'name',
         isLeaf: 'isLeaf'
       }
+    }
+  },
+  watch: {
+    viewMode(newVal) {
+      this.$nextTick(() => {
+        if (newVal === 'device' && this.$refs.deviceListTree) {
+          this.$refs.deviceListTree.refresh && this.$refs.deviceListTree.refresh();
+        } else if (newVal === 'region' && this.$refs.regionTree) {
+          this.$refs.regionTree.reset && this.$refs.regionTree.reset();
+        } else if (newVal === 'group' && this.$refs.groupTree) {
+          this.$refs.groupTree.reset && this.$refs.groupTree.reset();
+        }
+      });
     }
   },
   destroyed() {
@@ -56,6 +80,10 @@ export default {
           this.clickEvent(data.id)
         }
       }
+    },
+    toggleCollapse() {
+      this.isCollapsed = !this.isCollapsed;
+      this.$emit('collapse-change', this.isCollapsed);
     }
   }
 }
@@ -70,5 +98,52 @@ export default {
 }
 .device-offline{
   color: #727272;
+}
+.el-select {
+  width: 100%;
+}
+#DeviceTree {
+  transition: width 0.3s;
+  position: relative;
+}
+#DeviceTree.collapsed {
+  width: 50px !important;
+  padding: 30px 0 !important;
+}
+.collapsed-button {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  width: 50px;
+  display: flex;
+  justify-content: center;
+}
+.tree-container {
+  margin-top: 10px;
+  padding-left: 1px;
+}
+/* 调整树组件的样式，使第一级节点靠左对齐 */
+.tree-container .el-tree > .el-tree-node {
+  padding-left: 0 !important;
+}
+.tree-container .el-tree-node__content {
+  padding-left: 0 !important;
+}
+.tree-container .el-tree-node__children .el-tree-node__content {
+  padding-left: 18px !important;
+}
+/* 确保搜索结果也左对齐 */
+.tree-container .el-tree .el-tree-node.is-current > .el-tree-node__content {
+  padding-left: 0 !important;
+}
+.tree-container .el-tree-node.is-current > .el-tree-node__content {
+  padding-left: 0 !important;
+}
+/* 修复搜索过滤时的对齐问题 */
+.tree-container .el-tree .el-tree-node:not(.is-expanded) > .el-tree-node__children {
+  padding-left: 0 !important;
+}
+.tree-container .el-tree .el-tree__empty-block {
+  padding-left: 0 !important;
 }
 </style>

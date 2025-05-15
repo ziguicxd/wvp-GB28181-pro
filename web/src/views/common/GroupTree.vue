@@ -1,5 +1,5 @@
 <template>
-  <div id="DeviceTree" style="border-right: 1px solid #EBEEF5; padding: 0 20px">
+  <div id="DeviceTree" style="border-right: 1px solid #EBEEF5; padding: 0 20px 0 1px">
     <div v-if="showHeader" class="page-header">
       <el-form :inline="true" size="mini">
         <el-form-item style="visibility: hidden">
@@ -28,7 +28,7 @@
       />
       <vue-easy-tree
         ref="veTree"
-        class="flow-tree"
+        class="flow-tree group-tree"
         node-key="treeId"
         :height="treeHeight?treeHeight:'78vh'"
         lazy
@@ -375,10 +375,21 @@ export default {
 
 .flow-tree {
   overflow: auto;
-  margin: 10px;
+  margin: 10px 10px 10px 1px;
 }
-.flow-tree  .vue-recycle-scroller__item-wrapper{
+.flow-tree .vue-recycle-scroller__item-wrapper{
   height: 100%;
   overflow-x: auto;
+}
+
+/* 根资源组左对齐，后续节点保持树状结构 */
+.group-tree .vue-easy-tree-node[data-level="1"] > .vue-easy-tree-node-content {
+  padding-left: 1px !important;
+}
+.group-tree .vue-easy-tree-node[data-level="1"] > .vue-easy-tree-node-content .vue-easy-tree-node-expand {
+  margin-left: 0;
+}
+.group-tree .vue-easy-tree-node:not([data-level="1"]) > .vue-easy-tree-node-content {
+  padding-left: 18px !important;
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
   <div id="live" style="height: calc(100vh - 124px)">
-    <div v-loading="loading" style="height: 100%; display: grid; grid-template-columns: 400px auto" element-loading-text="拼命加载中">
+    <div v-loading="loading" :style="mainLayoutStyle" element-loading-text="拼命加载中">
       <div style="background-color: #ffffff">
-        <DeviceTree :click-event="clickEvent" :context-menu-event="contextMenuEvent" />
+        <DeviceTree :click-event="clickEvent" :context-menu-event="contextMenuEvent" @collapse-change="handleTreeCollapse" />
       </div>
       <div style="display: grid; grid-template-rows: 5vh auto">
         <div style="font-size: 17px;line-height:5vh; display: grid; grid-template-columns: 1fr 1fr">
@@ -12,12 +12,13 @@
             <i class="iconfont icon-a-mti-4fenpingshi btn" :class="{active: spiltIndex === 1}" @click="spiltIndex=1" />
             <i class="iconfont icon-a-mti-6fenpingshi btn" :class="{active: spiltIndex === 2}" @click="spiltIndex=2" />
             <i class="iconfont icon-a-mti-9fenpingshi btn" :class="{active: spiltIndex === 3}" @click="spiltIndex=3" />
+            <span class="btn text-btn" :class="{active: carouselActive}" @click="openCarouselDialog">轮播</span>
           </div>
           <div style="text-align: right; margin-right: 10px;">
             <i class="el-icon-full-screen btn" @click="fullScreen()" />
           </div>
         </div>
-        <div style="padding: 0; margin: 0 auto;">
+        <div style="padding: 0; margin: 0 auto; display: flex; justify-content: center; width: 100%; overflow: hidden;">
           <div
             ref="playBox"
             :style="liveStyle"
@@ -26,7 +27,7 @@
               v-for="i in layout[spiltIndex].spilt"
               :key="i"
               class="play-box"
-              :class="getPlayerClass(spiltIndex, i)"
+              :class="[getPlayerClass(spiltIndex, i), {'carousel-active': carouselActive && (i-1) < layout[spiltIndex].spilt}]"
               @click="playerIdx = (i-1)"
             >
               <div v-if="!videoUrl[i-1]" style="color: #ffffff;font-size: 15px;font-weight: bold;">{{ videoTip[i-1]?videoTip[i-1]:"无信号" }}</div>
@@ -44,18 +45,28 @@
         </div>
       </div>
     </div>
+  <!-- 使用轮播组件 -->
+  <CarouselPlayer 
+    ref="carouselPlayer"
+    :spiltIndex="spiltIndex"
+    :layout="layout"
+    @carousel-state-change="handleCarouselStateChange"
+    @play-channel="handlePlayChannel"
+  />      
   </div>
 </template>
 <script>
 
 import player from '../common/jessibuca.vue'
 import DeviceTree from '../common/DeviceTree.vue'
+import CarouselPlayer from '../common/CarouselPlayer.vue'
 import screenFull from 'screenfull'
+
 
 export default {
   name: 'Live',
   components: {
-    player, DeviceTree
+    player, DeviceTree, CarouselPlayer
   },
 
   data() {
@@ -64,11 +75,13 @@ export default {
       videoTip: [''],
       spiltIndex: 2, // 分屏
       playerIdx: 0, // 激活播放器
+      treeCollapsed: false, // 设备树折叠状态
 
       updateLooper: 0, // 数据刷新轮训标志
       count: 15,
       total: 0,
-
+      // 轮播相关数据
+      carouselActive: false,
       // channel
       loading: false,
       layout: [
@@ -110,22 +123,36 @@ export default {
   },
 
   computed: {
+    mainLayoutStyle() {
+      return {
+        height: '100%', 
+        display: 'grid', 
+        gridTemplateColumns: this.treeCollapsed ? '50px auto' : '300px auto',
+        transition: 'grid-template-columns 0.3s'
+      }
+    },
     liveStyle() {
       if (!this.$store.getters.sidebar.opened) {
-        return { width: '151vh', height: '85vh', display: 'grid', gridTemplateColumns: this.layout[this.spiltIndex].columns,
-          gridTemplateRows: this.layout[this.spiltIndex].rows, gap: '4px', backgroundColor: '#a9a8a8' }
+        return { 
+          width: '155vh', 
+          height: '85vh', 
+          display: 'grid', 
+          gridTemplateColumns: this.layout[this.spiltIndex].columns,
+          gridTemplateRows: this.layout[this.spiltIndex].rows, 
+          gap: '4px', 
+          backgroundColor: '#a9a8a8'
+        }
       } else {
-        return { width: '140vh', height: '79vh', display: 'grid', gridTemplateColumns: this.layout[this.spiltIndex].columns,
-          gridTemplateRows: this.layout[this.spiltIndex].rows, gap: '4px', backgroundColor: '#a9a8a8' }
+        return { 
+          width: '145vh', 
+          height: '79vh', 
+          display: 'grid', 
+          gridTemplateColumns: this.layout[this.spiltIndex].columns,
+          gridTemplateRows: this.layout[this.spiltIndex].rows, 
+          gap: '4px', 
+          backgroundColor: '#a9a8a8'
+        }
       }
-
-      // this.$nextTick(() => {
-      //   for (let i = 0; i < this.spilt; i++) {
-      //     const player = this.$refs.player
-      //     player && player[i] && player[i].updatePlayerDomSize()
-      //   }
-      // })
-      // return style
     }
   },
   watch: {
@@ -149,7 +176,11 @@ export default {
     '$route.fullPath': 'checkPlayByParam'
   },
   mounted() {
-
+    // 确保CarouselPlayer组件能够访问store
+    if (this.$refs.carouselPlayer) {
+      this.$refs.carouselPlayer.$store = this.$store;
+    }
+    this.checkPlayByParam();
   },
   created() {
     this.checkPlayByParam()
@@ -212,8 +243,6 @@ export default {
       }
     },
     shot(e) {
-      // console.log(e)
-      // send({code:'image',data:e})
       var base64ToBlob = function(code) {
         const parts = code.split(';base64,')
         const contentType = parts[0].split(':')[1]
@@ -228,9 +257,9 @@ export default {
         })
       }
       const aLink = document.createElement('a')
-      const blob = base64ToBlob(e) // new Blob([content]);
+      const blob = base64ToBlob(e)
       const evt = document.createEvent('HTMLEvents')
-      evt.initEvent('click', true, true) // initEvent 不加后两个参数在FF下会报错  事件类型，是否冒泡，是否阻止浏览器的默认行为
+      evt.initEvent('click', true, true)
       aLink.download = '截图'
       aLink.href = URL.createObjectURL(blob)
       aLink.click()
@@ -252,6 +281,48 @@ export default {
       if (screenFull.isEnabled) {
         screenFull.toggle(this.$refs.playBox)
       }
+    },
+    
+    // 打开轮播对话框
+    openCarouselDialog() {
+      if (this.carouselActive) {
+        // 如果轮播已经激活，则停止轮播
+        this.$refs.carouselPlayer.stopCarousel();
+      } else {
+        // 否则打开轮播对话框
+        this.$refs.carouselPlayer.openCarouselDialog();
+      }
+    },
+    
+    // 处理轮播状态变化
+    handleCarouselStateChange(active) {
+      this.carouselActive = active;
+    },
+    
+    // 处理播放通道
+    handlePlayChannel(channelId, windowIndex) {
+      this.playerIdx = windowIndex;
+      this.sendDevicePush(channelId);
+    },
+    
+    // 处理设备树折叠状态变化
+    handleTreeCollapse(collapsed) {
+      this.treeCollapsed = collapsed;
+      // 延迟调整播放器大小，以适应新的布局
+      setTimeout(() => {
+        this.$nextTick(() => {
+          for (let i = 1; i <= this.layout[this.spiltIndex].spilt; i++) {
+            if (!this.$refs['player' + i]) {
+              continue;
+            }
+            if (this.$refs['player' + i] instanceof Array) {
+              this.$refs['player' + i][0] && this.$refs['player' + i][0].resize();
+            } else {
+              this.$refs['player' + i] && this.$refs['player' + i].resize();
+            }
+          }
+        });
+      }, 300);
     }
   }
 }
@@ -259,7 +330,6 @@ export default {
 <style>
 .btn {
   margin: 0 10px;
-
 }
 
 .btn:hover {
@@ -268,7 +338,6 @@ export default {
 
 .btn.active {
   color: #409EFF;
-
 }
 
 .redborder {
@@ -358,5 +427,26 @@ export default {
 
 .baidumap > .anchorBL {
   display: none !important;
+}
+</style>
+
+<style>
+/* 轮播相关样式 */
+.carousel-active:after {
+  content: "轮播中";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.text-btn {
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-block;
+  vertical-align: middle;
 }
 </style>

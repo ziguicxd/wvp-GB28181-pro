@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-@Order(value=10)
+@Order(value = 10)
 public class SipLayer implements CommandLineRunner {
 
 	@Autowired
@@ -52,7 +52,7 @@ public class SipLayer implements CommandLineRunner {
 					while (addresses.hasMoreElements()) {
 						InetAddress addr = addresses.nextElement();
 						if (addr instanceof Inet4Address) {
-							if (addr.getHostAddress().equals("127.0.0.1")){
+							if (addr.getHostAddress().equals("127.0.0.1")) {
 								continue;
 							}
 							if (nif.getName().startsWith("docker")) {
@@ -63,25 +63,25 @@ public class SipLayer implements CommandLineRunner {
 						}
 					}
 				}
-			}catch (Exception e) {
+			} catch (Exception e) {
 				log.error("[读取网卡信息失败]", e);
 			}
 			if (monitorIps.isEmpty()) {
 				log.error("[自动配置SIP监听网卡信息失败]， 请手动配置SIP.IP后重新启动");
 				System.exit(1);
 			}
-		}else {
+		} else {
 			// 使用逗号分割多个ip
 			String separator = ",";
 			if (sipConfig.getIp().indexOf(separator) > 0) {
 				String[] split = sipConfig.getIp().split(separator);
 				monitorIps.addAll(Arrays.asList(split));
-			}else {
+			} else {
 				monitorIps.add(sipConfig.getIp());
 			}
 		}
 		sipConfig.setMonitorIps(monitorIps);
-		if (ObjectUtils.isEmpty(sipConfig.getShowIp())){
+		if (ObjectUtils.isEmpty(sipConfig.getShowIp())) {
 			sipConfig.setShowIp(String.join(",", monitorIps));
 		}
 		SipFactory.getInstance().setPathName("gov.nist");
@@ -95,10 +95,11 @@ public class SipLayer implements CommandLineRunner {
 		}
 	}
 
-	private void addListeningPoint(String monitorIp, int port){
+	private void addListeningPoint(String monitorIp, int port) {
 		SipStackImpl sipStack;
 		try {
-			sipStack = (SipStackImpl)SipFactory.getInstance().createSipStack(DefaultProperties.getProperties("GB28181_SIP", userSetting.getSipLog()));
+			sipStack = (SipStackImpl) SipFactory.getInstance().createSipStack(DefaultProperties
+					.getProperties("GB28181_SIP", userSetting.getSipLog(), userSetting.isSipCacheServerConnections()));
 			sipStack.setMessageParserFactory(new GbStringMsgParserFactory());
 		} catch (PeerUnavailableException e) {
 			log.error("[SIP SERVER] SIP服务启动失败， 监听地址{}失败,请检查ip是否正确", monitorIp);
@@ -107,35 +108,33 @@ public class SipLayer implements CommandLineRunner {
 
 		try {
 			ListeningPoint tcpListeningPoint = sipStack.createListeningPoint(monitorIp, port, "TCP");
-			SipProviderImpl tcpSipProvider = (SipProviderImpl)sipStack.createSipProvider(tcpListeningPoint);
+			SipProviderImpl tcpSipProvider = (SipProviderImpl) sipStack.createSipProvider(tcpListeningPoint);
 
 			tcpSipProvider.setDialogErrorsAutomaticallyHandled();
 			tcpSipProvider.addSipListener(sipProcessorObserver);
 			tcpSipProviderMap.put(monitorIp, tcpSipProvider);
 			log.info("[SIP SERVER] tcp://{}:{} 启动成功", monitorIp, port);
 		} catch (TransportNotSupportedException
-				 | TooManyListenersException
-				 | ObjectInUseException
-				 | InvalidArgumentException e) {
-			log.error("[SIP SERVER] tcp://{}:{} SIP服务启动失败,请检查端口是否被占用或者ip是否正确"
-					, monitorIp, port);
+				| TooManyListenersException
+				| ObjectInUseException
+				| InvalidArgumentException e) {
+			log.error("[SIP SERVER] tcp://{}:{} SIP服务启动失败,请检查端口是否被占用或者ip是否正确", monitorIp, port);
 		}
 
 		try {
 			ListeningPoint udpListeningPoint = sipStack.createListeningPoint(monitorIp, port, "UDP");
 
-			SipProviderImpl udpSipProvider = (SipProviderImpl)sipStack.createSipProvider(udpListeningPoint);
+			SipProviderImpl udpSipProvider = (SipProviderImpl) sipStack.createSipProvider(udpListeningPoint);
 			udpSipProvider.addSipListener(sipProcessorObserver);
 			udpSipProvider.setDialogErrorsAutomaticallyHandled();
 			udpSipProviderMap.put(monitorIp, udpSipProvider);
 
 			log.info("[SIP SERVER] udp://{}:{} 启动成功", monitorIp, port);
 		} catch (TransportNotSupportedException
-				 | TooManyListenersException
-				 | ObjectInUseException
-				 | InvalidArgumentException e) {
-			log.error("[SIP SERVER] udp://{}:{} SIP服务启动失败,请检查端口是否被占用或者ip是否正确"
-					, monitorIp, port);
+				| TooManyListenersException
+				| ObjectInUseException
+				| InvalidArgumentException e) {
+			log.error("[SIP SERVER] udp://{}:{} SIP服务启动失败,请检查端口是否被占用或者ip是否正确", monitorIp, port);
 		}
 	}
 
