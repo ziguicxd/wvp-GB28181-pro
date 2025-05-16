@@ -11,6 +11,9 @@
       :load="loadNode"
       @node-click="handleNodeClick"
       @node-contextmenu="handleRightClick"
+      height="calc(100vh - 200px)"
+      @node-expand="handleNodeExpand"
+      @node-collapse="handleNodeCollapse"
     >
       <span class="custom-tree-node" slot-scope="{ node, data }">
         <!-- 设备图标 -->
@@ -41,6 +44,11 @@
             @mouseleave="handleNodeLeave()"
           >{{ node.label }}</span>
         </el-tooltip>
+        
+        <!-- 刷新按钮 -->
+        <span v-if="node.level === 1" class="refresh-button" @click.stop="refreshDeviceType(data, node)">
+          <i class="el-icon-refresh"></i>
+        </span>
       </span>
     </el-tree>
   </div>
@@ -54,6 +62,10 @@ export default {
   mounted() {
     // 添加全局样式，确保tooltip位置正确
     this.addGlobalStyle();
+    
+    // 监听窗口大小变化，调整设备类型子节点容器的最大高度
+    window.addEventListener('resize', this.adjustDeviceTypeContainerHeight);
+    this.adjustDeviceTypeContainerHeight();
   },
   destroyed() {
     // 清理观察器
@@ -62,11 +74,21 @@ export default {
       this.tooltipObserver = null;
     }
     
+    // 清理滚动观察器
+    Object.values(this.scrollObservers).forEach(observer => {
+      if (observer) {
+        observer.disconnect();
+      }
+    });
+    
     // 移除全局样式
     const styleElement = document.getElementById('device-tree-tooltip-style');
     if (styleElement) {
       document.head.removeChild(styleElement);
     }
+    
+    // 移除窗口大小变化事件监听
+    window.removeEventListener('resize', this.adjustDeviceTypeContainerHeight);
   },
   props: {
     edit: {
@@ -98,7 +120,14 @@ export default {
       hoverTimer: null, // 鼠标悬停计时器
       currentHoverNode: null, // 当前悬停的节点
       lastMouseEvent: null, // 记录最后的鼠标事件
-      tooltipObserver: null // 提示框观察器
+      tooltipObserver: null, // 提示框观察器
+      searchQuery: '', // 搜索关键字
+      devicePageMap: {}, // 设备分页信息 {deviceType: {page: 1, hasMore: true}}
+      channelPageMap: {}, // 通道分页信息 {deviceId: {page: 1, hasMore: true}}
+      pageSize: 15, // 每页加载数量
+      loadingMore: false, // 是否正在加载更多
+      expandedNodes: new Set(), // 已展开的节点
+      scrollObservers: {} // 滚动观察器 {nodeId: observer}
     }
   },
   watch: {
@@ -122,8 +151,23 @@ export default {
     
     // 加载设备类型分类
     loadDeviceCategories(resolve) {
+      // 初始化分页信息
+      this.devicePageMap = {
+        'gb': { page: 1, hasMore: true },
+        'push': { page: 1, hasMore: true },
+        'proxy': { page: 1, hasMore: true }
+      };
+      
       const categories = [
-        { id: 'gb', name: '国标设备', deviceType: 'gb', leaf: false },
+        { 
+          id: 'gb', 
+          name: '国标设备', 
+          deviceType: 'gb', 
+          leaf: false,
+          children: [
+            { id: 'gb_search', name: '搜索设备', isSearch: true, deviceType: 'gb', leaf: true }
+          ]
+        },
         { id: 'push', name: '推流列表', deviceType: 'push', leaf: false },
         { id: 'proxy', name: '拉流代理', deviceType: 'proxy', leaf: false }
       ];
@@ -132,12 +176,22 @@ export default {
     
     // 加载指定类型的设备
     loadDevicesByType(deviceType, resolve) {
-      // 使用与主菜单相同的API查询设备
+      // 获取当前页码
+      const pageInfo = this.devicePageMap[deviceType] || { page: 1, hasMore: true };
+      
+      // 如果没有更多数据，直接返回空数组
+      if (!pageInfo.hasMore && pageInfo.page > 1) {
+        resolve([]);
+        return;
+      }
+      
+      // 使用分页查询设备
       this.$store.dispatch('device/queryDevices', {
-        page: 1,
-        count: 9999,
-        query: '',
-        status: null
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        status: null,
+        deviceType: deviceType // 添加设备类型参数，便于后端过滤
       }).then(data => {
         if (data && data.list) {
           // 根据设备类型过滤设备
@@ -149,6 +203,13 @@ export default {
               return false;
             });
           
+          // 更新分页信息
+          this.devicePageMap[deviceType] = {
+            page: pageInfo.page + 1,
+            hasMore: filteredList.length >= this.pageSize
+          };
+          
+          // 转换为树节点格式
           const devices = filteredList.map(device => ({
             id: device.id,
             name: device.name || device.deviceId,
@@ -157,8 +218,11 @@ export default {
             online: device.onLine,
             leaf: !this.hasChannel
           }));
+          
           resolve(devices);
         } else {
+          // 没有数据，标记为没有更多
+          this.devicePageMap[deviceType].hasMore = false;
           resolve([]);
         }
       }).catch(error => {
@@ -169,11 +233,24 @@ export default {
     
     // 加载设备的通道
     loadChannels(deviceId, resolve) {
-      // 使用与主菜单相同的API查询通道
+      // 初始化或获取通道分页信息
+      if (!this.channelPageMap[deviceId]) {
+        this.channelPageMap[deviceId] = { page: 1, hasMore: true };
+      }
+      
+      const pageInfo = this.channelPageMap[deviceId];
+      
+      // 如果没有更多数据，直接返回空数组
+      if (!pageInfo.hasMore && pageInfo.page > 1) {
+        resolve([]);
+        return;
+      }
+      
+      // 使用分页查询通道
       const params = {
-        page: 1,
-        count: 9999,
-        query: '',
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
         online: null,
         channelType: null,
         catalogUnderDevice: true
@@ -182,21 +259,81 @@ export default {
       this.$store.dispatch('device/queryChannels', [deviceId, params])
         .then(data => {
           if (data && data.list) {
+            // 更新分页信息
+            this.channelPageMap[deviceId] = {
+              page: pageInfo.page + 1,
+              hasMore: data.list.length >= this.pageSize
+            };
+            
+            // 转换为树节点格式
             const channels = data.list.map(channel => ({
-              id: channel.id, // 使用channel.id作为id
+              id: channel.id,
               name: channel.name || channel.channelId || channel.deviceId,
               channelId: channel.channelId || channel.deviceId,
               deviceId: deviceId,
               online: channel.status === 'ON',
               leaf: true
             }));
+            
             resolve(channels);
           } else {
+            // 没有数据，标记为没有更多
+            this.channelPageMap[deviceId].hasMore = false;
             resolve([]);
           }
         }).catch(error => {
           console.error('加载通道失败:', error);
           resolve([]);
+        });
+    },
+    
+    // 加载更多通道
+    loadMoreChannels(deviceId) {
+      // 获取当前页码
+      const pageInfo = this.channelPageMap[deviceId] || { page: 1, hasMore: true };
+      
+      // 使用分页查询通道
+      const params = {
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        online: null,
+        channelType: null,
+        catalogUnderDevice: true
+      };
+      
+      this.$store.dispatch('device/queryChannels', [deviceId, params])
+        .then(data => {
+          if (data && data.list) {
+            // 更新分页信息
+            this.channelPageMap[deviceId] = {
+              page: pageInfo.page + 1,
+              hasMore: data.list.length >= this.pageSize
+            };
+            
+            // 转换为树节点格式
+            const channels = data.list.map(channel => ({
+              id: channel.id,
+              name: channel.name || channel.channelId || channel.deviceId,
+              channelId: channel.channelId || channel.deviceId,
+              deviceId: deviceId,
+              online: channel.status === 'ON',
+              leaf: true
+            }));
+            
+            // 添加到树中
+            const node = this.$refs.tree.getNode(deviceId);
+            if (node && channels.length > 0) {
+              channels.forEach(channel => {
+                node.insertChild({ data: channel });
+              });
+            }
+          } else {
+            // 没有数据，标记为没有更多
+            this.channelPageMap[deviceId].hasMore = false;
+          }
+        }).catch(error => {
+          console.error('加载通道失败:', error);
         });
     },
     
@@ -229,6 +366,12 @@ export default {
       // 点击时隐藏提示
       this.currentHoverNode = null;
       
+      // 处理搜索节点点击
+      if (data.isSearch) {
+        this.showSearchDialog(data.deviceType);
+        return;
+      }
+      
       // 如果是叶子节点（通道），触发回调
       if (data.leaf) {
         if (this.clickEvent) {
@@ -238,20 +381,105 @@ export default {
         return; // 叶子节点不需要展开/折叠操作
       }
       
+      // 如果是设备类型节点，折叠其他设备类型节点
+      if (node.level === 1) {
+        const deviceTypes = ['gb', 'push', 'proxy'];
+        deviceTypes.forEach(type => {
+          if (type !== data.id) {
+            const otherNode = this.$refs.tree.getNode(type);
+            if (otherNode && otherNode.expanded) {
+              otherNode.collapse();
+              this.expandedNodes.delete(type);
+            }
+          }
+        });
+      }
+      
       // 如果是非叶子节点，尝试展开/折叠
       if (node.expanded) {
         // 如果已经展开，则折叠
         node.collapse();
+        this.expandedNodes.delete(node.data.id);
       } else {
         // 如果未展开，则展开
         node.expand();
+        this.expandedNodes.add(node.data.id);
       }
+    },
+    
+    // 处理节点展开事件
+    handleNodeExpand(data, node) {
+      // 记录展开的节点
+      this.expandedNodes.add(data.id);
+      
+      // 如果是设备类型节点，折叠其他设备类型节点
+      if (node.level === 1) {
+        // 重置分页信息
+        this.devicePageMap[data.id] = { page: 1, hasMore: true };
+        
+        // 折叠其他设备类型节点
+        const deviceTypes = ['gb', 'push', 'proxy'];
+        deviceTypes.forEach(type => {
+          if (type !== data.id) {
+            const otherNode = this.$refs.tree.getNode(type);
+            if (otherNode && otherNode.expanded) {
+              otherNode.collapse();
+              this.expandedNodes.delete(type);
+            }
+          }
+        });
+        
+        // 设置滚动监听
+        this.$nextTick(() => {
+          this.setupScrollObserver(data.id);
+        });
+      }
+      
+      // 如果是设备节点，重置通道分页信息
+      if (node.level === 2 && data.deviceId) {
+        this.channelPageMap[data.deviceId] = { page: 1, hasMore: true };
+      }
+    },
+    
+    // 处理节点折叠事件
+    handleNodeCollapse(data, node) {
+      // 移除展开的节点记录
+      this.expandedNodes.delete(data.id);
+      
+      // 如果是设备类型节点，移除滚动监听
+      if (node.level === 1) {
+        this.removeScrollObserver(data.id);
+      }
+    },
+    
+    // 显示搜索对话框
+    showSearchDialog(deviceType) {
+      this.$prompt('请输入搜索关键字', '搜索设备', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPlaceholder: '设备名称或ID'
+      }).then(({ value }) => {
+        if (value) {
+          // 设置搜索关键字
+          this.searchQuery = value;
+          
+          // 重置分页信息
+          this.devicePageMap[deviceType] = { page: 1, hasMore: true };
+          
+          // 重新加载设备
+          const node = this.$refs.tree.getNode(deviceType);
+          if (node) {
+            node.loaded = false;
+            node.expand();
+          }
+        }
+      }).catch(() => {
+        // 取消搜索
+      });
     },
     
     // 右键菜单事件
     handleRightClick(event, data, node) {
-      if (!this.edit) return;
-      
       const menuItems = [];
       
       // 设备类型节点
@@ -259,7 +487,7 @@ export default {
         menuItems.push({
           label: '刷新',
           icon: 'el-icon-refresh',
-          onClick: () => this.refreshNode(node)
+          onClick: () => this.refreshDeviceType(data, node)
         });
       }
       
@@ -272,6 +500,12 @@ export default {
         });
         
         if (data.online) {
+          menuItems.push({
+            label: '刷新通道',
+            icon: 'el-icon-refresh',
+            onClick: () => this.refreshChannels(data, node)
+          });
+          
           menuItems.push({
             label: '查看详情',
             icon: 'el-icon-view',
@@ -442,6 +676,184 @@ export default {
       this.$refs.tree.store.root.expand();
     },
     
+    // 调整设备类型子节点容器的最大高度
+    adjustDeviceTypeContainerHeight() {
+      // 计算合适的高度
+      const windowHeight = window.innerHeight;
+      const maxHeight = Math.max(200, (windowHeight - 250) / 3); // 至少200px，最多屏幕高度的三分之一
+      
+      // 设置CSS变量
+      document.documentElement.style.setProperty('--device-type-container-height', `${maxHeight}px`);
+    },
+    
+    // 设置滚动监听
+    setupScrollObserver(nodeId) {
+      // 移除旧的观察器
+      this.removeScrollObserver(nodeId);
+      
+      // 获取设备类型子节点容器
+      const nodeEl = this.$refs.tree.getNode(nodeId).$el;
+      if (!nodeEl) return;
+      
+      const childrenContainer = nodeEl.querySelector('.el-tree-node__children');
+      if (!childrenContainer) return;
+      
+      // 创建新的观察器
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach(entry => {
+            // 如果最后一个元素进入视口，加载更多
+            if (entry.isIntersecting && entry.target.classList.contains('last-visible-node')) {
+              // 检查是否有更多数据
+              if (this.devicePageMap[nodeId] && this.devicePageMap[nodeId].hasMore && !this.loadingMore) {
+                this.loadMoreDevices(nodeId);
+              }
+            }
+          });
+        },
+        {
+          root: childrenContainer,
+          threshold: 0.5
+        }
+      );
+      
+      // 观察最后一个可见节点
+      this.$nextTick(() => {
+        const lastNode = childrenContainer.querySelector('.el-tree-node:last-child');
+        if (lastNode) {
+          lastNode.classList.add('last-visible-node');
+          observer.observe(lastNode);
+        }
+      });
+      
+      // 保存观察器
+      this.scrollObservers[nodeId] = observer;
+      
+      // 添加滚动事件监听
+      childrenContainer.addEventListener('scroll', this.handleDeviceTypeContainerScroll.bind(this, nodeId, childrenContainer));
+    },
+    
+    // 移除滚动监听
+    removeScrollObserver(nodeId) {
+      if (this.scrollObservers[nodeId]) {
+        this.scrollObservers[nodeId].disconnect();
+        delete this.scrollObservers[nodeId];
+      }
+    },
+    
+    // 处理设备类型容器滚动事件
+    handleDeviceTypeContainerScroll(nodeId, container) {
+      // 检查是否滚动到底部
+      if (container.scrollHeight - container.scrollTop - container.clientHeight < 20) {
+        // 检查是否有更多数据
+        if (this.devicePageMap[nodeId] && this.devicePageMap[nodeId].hasMore && !this.loadingMore) {
+          this.loadMoreDevices(nodeId);
+        }
+      }
+    },
+    
+    // 刷新设备类型
+    refreshDeviceType(data, node) {
+      // 重置分页信息
+      this.devicePageMap[data.id] = { page: 1, hasMore: true };
+      
+      // 重新加载设备
+      node.loaded = false;
+      if (node.expanded) {
+        node.collapse();
+        setTimeout(() => {
+          node.expand();
+        }, 100);
+      } else {
+        node.expand();
+      }
+    },
+    
+    // 刷新通道
+    refreshChannels(data, node) {
+      // 重置通道分页信息
+      if (data.deviceId) {
+        this.channelPageMap[data.deviceId] = { page: 1, hasMore: true };
+      }
+      
+      // 重新加载通道
+      node.loaded = false;
+      if (node.expanded) {
+        node.collapse();
+        setTimeout(() => {
+          node.expand();
+        }, 100);
+      } else {
+        node.expand();
+      }
+    },
+    
+    // 加载更多设备
+    loadMoreDevices(deviceType) {
+      // 标记正在加载
+      this.loadingMore = true;
+      
+      // 获取当前页码
+      const pageInfo = this.devicePageMap[deviceType] || { page: 1, hasMore: true };
+      
+      // 使用分页查询设备
+      this.$store.dispatch('device/queryDevices', {
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        status: null,
+        deviceType: deviceType
+      }).then(data => {
+        if (data && data.list) {
+          // 根据设备类型过滤设备
+          const filteredList = deviceType === 'gb' ? 
+            data.list.filter(device => !device.pushingStreamDevice && !device.proxyDevice) : 
+            data.list.filter(device => {
+              if (deviceType === 'push') return device.pushingStreamDevice;
+              if (deviceType === 'proxy') return device.proxyDevice;
+              return false;
+            });
+          
+          // 更新分页信息
+          this.devicePageMap[deviceType] = {
+            page: pageInfo.page + 1,
+            hasMore: filteredList.length >= this.pageSize
+          };
+          
+          // 转换为树节点格式
+          const devices = filteredList.map(device => ({
+            id: device.id,
+            name: device.name || device.deviceId,
+            deviceId: device.deviceId,
+            deviceType: deviceType,
+            online: device.onLine,
+            leaf: !this.hasChannel
+          }));
+          
+          // 添加到树中
+          const node = this.$refs.tree.getNode(deviceType);
+          if (node && devices.length > 0) {
+            devices.forEach(device => {
+              node.insertChild({ data: device });
+            });
+            
+            // 更新滚动监听
+            this.$nextTick(() => {
+              this.setupScrollObserver(deviceType);
+            });
+          }
+        } else {
+          // 没有数据，标记为没有更多
+          this.devicePageMap[deviceType].hasMore = false;
+        }
+      }).catch(error => {
+        console.error('加载设备失败:', error);
+      }).finally(() => {
+        // 取消加载标记
+        this.loadingMore = false;
+      });
+    },
+    
     // 获取已加载的通道
     getLoadedChannels() {
       const channels = [];
@@ -483,8 +895,16 @@ export default {
 </script>
 
 <style scoped>
+:root {
+  --device-type-container-height: 200px;
+}
+
 .device-list-tree {
   width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .device-icon, .channel-icon {
   margin-right: 5px;
@@ -537,5 +957,59 @@ export default {
   word-break: break-all;
   margin-top: 0 !important;
   margin-left: 0 !important;
+}
+
+/* 设置树的最大高度和滚动 */
+.el-tree {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  height: calc(100vh - 180px);
+}
+
+/* 设置设备类型子节点容器的最大高度 */
+.el-tree-node[data-level="1"] > .el-tree-node__children {
+  max-height: var(--device-type-container-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-bottom: 1px solid #ebeef5;
+}
+
+/* 搜索节点样式 */
+.el-tree-node[data-id$="_search"] > .el-tree-node__content {
+  color: #409EFF;
+  font-weight: bold;
+}
+
+/* 刷新按钮样式 */
+.refresh-button {
+  margin-left: auto;
+  color: #909399;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+.refresh-button:hover {
+  opacity: 1;
+  color: #409EFF;
+}
+
+/* 最后一个可见节点样式 */
+.last-visible-node {
+  position: relative;
+}
+
+/* 设备类型子节点容器滚动条样式 */
+.el-tree-node[data-level="1"] > .el-tree-node__children::-webkit-scrollbar {
+  width: 6px;
+}
+
+.el-tree-node[data-level="1"] > .el-tree-node__children::-webkit-scrollbar-thumb {
+  background-color: #c0c4cc;
+  border-radius: 3px;
+}
+
+.el-tree-node[data-level="1"] > .el-tree-node__children::-webkit-scrollbar-track {
+  background-color: #f5f7fa;
 }
 </style>

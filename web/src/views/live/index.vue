@@ -208,7 +208,6 @@ export default {
     },
     // 通知设备上传媒体流
     sendDevicePush: function(channelId) {
-      console.log('发送播放请求，通道ID:', channelId);
       this.save(channelId)
       const idxTmp = this.playerIdx
       this.setPlayUrl('', idxTmp)
