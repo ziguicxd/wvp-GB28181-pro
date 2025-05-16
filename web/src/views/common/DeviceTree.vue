@@ -28,7 +28,7 @@
         <GroupTree ref="groupTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
       </div>
       <div v-if="viewMode === 'device'" class="device-tree">
-        <DeviceListTree ref="deviceListTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+        <DeviceListTree ref="deviceListTree" :edit="false" :show-header="false" :has-channel="true" :click-event="clickEvent" />
       </div>
     </div>
   </div>
@@ -80,16 +80,32 @@ export default {
     },
     treeNodeClickEvent: function(data) {
       if (data.leaf) {
-        console.log(23111)
-        console.log(data)
-        if (this.clickEvent) {
-          this.clickEvent(data.id)
-        }
+        this.clickEvent(channelId);
       }
     },
     toggleCollapse() {
       this.isCollapsed = !this.isCollapsed;
       this.$emit('collapse-change', this.isCollapsed);
+    },
+    // 获取已加载的通道
+    getLoadedChannels() {
+      // 根据当前视图模式，调用对应组件的方法
+      if (this.viewMode === 'device' && this.$refs.deviceListTree) {
+        return this.$refs.deviceListTree.getLoadedChannels();
+      } else if (this.viewMode === 'region' && this.$refs.regionTree) {
+        // 如果RegionTree也有类似方法，可以调用
+        return this.$refs.regionTree.getLoadedChannels ? 
+          this.$refs.regionTree.getLoadedChannels() : [];
+      } else if (this.viewMode === 'group' && this.$refs.groupTree) {
+        // 如果GroupTree也有类似方法，可以调用
+        return this.$refs.groupTree.getLoadedChannels ? 
+          this.$refs.groupTree.getLoadedChannels() : [];
+      }
+      return [];
+    },
+    // 兼容旧代码，调用getLoadedChannels
+    getAllChannels() {
+      return this.getLoadedChannels();
     }
   }
 }

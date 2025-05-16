@@ -194,7 +194,7 @@ export default {
       this.clear(idx.substring(idx.length - 1))
     },
     clickEvent: function(channelId) {
-      this.sendDevicePush(channelId)
+      this.sendDevicePush(channelId);
     },
     getPlayerClass: function(splitIndex, i) {
       let classStr = 'play-box-' + splitIndex + '-' + i
@@ -208,6 +208,7 @@ export default {
     },
     // 通知设备上传媒体流
     sendDevicePush: function(channelId) {
+      console.log('发送播放请求，通道ID:', channelId);
       this.save(channelId)
       const idxTmp = this.playerIdx
       this.setPlayUrl('', idxTmp)
@@ -299,7 +300,7 @@ export default {
     // 获取当前通道列表
     getCurrentChannels() {
       if (this.$refs.deviceTree) {
-        return this.$refs.deviceTree.getAllChannels();
+        return this.$refs.deviceTree.getLoadedChannels();
       }
       return [];
     },

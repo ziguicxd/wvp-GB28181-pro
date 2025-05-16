@@ -28,7 +28,7 @@
         
         <!-- 名称 -->
         <el-tooltip 
-          :content="data.leaf ? data.id : (data.deviceId || '')" 
+          :content="data.leaf ? data.channelId : (data.deviceId || '')" 
           placement="right" 
           :disabled="node.level === 1 || (!data.deviceId && !data.id) || (currentHoverNode !== node.data.id)"
           :open-delay="1000"
@@ -182,11 +182,10 @@ export default {
       this.$store.dispatch('device/queryChannels', [deviceId, params])
         .then(data => {
           if (data && data.list) {
-
             const channels = data.list.map(channel => ({
-              id: channel.id,
-              name: channel.name || channel.deviceId,
-              channelId: channel.deviceId,
+              id: channel.id, // 使用channel.id作为id
+              name: channel.name || channel.channelId || channel.deviceId,
+              channelId: channel.channelId || channel.deviceId,
               deviceId: deviceId,
               online: channel.status === 'ON',
               leaf: true
@@ -211,7 +210,7 @@ export default {
       }
       
       // 移除之前点击节点的样式
-      if (this.lastClickedNode) {
+      if (this.lastClickedNode && this.$refs.tree.getNode(this.lastClickedNode.data.id)) {
         const el = this.$refs.tree.getNode(this.lastClickedNode.data.id).$el;
         if (el) {
           el.classList.remove('is-clicked');
@@ -230,23 +229,22 @@ export default {
       // 点击时隐藏提示
       this.currentHoverNode = null;
       
-      // 如果是叶子节点（通道）或者是设备节点，触发回调
+      // 如果是叶子节点（通道），触发回调
       if (data.leaf) {
         if (this.clickEvent) {
-          this.clickEvent(data);
+          // 明确传递通道ID (id)
+          this.clickEvent(data.id);
         }
         return; // 叶子节点不需要展开/折叠操作
       }
       
       // 如果是非叶子节点，尝试展开/折叠
-      if (!data.leaf) {
-        if (node.expanded) {
-          // 如果已经展开，则折叠
-          node.collapse();
-        } else {
-          // 如果未展开，则展开
-          node.expand();
-        }
+      if (node.expanded) {
+        // 如果已经展开，则折叠
+        node.collapse();
+      } else {
+        // 如果未展开，则展开
+        node.expand();
       }
     },
     
@@ -336,28 +334,28 @@ export default {
     // 播放通道
     playChannel(data) {
       if (this.clickEvent) {
-        this.clickEvent(data);
+        // 明确传递 data.id
+        this.clickEvent(data.id);
       }
     },
     
     // 处理节点悬停
     handleNodeHover(data, node, event) {
-      // 清除之前的计时器
-      if (this.hoverTimer) {
-        clearTimeout(this.hoverTimer);
-      }
-      
-      // 记录当前鼠标位置
+      // 清除之前的计时器并记录鼠标位置
+      clearTimeout(this.hoverTimer);
       this.lastMouseEvent = event || window.event;
       
       // 设置新的计时器，延迟显示提示
       this.hoverTimer = setTimeout(() => {
         // 如果在延迟时间内没有点击，则设置当前悬停节点
-        if (!this.lastClickedNode || this.lastClickedNode.data.id !== node.data.id || 
-            (new Date().getTime() - this.lastClickTime) > 1000) {
+        const notRecentlyClicked = !this.lastClickedNode || 
+                                  this.lastClickedNode.data.id !== node.data.id || 
+                                  (new Date().getTime() - this.lastClickTime) > 1000;
+        
+        if (notRecentlyClicked) {
           this.currentHoverNode = node.data.id;
         }
-      }, 500); // 500毫秒延迟，可以根据需要调整
+      }, 500);
     },
     
     // 处理节点离开
@@ -384,6 +382,8 @@ export default {
       style.innerHTML = `
         .el-tooltip__popper.device-id-tooltip {
           transform: translate3d(0, 0, 0) !important;
+          font-size: 11px !important;
+          padding: 3px 6px !important;
         }
         .el-tooltip__popper.device-id-tooltip .popper__arrow {
           display: none !important;
@@ -400,32 +400,37 @@ export default {
     // 设置tooltip观察器
     setupTooltipObserver() {
       // 创建MutationObserver实例
-      this.tooltipObserver = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.addedNodes.length) {
-            // 检查是否有tooltip被添加到DOM
-            mutation.addedNodes.forEach((node) => {
-              if (node.classList && node.classList.contains('el-tooltip__popper') && 
-                  node.classList.contains('device-id-tooltip') && this.lastMouseEvent) {
-                // 获取鼠标位置
-                const mouseX = this.lastMouseEvent.clientX;
-                const mouseY = this.lastMouseEvent.clientY;
-                
-                // 设置tooltip位置
-                node.style.position = 'fixed';
-                node.style.top = (mouseY + 5) + 'px';
-                node.style.left = (mouseX + 10) + 'px';
-              }
-            });
+      this.tooltipObserver = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+          if (!mutation.addedNodes.length) continue;
+          
+          for (const node of mutation.addedNodes) {
+            // 检查是否是我们的tooltip
+            if (node.classList && 
+                node.classList.contains('el-tooltip__popper') && 
+                node.classList.contains('device-id-tooltip') && 
+                this.lastMouseEvent) {
+              
+              // 获取鼠标位置和图标大小
+              const mouseX = this.lastMouseEvent.clientX;
+              const mouseY = this.lastMouseEvent.clientY;
+              const iconWidth = 16; // 估计的图标宽度
+              const iconHeight = 16; // 估计的图标高度
+              
+              // 设置tooltip位置在鼠标图标的右下角
+              node.style.position = 'fixed';
+              node.style.top = `${mouseY + iconHeight}px`;
+              node.style.left = `${mouseX + iconWidth}px`;
+              // 隐藏箭头
+              const arrow = node.querySelector('.popper__arrow');
+              if (arrow) arrow.style.display = 'none';
+            }
           }
-        });
+        }
       });
       
       // 开始观察document.body的变化
-      this.tooltipObserver.observe(document.body, { 
-        childList: true, 
-        subtree: false 
-      });
+      this.tooltipObserver.observe(document.body, { childList: true, subtree: false });
     },
     
     // 刷新整个树
@@ -437,63 +442,41 @@ export default {
       this.$refs.tree.store.root.expand();
     },
     
-    // 获取所有通道
-    getAllChannels() {
-      return new Promise((resolve) => {
-        // 使用与主菜单相同的API查询所有通道
-        const params = {
-          page: 1,
-          count: 9999,
-          query: '',
-          online: null
-        };
-        
-        this.$store.dispatch('device/queryDevices', params)
-          .then(data => {
-            if (data && data.list && data.list.length > 0) {
-              // 获取所有设备ID
-              const deviceIds = data.list.map(device => device.deviceId);
-              const allChannels = [];
-              
-              // 创建一个Promise数组，每个Promise获取一个设备的通道
-              const promises = deviceIds.map(deviceId => {
-                return this.$store.dispatch('device/queryChannels', [deviceId, {
-                  page: 1,
-                  count: 9999,
-                  query: '',
-                  online: null,
-                  channelType: null,
-                  catalogUnderDevice: true
-                }]).then(channelData => {
-                  if (channelData && channelData.list) {
-                    const deviceChannels = channelData.list.map(channel => ({
-                      id: channel.channelId,
-                      name: channel.name || channel.channelId,
-                      deviceId: deviceId,
-                      online: channel.status === 'ON'
-                    }));
-                    allChannels.push(...deviceChannels);
+    // 获取已加载的通道
+    getLoadedChannels() {
+      const channels = [];
+      if (!this.$refs.tree || !this.$refs.tree.store) {
+        return channels;
+      }
+      
+      // 遍历树节点，收集已加载的通道
+      const root = this.$refs.tree.store.root;
+      if (root && root.childNodes) {
+        // 遍历设备类型节点
+        root.childNodes.forEach(typeNode => {
+          if (typeNode && typeNode.childNodes) {
+            // 遍历设备节点
+            typeNode.childNodes.forEach(deviceNode => {
+              if (deviceNode && deviceNode.childNodes) {
+                // 遍历通道节点
+                deviceNode.childNodes.forEach(channelNode => {
+                  if (channelNode && channelNode.data && channelNode.data.leaf) {
+                    channels.push({
+                      id: channelNode.data.id,
+                      name: channelNode.data.name,
+                      channelId: channelNode.data.channelId || channelNode.data.id,
+                      deviceId: channelNode.data.deviceId,
+                      online: channelNode.data.online
+                    });
                   }
-                }).catch(error => {
-                  console.error(`获取设备 ${deviceId} 的通道失败:`, error);
                 });
-              });
-              
-              // 等待所有Promise完成
-              Promise.all(promises).then(() => {
-                resolve(allChannels);
-              }).catch(() => {
-                resolve(allChannels); // 即使有错误也返回已获取的通道
-              });
-            } else {
-              resolve([]);
-            }
-          })
-          .catch(error => {
-            console.error('获取设备列表失败:', error);
-            resolve([]);
-          });
-      });
+              }
+            });
+          }
+        });
+      }
+      
+      return channels;
     }
   }
 }
@@ -524,10 +507,10 @@ export default {
   font-size: 14px;
 }
 .device-online {
-  color: #409EFF;
+  color: #252525;
 }
 .device-offline {
-  color: #909399;
+  color: #727272;
 }
 
 /* 添加点击效果样式 */
@@ -548,9 +531,9 @@ export default {
 
 /* 自定义提示样式 */
 .el-tooltip__popper.device-id-tooltip {
-  max-width: 200px;
-  font-size: 12px;
-  padding: 5px 8px;
+  max-width: 130px;
+  font-size: 6px;
+  padding: 3px 6px;
   word-break: break-all;
   margin-top: 0 !important;
   margin-left: 0 !important;
