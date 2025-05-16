@@ -289,9 +289,19 @@ export default {
         // 如果轮播已经激活，则停止轮播
         this.$refs.carouselPlayer.stopCarousel();
       } else {
-        // 否则打开轮播对话框
-        this.$refs.carouselPlayer.openCarouselDialog();
+        // 获取当前通道列表
+        const channels = this.getCurrentChannels();
+        // 否则打开轮播对话框，并传递通道列表
+        this.$refs.carouselPlayer.openCarouselDialog(channels);
       }
+    },
+    
+    // 获取当前通道列表
+    getCurrentChannels() {
+      if (this.$refs.deviceTree) {
+        return this.$refs.deviceTree.getAllChannels();
+      }
+      return [];
     },
     
     // 处理轮播状态变化

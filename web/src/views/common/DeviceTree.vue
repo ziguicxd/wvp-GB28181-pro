@@ -4,9 +4,9 @@
       <div>通道列表</div>
       <div style="width: 120px">
         <el-select v-model="viewMode" size="small" placeholder="请选择">
+          <el-option label="设备树" value="device"></el-option>          
           <el-option label="行政区划" value="region"></el-option>
           <el-option label="业务分组" value="group"></el-option>
-          <el-option label="设备树" value="device"></el-option>
         </el-select>
       </div>
       <div style="text-align: right">
@@ -21,9 +21,15 @@
       </el-button>
     </div>
     <div v-if="!isCollapsed" class="tree-container">
-      <RegionTree v-if="viewMode === 'region'" ref="regionTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
-      <GroupTree v-if="viewMode === 'group'" ref="groupTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
-      <DeviceListTree v-if="viewMode === 'device'" ref="deviceListTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+      <div v-if="viewMode === 'region'" class="region-tree">
+        <RegionTree ref="regionTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+      </div>
+      <div v-if="viewMode === 'group'" class="group-tree">
+        <GroupTree ref="groupTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+      </div>
+      <div v-if="viewMode === 'device'" class="device-tree">
+        <DeviceListTree ref="deviceListTree" :edit="false" :show-header="false" :has-channel="true" :click-event="treeNodeClickEvent" />
+      </div>
     </div>
   </div>
 </template>
@@ -122,28 +128,35 @@ export default {
   margin-top: 10px;
   padding-left: 1px;
 }
-/* 调整树组件的样式，使第一级节点靠左对齐 */
-.tree-container .el-tree > .el-tree-node {
+/* 调整树组件的样式，使第一级节点靠左对齐，但排除设备树 */
+.tree-container .region-tree .el-tree > .el-tree-node,
+.tree-container .group-tree .el-tree > .el-tree-node {
   padding-left: 0 !important;
 }
-.tree-container .el-tree-node__content {
+.tree-container .region-tree .el-tree-node__content,
+.tree-container .group-tree .el-tree-node__content {
   padding-left: 0 !important;
 }
-.tree-container .el-tree-node__children .el-tree-node__content {
+.tree-container .region-tree .el-tree-node__children .el-tree-node__content,
+.tree-container .group-tree .el-tree-node__children .el-tree-node__content {
   padding-left: 18px !important;
 }
-/* 确保搜索结果也左对齐 */
-.tree-container .el-tree .el-tree-node.is-current > .el-tree-node__content {
+/* 确保搜索结果也左对齐，但排除设备树 */
+.tree-container .region-tree .el-tree .el-tree-node.is-current > .el-tree-node__content,
+.tree-container .group-tree .el-tree .el-tree-node.is-current > .el-tree-node__content {
   padding-left: 0 !important;
 }
-.tree-container .el-tree-node.is-current > .el-tree-node__content {
+.tree-container .region-tree .el-tree-node.is-current > .el-tree-node__content,
+.tree-container .group-tree .el-tree-node.is-current > .el-tree-node__content {
   padding-left: 0 !important;
 }
-/* 修复搜索过滤时的对齐问题 */
-.tree-container .el-tree .el-tree-node:not(.is-expanded) > .el-tree-node__children {
+/* 修复搜索过滤时的对齐问题，但排除设备树 */
+.tree-container .region-tree .el-tree .el-tree-node:not(.is-expanded) > .el-tree-node__children,
+.tree-container .group-tree .el-tree .el-tree-node:not(.is-expanded) > .el-tree-node__children {
   padding-left: 0 !important;
 }
-.tree-container .el-tree .el-tree__empty-block {
+.tree-container .region-tree .el-tree .el-tree__empty-block,
+.tree-container .group-tree .el-tree .el-tree__empty-block {
   padding-left: 0 !important;
 }
 </style>
