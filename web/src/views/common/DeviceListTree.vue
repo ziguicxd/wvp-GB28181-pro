@@ -13,6 +13,7 @@
         <el-button slot="append" icon="el-icon-search" @click="handleGlobalSearch"></el-button>
       </el-input>
     </div>
+    
     <el-tree
       ref="tree"
       :data="deviceTreeData"
@@ -74,6 +75,8 @@
 </template>
 
 <script>
+import { loadDevicesByType, loadChannels } from '@/store/modules/devicelistTree';
+
 export default {
   name: 'DeviceListTree',
   props: {
@@ -122,38 +125,11 @@ export default {
     }
   },
   
-  computed: {
-    isGbExpanded() {
-      const isExpanded = this.expandedNodes.has('gb');
-      return isExpanded;
-    }
-  },
-  
   mounted() {
     this.addGlobalStyle();
     window.addEventListener('resize', this.adjustDeviceTypeContainerHeight);
     this.adjustDeviceTypeContainerHeight();
-    
-    // 初始化devicePageMap
-    this.devicePageMap = {
-      gb: { page: 1, hasMore: true },
-      push: { page: 1, hasMore: true },
-      proxy: { page: 1, hasMore: true }
-    };
-    
-    // 组件挂载后强制刷新一次，确保标题正确显示
-    this.$nextTick(() => {
-      this.forceRefresh();
-      
-      // 初始化时自动展开国标设备
-      setTimeout(() => {
-        const gbNode = this.$refs.tree?.getNode('gb');
-        if (gbNode) {
-          gbNode.expand();
-          this.currentDeviceType = 'gb';
-        }
-      }, 500);
-    });
+    this.forceRefresh();
   },
   
   destroyed() {
@@ -161,6 +137,18 @@ export default {
   },
   
   methods: {
+    loadNode(node, resolve) {
+      if (node.level === 0) {
+        this.loadDeviceCategories(resolve);
+      } else if (node.level === 1) {
+        loadDevicesByType(this, node.data.id, resolve);
+      } else if (node.level === 2 && this.hasChannel) {
+        loadChannels(this, node.data.deviceId, resolve);
+      } else {
+        resolve([]);
+      }
+    },
+    
     // 工具方法
     getDeviceIcon(deviceType) {
       const iconMap = {
@@ -191,19 +179,6 @@ export default {
       }
       
       window.removeEventListener('resize', this.adjustDeviceTypeContainerHeight);
-    },
-    
-    // 节点加载方法
-    loadNode(node, resolve) {
-      if (node.level === 0) {
-        this.loadDeviceCategories(resolve);
-      } else if (node.level === 1) {
-        this.loadDevicesByType(node.data.id, resolve);
-      } else if (node.level === 2 && this.hasChannel) {
-        this.loadChannels(node.data.deviceId, resolve);
-      } else {
-        resolve([]);
-      }
     },
     
     // 强制刷新树结构
@@ -240,73 +215,6 @@ export default {
       ];
       
       resolve(categories);
-    },
-    
-    loadDevicesByType(deviceType, resolve) {
-      const pageInfo = this.devicePageMap[deviceType] || { page: 1, hasMore: true };
-      
-      if (!pageInfo.hasMore && pageInfo.page > 1) {
-        resolve([]);
-        return;
-      }
-      
-      // 只添加加载更多按钮，不再添加搜索项
-      const loadMoreItem = {
-        id: `${deviceType}_loadmore`,
-        name: '加载更多',
-        deviceType,
-        isLoadMore: true,
-        leaf: true,
-        hidden: !pageInfo.hasMore
-      };
-      
-      // 根据状态过滤设置查询参数
-      const statusFilter = this.deviceStatusFilter[deviceType];
-      
-      // 设置查询参数
-      const queryParams = {
-        page: pageInfo.page,
-        count: this.pageSize,
-        query: this.searchQuery,
-        status: statusFilter, // 使用status参数传递在线状态
-        deviceType
-      };
-      
-      this.$store.dispatch('device/queryDevices', queryParams).then(data => {
-        if (data?.list) {
-          const filteredList = this.filterDevicesByType(data.list, deviceType);
-          
-          this.devicePageMap[deviceType] = {
-            page: pageInfo.page + 1,
-            hasMore: filteredList.length >= this.pageSize
-          };
-          
-          const devices = filteredList.map(device => ({
-            id: device.id,
-            name: device.name || device.deviceId,
-            deviceId: device.deviceId,
-            deviceType,
-            online: device.onLine,
-            leaf: !this.hasChannel
-          }));
-          
-          // 只添加设备和加载更多选项
-          const result = [...devices];
-          
-          // 如果有更多数据，添加加载更多选项
-          if (this.devicePageMap[deviceType].hasMore) {
-            result.push(loadMoreItem);
-          }
-          
-          resolve(result);
-        } else {
-          this.devicePageMap[deviceType].hasMore = false;
-          resolve([]);
-        }
-      }).catch(error => {
-        console.error('加载设备失败:', error);
-        resolve([]);
-      });
     },
     
     // 获取状态过滤图标
@@ -351,54 +259,6 @@ export default {
         return devices.filter(device => device.proxyDevice);
       }
       return [];
-    },
-    loadChannels(deviceId, resolve) {
-      if (!this.channelPageMap[deviceId]) {
-        this.channelPageMap[deviceId] = { page: 1, hasMore: true };
-      }
-      
-      const pageInfo = this.channelPageMap[deviceId];
-      
-      if (!pageInfo.hasMore && pageInfo.page > 1) {
-        resolve([]);
-        return;
-      }
-      
-      const params = {
-        page: pageInfo.page,
-        count: this.pageSize,
-        query: this.searchQuery,
-        online: null,
-        channelType: null,
-        catalogUnderDevice: true
-      };
-      
-      this.$store.dispatch('device/queryChannels', [deviceId, params])
-        .then(data => {
-          if (data?.list) {
-            this.channelPageMap[deviceId] = {
-              page: pageInfo.page + 1,
-              hasMore: data.list.length >= this.pageSize
-            };
-            
-            const channels = data.list.map(channel => ({
-              id: channel.id,
-              name: channel.name || channel.channelId || channel.deviceId,
-              channelId: channel.channelId || channel.deviceId,
-              deviceId,
-              online: channel.status === 'ON',
-              leaf: true
-            }));
-            
-            resolve(channels);
-          } else {
-            this.channelPageMap[deviceId].hasMore = false;
-            resolve([]);
-          }
-        }).catch(error => {
-          console.error('加载通道失败:', error);
-          resolve([]);
-        });
     },
     
     // 节点交互方法
@@ -921,7 +781,6 @@ export default {
   padding: 10px;
   background-color: #f5f7fa;
   border-bottom: 1px solid #ebeef5;
-  margin-bottom: 10px;
 }
 
 .device-icon, .channel-icon {
