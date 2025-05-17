@@ -25,10 +25,10 @@
         
         <!-- 名称和提示 -->
         <el-tooltip 
-          :content="data.leaf ? data.channelId : (data.deviceId || '')" 
+          :content="getTooltipContent(data)" 
           placement="right" 
           :disabled="isTooltipDisabled(node, data)"
-          :open-delay="1000"
+          :open-delay="500"
           :enterable="false"
           popper-class="device-id-tooltip"
         >
@@ -144,7 +144,7 @@ export default {
     },
     
     isTooltipDisabled(node, data) {
-      return node.level === 1 || data.isSearch || data.isLoadMore || (!data.deviceId && !data.id) || (this.currentHoverNode !== node.data.id);
+      return node.level === 1 || data.isLoadMore || (!data.deviceId && !data.id) || (this.currentHoverNode !== node.data.id);
     },
     
     cleanupResources() {
@@ -467,8 +467,9 @@ export default {
         this.$contextmenu({
           items: menuItems,
           event,
-          customClass: 'custom-context-menu',
-          zIndex: 3000
+          customClass: 'custom-context-menu custom-small-menu',
+          zIndex: 3000,
+          minWidth: 0
         });
       }
     },
@@ -483,7 +484,7 @@ export default {
       
       if (node.level === 1) {
         menuItems.push({
-          label: '刷新',
+          label: '刷新设备',
           icon: 'el-icon-refresh',
           onClick: () => this.refreshDeviceType(data, node)
         });
@@ -491,24 +492,10 @@ export default {
       
       if (node.level === 2 && !data.isSearch && !data.isLoadMore) {
         menuItems.push({
-          label: '刷新',
+          label: '刷新通道',
           icon: 'el-icon-refresh',
-          onClick: () => this.refreshNode(node)
+          onClick: () => this.refreshChannels(data, node)
         });
-        
-        if (data.online) {
-          menuItems.push({
-            label: '刷新通道',
-            icon: 'el-icon-refresh',
-            onClick: () => this.refreshChannels(data, node)
-          });
-          
-          menuItems.push({
-            label: '查看详情',
-            icon: 'el-icon-view',
-            onClick: () => this.viewDeviceDetails(data.deviceId)
-          });
-        }
       }
       
       if (node.level === 3 && data.leaf && data.online) {
@@ -588,6 +575,16 @@ export default {
       return typeNames[deviceType] || '设备';
     },
     
+    getTooltipContent(data) {
+      if (data.isSearch) {
+        return '右键点击可清除搜索条件';
+      } else if (data.leaf) {
+        return data.channelId || '';
+      } else {
+        return data.deviceId || '';
+      }
+    },
+    
     clearSearch() {
       if (!this.searchQuery) return; // 如果没有搜索关键字，不执行任何操作
       
@@ -655,11 +652,25 @@ export default {
       style.innerHTML = `
         .el-tooltip__popper.device-id-tooltip {
           transform: translate3d(0, 0, 0) !important;
-          font-size: 11px !important;
-          padding: 3px 6px !important;
+          font-size: 12px !important;
+          padding: 5px 10px !important;
+          max-width: fit-content !important;
         }
         .el-tooltip__popper.device-id-tooltip .popper__arrow {
           display: none !important;
+        }
+        .custom-small-menu {
+          min-width: 0 !important;
+          width: auto !important;
+          padding: 0 !important;
+        }
+        .custom-small-menu .el-menu-item {
+          height: 24px !important;
+          line-height: 24px !important;
+          padding: 0 8px !important;
+          font-size: 12px !important;
+          min-width: 0 !important;
+          width: fit-content !important;
         }
       `;
       
@@ -1013,10 +1024,11 @@ export default {
 }
 
 .el-tooltip__popper.device-id-tooltip {
-  max-width: 130px;
-  font-size: 6px;
-  padding: 3px 6px;
-  word-break: break-all;
+  max-width: fit-content;
+  font-size: 12px;
+  padding: 5px 10px;
+  word-break: keep-all;
+  white-space: nowrap;
   margin-top: 0 !important;
   margin-left: 0 !important;
 }
@@ -1116,4 +1128,21 @@ export default {
   text-align: center;
   background-color: #f5f7fa;
 }
+
+/* 右键菜单样式 */
+.custom-small-menu {
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 0 !important;
+}
+
+.custom-small-menu .el-menu-item {
+  height: 24px !important;
+  line-height: 24px !important;
+  padding: 0 8px !important;
+  font-size: 12px !important;
+  min-width: 0 !important;
+  width: fit-content !important;
+}
+</style>
 </style>
