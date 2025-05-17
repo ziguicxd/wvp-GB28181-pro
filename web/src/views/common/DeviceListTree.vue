@@ -75,8 +75,6 @@
 </template>
 
 <script>
-import { loadDevicesByType, loadChannels } from '@/store/modules/devicelistTree';
-
 export default {
   name: 'DeviceListTree',
   props: {
@@ -125,11 +123,38 @@ export default {
     }
   },
   
+  computed: {
+    isGbExpanded() {
+      const isExpanded = this.expandedNodes.has('gb');
+      return isExpanded;
+    }
+  },
+  
   mounted() {
     this.addGlobalStyle();
     window.addEventListener('resize', this.adjustDeviceTypeContainerHeight);
     this.adjustDeviceTypeContainerHeight();
-    this.forceRefresh();
+    
+    // 初始化devicePageMap
+    this.devicePageMap = {
+      gb: { page: 1, hasMore: true },
+      push: { page: 1, hasMore: true },
+      proxy: { page: 1, hasMore: true }
+    };
+    
+    // 组件挂载后强制刷新一次，确保标题正确显示
+    this.$nextTick(() => {
+      this.forceRefresh();
+      
+      // 初始化时自动展开国标设备
+      setTimeout(() => {
+        const gbNode = this.$refs.tree?.getNode('gb');
+        if (gbNode) {
+          gbNode.expand();
+          this.currentDeviceType = 'gb';
+        }
+      }, 500);
+    });
   },
   
   destroyed() {
@@ -137,18 +162,6 @@ export default {
   },
   
   methods: {
-    loadNode(node, resolve) {
-      if (node.level === 0) {
-        this.loadDeviceCategories(resolve);
-      } else if (node.level === 1) {
-        loadDevicesByType(this, node.data.id, resolve);
-      } else if (node.level === 2 && this.hasChannel) {
-        loadChannels(this, node.data.deviceId, resolve);
-      } else {
-        resolve([]);
-      }
-    },
-    
     // 工具方法
     getDeviceIcon(deviceType) {
       const iconMap = {
@@ -179,6 +192,19 @@ export default {
       }
       
       window.removeEventListener('resize', this.adjustDeviceTypeContainerHeight);
+    },
+    
+    // 节点加载方法
+    loadNode(node, resolve) {
+      if (node.level === 0) {
+        this.loadDeviceCategories(resolve);
+      } else if (node.level === 1) {
+        this.loadDevicesByType(node.data.id, resolve);
+      } else if (node.level === 2 && this.hasChannel) {
+        this.loadChannels(node.data.deviceId, resolve);
+      } else {
+        resolve([]);
+      }
     },
     
     // 强制刷新树结构
@@ -215,6 +241,129 @@ export default {
       ];
       
       resolve(categories);
+    },
+    
+    loadDevicesByType(deviceType, resolve) {
+      if (deviceType === 'gb') {
+        this.loadGbDevices(resolve);
+      } else if (deviceType === 'push') {
+        this.loadPushDevices(resolve);
+      } else if (deviceType === 'proxy') {
+        this.loadProxyDevices(resolve);
+      } else {
+        resolve([]);
+      }
+    },
+
+    loadGbDevices(resolve) {
+      const queryParams = this.getGbQueryParams();
+      this.$store.dispatch('device/queryDevices', queryParams).then(data => {
+        this.processGbDeviceData(data, resolve);
+      }).catch(error => {
+        console.error('加载国标设备失败:', error);
+        resolve([]);
+      });
+    },
+
+    loadPushDevices(resolve) {
+      const queryParams = this.getPushQueryParams();
+      this.$store.dispatch('push/queryPushStreams', queryParams).then(data => {
+        this.processPushDeviceData(data, resolve);
+      }).catch(error => {
+        console.error('加载推流设备失败:', error);
+        resolve([]);
+      });
+    },
+
+    loadProxyDevices(resolve) {
+      const queryParams = this.getProxyQueryParams();
+      this.$store.dispatch('device/queryDevices', queryParams).then(data => {
+        this.processProxyDeviceData(data, resolve);
+      }).catch(error => {
+        console.error('加载拉流代理失败:', error);
+        resolve([]);
+      });
+    },
+
+    getGbQueryParams() {
+      const pageInfo = this.devicePageMap.gb || { page: 1, hasMore: true };
+      return {
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        status: this.deviceStatusFilter.gb,
+        deviceType: 'gb'
+      };
+    },
+
+    getPushQueryParams() {
+      const pageInfo = this.devicePageMap.push || { page: 1, hasMore: true };
+      return {
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        status: this.deviceStatusFilter.push,
+        deviceType: 'push'
+      };
+    },
+
+    getProxyQueryParams() {
+      const pageInfo = this.devicePageMap.proxy || { page: 1, hasMore: true };
+      return {
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        status: this.deviceStatusFilter.proxy,
+        deviceType: 'proxy'
+      };
+    },
+
+    processGbDeviceData(data, resolve) {
+      this.processDeviceData(data, 'gb', resolve);
+    },
+
+    processPushDeviceData(data, resolve) {
+      this.processDeviceData(data, 'push', resolve);
+    },
+
+    processProxyDeviceData(data, resolve) {
+      this.processDeviceData(data, 'proxy', resolve);
+    },
+
+    processDeviceData(data, deviceType, resolve) {
+      if (data?.list) {
+        const filteredList = this.filterDevicesByType(data.list, deviceType);
+
+        this.devicePageMap[deviceType] = {
+          page: (this.devicePageMap[deviceType]?.page || 1) + 1,
+          hasMore: filteredList.length >= this.pageSize
+        };
+
+        const devices = filteredList.map(device => ({
+          id: device.id || `${device.app}/${device.stream}`,
+          name: device.name || device.stream || device.deviceId,
+          deviceId: device.deviceId,
+          deviceType,
+          online: device.onLine || device.status === 'ON',
+          leaf: !this.hasChannel
+        }));
+
+        const result = [...devices];
+        if (this.devicePageMap[deviceType].hasMore) {
+          result.push({
+            id: `${deviceType}_loadmore`,
+            name: '加载更多',
+            deviceType,
+            isLoadMore: true,
+            leaf: true
+          });
+        }
+
+        resolve(result);
+      } else {
+        this.devicePageMap[deviceType].hasMore = false;
+        resolve([]);
+      }
     },
     
     // 获取状态过滤图标
@@ -259,6 +408,54 @@ export default {
         return devices.filter(device => device.proxyDevice);
       }
       return [];
+    },
+    loadChannels(deviceId, resolve) {
+      if (!this.channelPageMap[deviceId]) {
+        this.channelPageMap[deviceId] = { page: 1, hasMore: true };
+      }
+      
+      const pageInfo = this.channelPageMap[deviceId];
+      
+      if (!pageInfo.hasMore && pageInfo.page > 1) {
+        resolve([]);
+        return;
+      }
+      
+      const params = {
+        page: pageInfo.page,
+        count: this.pageSize,
+        query: this.searchQuery,
+        online: null,
+        channelType: null,
+        catalogUnderDevice: true
+      };
+      
+      this.$store.dispatch('device/queryChannels', [deviceId, params])
+        .then(data => {
+          if (data?.list) {
+            this.channelPageMap[deviceId] = {
+              page: pageInfo.page + 1,
+              hasMore: data.list.length >= this.pageSize
+            };
+            
+            const channels = data.list.map(channel => ({
+              id: channel.id,
+              name: channel.name || channel.channelId || channel.deviceId,
+              channelId: channel.channelId || channel.deviceId,
+              deviceId,
+              online: channel.status === 'ON',
+              leaf: true
+            }));
+            
+            resolve(channels);
+          } else {
+            this.channelPageMap[deviceId].hasMore = false;
+            resolve([]);
+          }
+        }).catch(error => {
+          console.error('加载通道失败:', error);
+          resolve([]);
+        });
     },
     
     // 节点交互方法
