@@ -80,7 +80,7 @@ export default {
     },
     treeNodeClickEvent: function(data) {
       if (data.leaf) {
-        this.clickEvent(channelId);
+        this.clickEvent(data.id);
       }
     },
     toggleCollapse() {

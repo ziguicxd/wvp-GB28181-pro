@@ -39,9 +39,21 @@
           >{{ node.label }}</span>
         </el-tooltip>
         
-        <!-- 刷新按钮 -->
-        <span v-if="node.level === 1" class="refresh-button" @click.stop="refreshDeviceType(data, node)">
-          <i class="el-icon-refresh"></i>
+        <!-- 状态过滤按钮和刷新按钮 -->
+        <span v-if="node.level === 1" class="button-group">
+          <el-dropdown trigger="click" @command="(cmd) => filterDevicesByStatus(cmd, data, node)" @click.stop>
+            <span class="filter-button">
+              <i :class="getStatusFilterIcon(data.id)"></i>
+            </span>
+            <el-dropdown-menu slot="dropdown">
+              <el-dropdown-item command="online">在线</el-dropdown-item>
+              <el-dropdown-item command="offline">离线</el-dropdown-item>
+              <el-dropdown-item command="clear">全部</el-dropdown-item>
+            </el-dropdown-menu>
+          </el-dropdown>
+          <span class="refresh-button" @click.stop="refreshDeviceType(data, node)">
+            <i class="el-icon-refresh"></i>
+          </span>
         </span>
       </span>
     </el-tree>
@@ -88,14 +100,18 @@ export default {
       currentDeviceId: null,
       noMoreData: false,
       showLoadMoreButton: true,
-      loadMoreNodes: {}
+      loadMoreNodes: {},
+      deviceStatusFilter: {
+        gb: null,
+        push: null,
+        proxy: null
+      }
     }
   },
   
   computed: {
     isGbExpanded() {
       const isExpanded = this.expandedNodes.has('gb');
-      console.log('isGbExpanded:', isExpanded, 'expandedNodes:', Array.from(this.expandedNodes));
       return isExpanded;
     }
   },
@@ -122,7 +138,6 @@ export default {
         if (gbNode) {
           gbNode.expand();
           this.currentDeviceType = 'gb';
-          console.log('初始化时展开国标设备节点');
         }
       }, 500);
     });
@@ -240,13 +255,19 @@ export default {
         hidden: !pageInfo.hasMore
       };
       
-      this.$store.dispatch('device/queryDevices', {
+      // 根据状态过滤设置查询参数
+      const statusFilter = this.deviceStatusFilter[deviceType];
+      
+      // 设置查询参数
+      const queryParams = {
         page: pageInfo.page,
         count: this.pageSize,
         query: this.searchQuery,
-        status: null,
+        status: statusFilter, // 使用status参数传递在线状态
         deviceType
-      }).then(data => {
+      };
+      
+      this.$store.dispatch('device/queryDevices', queryParams).then(data => {
         if (data?.list) {
           const filteredList = this.filterDevicesByType(data.list, deviceType);
           
@@ -281,6 +302,39 @@ export default {
         console.error('加载设备失败:', error);
         resolve([searchItem]);
       });
+    },
+    
+    // 获取状态过滤图标
+    getStatusFilterIcon(deviceType) {
+      const status = this.deviceStatusFilter[deviceType];
+      if (status === true) {
+        return 'el-icon-circle-check filter-button-active';
+      } else if (status === false) {
+        return 'el-icon-circle-close filter-button-active';
+      } else {
+        return 'el-icon-menu';
+      }
+    },
+    
+    // 按在线状态过滤设备
+    filterDevicesByStatus(command, data, node) {
+      const deviceType = data.id;
+      
+      if (command === 'online') {
+        this.deviceStatusFilter[deviceType] = true;
+      } else if (command === 'offline') {
+        this.deviceStatusFilter[deviceType] = false;
+      } else if (command === 'clear') {
+        this.deviceStatusFilter[deviceType] = null;
+      }
+      
+      // 重置分页信息
+      this.devicePageMap[deviceType] = { page: 1, hasMore: true };
+      
+      // 刷新节点
+      node.loaded = false;
+      node.expand();
+      
     },
     
     filterDevicesByType(devices, deviceType) {
@@ -394,11 +448,9 @@ export default {
       if (node.expanded) {
         node.collapse();
         this.expandedNodes.delete(node.data.id);
-        console.log('折叠节点:', node.data.id, '当前expandedNodes:', Array.from(this.expandedNodes));
       } else {
         node.expand();
         this.expandedNodes.add(node.data.id);
-        console.log('展开节点:', node.data.id, '当前expandedNodes:', Array.from(this.expandedNodes));
       }
     },
     collapseOtherDeviceTypes(currentTypeId) {
@@ -423,7 +475,6 @@ export default {
         this.showLoadMoreButton = true;
         this.noMoreData = false;
         
-        console.log('展开节点:', data.id, '当前设备类型:', this.currentDeviceType);
         
         this.$nextTick(() => {
           this.setupScrollObserver(data.id);
@@ -578,6 +629,8 @@ export default {
     getTooltipContent(data) {
       if (data.isSearch) {
         return '右键点击可清除搜索条件';
+      } else if (data.isLoadMore) {
+        return '点击加载更多设备';
       } else if (data.leaf) {
         return data.channelId || '';
       } else {
@@ -599,12 +652,6 @@ export default {
         }
       });
       
-      // 显示清除搜索成功的提示
-      this.$message({
-        message: '已清除搜索条件',
-        type: 'success',
-        duration: 1500
-      });
     },
     
     handleSearch() {
@@ -804,11 +851,14 @@ export default {
         }
       }
       
+      // 获取当前状态过滤条件
+      const statusFilter = this.deviceStatusFilter[deviceType];
+      
       this.$store.dispatch('device/queryDevices', {
         page: pageInfo.page,
         count: this.pageSize,
         query: this.searchQuery,
-        status: null,
+        status: statusFilter,
         deviceType
       }).then(data => {
         if (data?.list) {
@@ -1073,17 +1123,36 @@ export default {
   background-color: #ecf5ff;
 }
 
-.refresh-button {
+.button-group {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.filter-button, .refresh-button {
   color: #909399;
   cursor: pointer;
   opacity: 0.6;
   transition: opacity 0.3s;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.refresh-button:hover {
+.filter-button {
+  margin-right: 5px;
+}
+
+.filter-button:hover, .refresh-button:hover {
   opacity: 1;
   color: #409EFF;
+}
+
+.filter-button-active {
+  color: #409EFF;
+  opacity: 1;
 }
 
 .el-tree-node[data-level="1"] > .el-tree-node__children::-webkit-scrollbar {
