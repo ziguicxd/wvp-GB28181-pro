@@ -15,6 +15,9 @@
             <span class="btn text-btn" :class="{active: carouselActive}" @click="openCarouselDialog">轮播</span>
           </div>
           <div style="text-align: right; margin-right: 10px;">
+            <el-tooltip content="清除所有播放" placement="top">
+              <i class="el-icon-delete btn" @click="clearAllPlayers()" />
+            </el-tooltip>
             <i class="el-icon-full-screen btn" @click="fullScreen()" />
           </div>
         </div>
@@ -281,6 +284,27 @@ export default {
       if (screenFull.isEnabled) {
         screenFull.toggle(this.$refs.playBox)
       }
+    },
+    
+    clearAllPlayers: function() {
+      // 获取当前分屏数量
+      const spiltCount = this.layout[this.spiltIndex].spilt;
+      
+      // 清除所有播放窗口的内容
+      for (let i = 0; i < spiltCount; i++) {
+        this.$set(this.videoUrl, i, '');
+        this.$set(this.videoTip, i, '');
+      }
+      
+      // 清除本地存储的播放数据
+      const dataStr = window.localStorage.getItem('playData') || '[]';
+      const data = JSON.parse(dataStr);
+      for (let i = 0; i < spiltCount; i++) {
+        data[i] = null;
+      }
+      window.localStorage.setItem('playData', JSON.stringify(data));
+      window.localStorage.setItem('videoUrl', JSON.stringify(this.videoUrl));
+      
     },
     
     // 打开轮播对话框

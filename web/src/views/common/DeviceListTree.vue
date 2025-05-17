@@ -1,5 +1,18 @@
 <template>
   <div class="device-list-tree">
+    <!-- 全局搜索框 -->
+    <div class="global-search">
+      <el-input
+        v-model="searchQuery"
+        placeholder="搜索设备"
+        prefix-icon="el-icon-search"
+        clearable
+        @input="handleGlobalSearch"
+        size="small"
+      >
+        <el-button slot="append" icon="el-icon-search" @click="handleGlobalSearch"></el-button>
+      </el-input>
+    </div>
     <el-tree
       ref="tree"
       :data="deviceTreeData"
@@ -10,7 +23,7 @@
       :load="loadNode"
       @node-click="handleNodeClick"
       @node-contextmenu="handleRightClick"
-      height="calc(100vh - 180px)"
+      height="calc(100vh - 220px)"
       @node-expand="handleNodeExpand"
       @node-collapse="handleNodeCollapse"
     >
@@ -237,15 +250,7 @@ export default {
         return;
       }
       
-      // 添加搜索框和加载更多按钮
-      const searchItem = {
-        id: `${deviceType}_search`,
-        name: this.searchQuery ? `搜索: ${this.searchQuery}` : '搜索设备',
-        deviceType,
-        isSearch: true,
-        leaf: true
-      };
-      
+      // 只添加加载更多按钮，不再添加搜索项
       const loadMoreItem = {
         id: `${deviceType}_loadmore`,
         name: '加载更多',
@@ -285,8 +290,8 @@ export default {
             leaf: !this.hasChannel
           }));
           
-          // 添加搜索和加载更多选项
-          const result = [searchItem, ...devices];
+          // 只添加设备和加载更多选项
+          const result = [...devices];
           
           // 如果有更多数据，添加加载更多选项
           if (this.devicePageMap[deviceType].hasMore) {
@@ -296,11 +301,11 @@ export default {
           resolve(result);
         } else {
           this.devicePageMap[deviceType].hasMore = false;
-          resolve([searchItem]);
+          resolve([]);
         }
       }).catch(error => {
         console.error('加载设备失败:', error);
-        resolve([searchItem]);
+        resolve([]);
       });
     },
     
@@ -406,11 +411,6 @@ export default {
       
       this.updateNodeClickState(data, node, currentTime);
       
-      if (data.isSearch) {
-        this.showSearchDialog(data.deviceType);
-        return;
-      }
-      
       if (data.isLoadMore) {
         this.loadMoreDevices(data.deviceType);
         return;
@@ -506,11 +506,6 @@ export default {
     
     // 右键菜单处理
     handleRightClick(event, data, node) {
-      // 如果是搜索节点，右键点击清除搜索
-      if (data.isSearch) {
-        this.clearSearch();
-        return;
-      }
       
       const menuItems = this.buildContextMenuItems(data, node);
       
@@ -526,35 +521,17 @@ export default {
     },
     
     buildContextMenuItems(data, node) {
+      if (data.isSearch || data.isLoadMore) return [];
+      
       const menuItems = [];
+      const level = node.level;
       
-      // 不为搜索节点和加载更多节点添加右键菜单
-      if (data.isSearch || data.isLoadMore) {
-        return menuItems;
-      }
-      
-      if (node.level === 1) {
-        menuItems.push({
-          label: '刷新设备',
-          icon: 'el-icon-refresh',
-          onClick: () => this.refreshDeviceType(data, node)
-        });
-      }
-      
-      if (node.level === 2 && !data.isSearch && !data.isLoadMore) {
-        menuItems.push({
-          label: '刷新通道',
-          icon: 'el-icon-refresh',
-          onClick: () => this.refreshChannels(data, node)
-        });
-      }
-      
-      if (node.level === 3 && data.leaf && data.online) {
-        menuItems.push({
-          label: '播放',
-          icon: 'el-icon-video-play',
-          onClick: () => this.playChannel(data)
-        });
+      if (level === 1) {
+        menuItems.push({ label: '刷新设备', icon: 'el-icon-refresh', onClick: () => this.refreshDeviceType(data, node) });
+      } else if (level === 2 && !data.isSearch && !data.isLoadMore) {
+        menuItems.push({ label: '刷新通道', icon: 'el-icon-refresh', onClick: () => this.refreshChannels(data, node) });
+      } else if (level === 3 && data.leaf && data.online) {
+        menuItems.push({ label: '播放', icon: 'el-icon-video-play', onClick: () => this.playChannel(data) });
       }
       
       return menuItems;
@@ -562,17 +539,8 @@ export default {
     // 节点操作方法
     refreshNode(node) {
       node.loaded = false;
-      
-      if (node.expanded) {
-        node.collapse();
-        setTimeout(() => node.expand(), 100);
-      } else {
-        node.expand();
-      }
-      
-      if (this.lastClickedNode === node) {
-        this.lastClickedNode = null;
-      }
+      node.expanded ? (node.collapse(), setTimeout(() => node.expand(), 100)) : node.expand();
+      if (this.lastClickedNode === node) this.lastClickedNode = null;
     },
     
     refreshDeviceType(data, node) {
@@ -581,9 +549,7 @@ export default {
     },
     
     refreshChannels(data, node) {
-      if (data.deviceId) {
-        this.channelPageMap[data.deviceId] = { page: 1, hasMore: true };
-      }
+      if (data.deviceId) this.channelPageMap[data.deviceId] = { page: 1, hasMore: true };
       this.refreshNode(node);
     },
     
@@ -597,24 +563,17 @@ export default {
       this.clickEvent?.(data.id);
     },
     
-    // 搜索相关
-    showSearchDialog(deviceType) {
-      this.$prompt('请输入搜索关键字', `搜索${this.getDeviceTypeName(deviceType)}`, {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPlaceholder: '设备名称或ID'
-      }).then(({ value }) => {
-        if (value) {
-          this.searchQuery = value;
-          this.devicePageMap[deviceType] = { page: 1, hasMore: true };
-          
-          const node = this.$refs.tree.getNode(deviceType);
-          if (node) {
-            node.loaded = false;
-            node.expand();
-          }
+    // 全局搜索相关
+    handleGlobalSearch() {
+      // 重置所有设备类型的分页信息
+      this.deviceTypes.forEach(type => {
+        this.devicePageMap[type] = { page: 1, hasMore: true };
+        const node = this.$refs.tree.getNode(type);
+        if (node) {
+          node.loaded = false;
+          node.expand();
         }
-      }).catch(() => {});
+      });
     },
     
     getDeviceTypeName(deviceType) {
@@ -627,9 +586,7 @@ export default {
     },
     
     getTooltipContent(data) {
-      if (data.isSearch) {
-        return '右键点击可清除搜索条件';
-      } else if (data.isLoadMore) {
+      if (data.isLoadMore) {
         return '点击加载更多设备';
       } else if (data.leaf) {
         return data.channelId || '';
@@ -639,33 +596,10 @@ export default {
     },
     
     clearSearch() {
-      if (!this.searchQuery) return; // 如果没有搜索关键字，不执行任何操作
+      if (!this.searchQuery) return;
       
       this.searchQuery = '';
-      // 重置所有设备类型的分页信息
-      this.deviceTypes.forEach(type => {
-        this.devicePageMap[type] = { page: 1, hasMore: true };
-        const node = this.$refs.tree.getNode(type);
-        if (node && node.expanded) {
-          node.loaded = false;
-          node.expand();
-        }
-      });
-      
-    },
-    
-    handleSearch() {
-      // 对当前展开的设备类型进行搜索
-      this.deviceTypes.forEach(type => {
-        if (this.expandedNodes.has(type)) {
-          this.devicePageMap[type] = { page: 1, hasMore: true };
-          const node = this.$refs.tree.getNode(type);
-          if (node) {
-            node.loaded = false;
-            node.expand();
-          }
-        }
-      });
+      this.handleGlobalSearch();
     },
     
     // 悬停提示相关
@@ -674,11 +608,9 @@ export default {
       this.lastMouseEvent = event || window.event;
       
       this.hoverTimer = setTimeout(() => {
-        const notRecentlyClicked = !this.lastClickedNode || 
-                                  this.lastClickedNode.data.id !== node.data.id || 
-                                  (Date.now() - this.lastClickTime) > 1000;
-        
-        if (notRecentlyClicked) {
+        if (!this.lastClickedNode || 
+            this.lastClickedNode.data.id !== node.data.id || 
+            (Date.now() - this.lastClickTime) > 1000) {
           this.currentHoverNode = node.data.id;
         }
       }, 500);
@@ -686,9 +618,7 @@ export default {
     
     handleNodeLeave() {
       clearTimeout(this.hoverTimer);
-      this.hoverTimer = null;
-      this.currentHoverNode = null;
-      this.lastMouseEvent = null;
+      this.hoverTimer = this.currentHoverNode = this.lastMouseEvent = null;
     },
     // UI 相关方法
     addGlobalStyle() {
@@ -703,9 +633,7 @@ export default {
           padding: 5px 10px !important;
           max-width: fit-content !important;
         }
-        .el-tooltip__popper.device-id-tooltip .popper__arrow {
-          display: none !important;
-        }
+        .el-tooltip__popper.device-id-tooltip .popper__arrow { display: none !important; }
         .custom-small-menu {
           min-width: 0 !important;
           width: auto !important;
@@ -718,8 +646,7 @@ export default {
           font-size: 12px !important;
           min-width: 0 !important;
           width: fit-content !important;
-        }
-      `;
+        }`;
       
       document.head.appendChild(style);
       this.setupTooltipObserver();
@@ -727,29 +654,24 @@ export default {
     
     setupTooltipObserver() {
       this.tooltipObserver = new MutationObserver(mutations => {
-        for (const mutation of mutations) {
-          if (!mutation.addedNodes.length) continue;
+        mutations.forEach(mutation => {
+          if (!mutation.addedNodes.length) return;
           
-          for (const node of mutation.addedNodes) {
+          mutation.addedNodes.forEach(node => {
             if (node.classList && 
                 node.classList.contains('el-tooltip__popper') && 
                 node.classList.contains('device-id-tooltip') && 
                 this.lastMouseEvent) {
               
-              const mouseX = this.lastMouseEvent.clientX;
-              const mouseY = this.lastMouseEvent.clientY;
-              const iconWidth = 16;
-              const iconHeight = 16;
-              
               node.style.position = 'fixed';
-              node.style.top = `${mouseY + iconHeight}px`;
-              node.style.left = `${mouseX + iconWidth}px`;
+              node.style.top = `${this.lastMouseEvent.clientY + 16}px`;
+              node.style.left = `${this.lastMouseEvent.clientX + 16}px`;
               
               const arrow = node.querySelector('.popper__arrow');
               if (arrow) arrow.style.display = 'none';
             }
-          }
-        }
+          });
+        });
       });
       
       this.tooltipObserver.observe(document.body, { childList: true, subtree: false });
@@ -771,20 +693,15 @@ export default {
       if (!childrenContainer) return;
       
       const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting && 
-                entry.target.classList.contains('last-visible-node') &&
-                this.devicePageMap[nodeId]?.hasMore && 
-                !this.loadingMore) {
-              this.loadMoreDevices(nodeId);
-            }
-          });
-        },
-        {
-          root: childrenContainer,
-          threshold: 0.5
-        }
+        entries => entries.forEach(entry => {
+          if (entry.isIntersecting && 
+              entry.target.classList.contains('last-visible-node') &&
+              this.devicePageMap[nodeId]?.hasMore && 
+              !this.loadingMore) {
+            this.loadMoreDevices(nodeId);
+          }
+        }),
+        { root: childrenContainer, threshold: 0.5 }
       );
       
       this.$nextTick(() => {
@@ -808,10 +725,9 @@ export default {
     },
     
     handleDeviceTypeContainerScroll(nodeId, container) {
-      if (container.scrollHeight - container.scrollTop - container.clientHeight < 20) {
-        if (this.devicePageMap[nodeId]?.hasMore && !this.loadingMore) {
-          this.loadMoreDevices(nodeId);
-        }
+      if (container.scrollHeight - container.scrollTop - container.clientHeight < 20 &&
+          this.devicePageMap[nodeId]?.hasMore && !this.loadingMore) {
+        this.loadMoreDevices(nodeId);
       }
     },
     
@@ -838,37 +754,26 @@ export default {
     
     loadMoreDevices(deviceType) {
       this.loadingMore = true;
-      
       const pageInfo = this.devicePageMap[deviceType] || { page: 1, hasMore: true };
       
-      // 先移除原有的加载更多节点
+      // 移除原有的加载更多节点
       const loadMoreNodeId = `${deviceType}_loadmore`;
       const loadMoreNode = this.$refs.tree.getNode(loadMoreNodeId);
-      if (loadMoreNode) {
-        const parentNode = this.$refs.tree.getNode(deviceType);
-        if (parentNode) {
-          parentNode.removeChild(loadMoreNode);
-        }
-      }
-      
-      // 获取当前状态过滤条件
-      const statusFilter = this.deviceStatusFilter[deviceType];
+      const parentNode = this.$refs.tree.getNode(deviceType);
+      if (loadMoreNode && parentNode) parentNode.removeChild(loadMoreNode);
       
       this.$store.dispatch('device/queryDevices', {
         page: pageInfo.page,
         count: this.pageSize,
         query: this.searchQuery,
-        status: statusFilter,
+        status: this.deviceStatusFilter[deviceType],
         deviceType
       }).then(data => {
         if (data?.list) {
           const filteredList = this.filterDevicesByType(data.list, deviceType);
           const hasMore = filteredList.length >= this.pageSize;
           
-          this.devicePageMap[deviceType] = {
-            page: pageInfo.page + 1,
-            hasMore: hasMore
-          };
+          this.devicePageMap[deviceType] = { page: pageInfo.page + 1, hasMore };
           
           const devices = filteredList.map(device => ({
             id: device.id,
@@ -879,15 +784,12 @@ export default {
             leaf: !this.hasChannel
           }));
           
-          const node = this.$refs.tree.getNode(deviceType);
-          if (node && devices.length > 0) {
-            devices.forEach(device => {
-              node.insertChild({ data: device });
-            });
+          if (parentNode && devices.length > 0) {
+            devices.forEach(device => parentNode.insertChild({ data: device }));
             
             // 如果有更多数据，添加新的加载更多节点
             if (hasMore) {
-              node.insertChild({
+              parentNode.insertChild({
                 data: {
                   id: loadMoreNodeId,
                   name: '加载更多',
@@ -901,64 +803,47 @@ export default {
         } else {
           this.devicePageMap[deviceType].hasMore = false;
         }
-      }).catch(error => {
-        console.error('加载设备失败:', error);
-      }).finally(() => {
-        this.loadingMore = false;
-      });
+      }).catch(error => console.error('加载设备失败:', error))
+        .finally(() => this.loadingMore = false);
     },
     loadMoreChannels(deviceId) {
       this.loadingMore = true;
-      
       const pageInfo = this.channelPageMap[deviceId] || { page: 1, hasMore: true };
       
-      const params = {
+      this.$store.dispatch('device/queryChannels', [deviceId, {
         page: pageInfo.page,
         count: this.pageSize,
         query: this.searchQuery,
         online: null,
         channelType: null,
         catalogUnderDevice: true
-      };
-      
-      this.$store.dispatch('device/queryChannels', [deviceId, params])
-        .then(data => {
-          if (data?.list) {
-            const hasMore = data.list.length >= this.pageSize;
-            
-            this.channelPageMap[deviceId] = {
-              page: pageInfo.page + 1,
-              hasMore: hasMore
-            };
-            
-            this.noMoreData = !hasMore;
-            
-            const channels = data.list.map(channel => ({
-              id: channel.id,
-              name: channel.name || channel.channelId || channel.deviceId,
-              channelId: channel.channelId || channel.deviceId,
-              deviceId,
-              online: channel.status === 'ON',
-              leaf: true
-            }));
-            
-            const node = this.$refs.tree.getNode(deviceId);
-            if (node && channels.length > 0) {
-              channels.forEach(channel => {
-                node.insertChild({ data: channel });
-              });
-            } else if (channels.length === 0) {
-              this.noMoreData = true;
-            }
-          } else {
-            this.channelPageMap[deviceId].hasMore = false;
+      }]).then(data => {
+        if (data?.list) {
+          const hasMore = data.list.length >= this.pageSize;
+          this.channelPageMap[deviceId] = { page: pageInfo.page + 1, hasMore };
+          this.noMoreData = !hasMore;
+          
+          const channels = data.list.map(channel => ({
+            id: channel.id,
+            name: channel.name || channel.channelId || channel.deviceId,
+            channelId: channel.channelId || channel.deviceId,
+            deviceId,
+            online: channel.status === 'ON',
+            leaf: true
+          }));
+          
+          const node = this.$refs.tree.getNode(deviceId);
+          if (node && channels.length > 0) {
+            channels.forEach(channel => node.insertChild({ data: channel }));
+          } else if (channels.length === 0) {
             this.noMoreData = true;
           }
-        }).catch(error => {
-          console.error('加载通道失败:', error);
-        }).finally(() => {
-          this.loadingMore = false;
-        });
+        } else {
+          this.channelPageMap[deviceId].hasMore = false;
+          this.noMoreData = true;
+        }
+      }).catch(error => console.error('加载通道失败:', error))
+        .finally(() => this.loadingMore = false);
     },
     
     // 公共方法
@@ -989,25 +874,24 @@ export default {
     
     getLoadedChannels() {
       const channels = [];
-      if (!this.$refs.tree?.store) return channels;
+      const tree = this.$refs.tree;
+      if (!tree?.store?.root?.childNodes) return channels;
       
-      const root = this.$refs.tree.store.root;
-      if (!root?.childNodes) return channels;
-      
-      root.childNodes.forEach(typeNode => {
+      tree.store.root.childNodes.forEach(typeNode => {
         if (!typeNode?.childNodes) return;
         
         typeNode.childNodes.forEach(deviceNode => {
           if (!deviceNode?.childNodes) return;
           
           deviceNode.childNodes.forEach(channelNode => {
-            if (channelNode?.data?.leaf) {
+            const data = channelNode?.data;
+            if (data?.leaf) {
               channels.push({
-                id: channelNode.data.id,
-                name: channelNode.data.name,
-                channelId: channelNode.data.channelId || channelNode.data.id,
-                deviceId: channelNode.data.deviceId,
-                online: channelNode.data.online
+                id: data.id,
+                name: data.name,
+                channelId: data.channelId || data.id,
+                deviceId: data.deviceId,
+                online: data.online
               });
             }
           });
@@ -1031,6 +915,13 @@ export default {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.global-search {
+  padding: 10px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 10px;
 }
 
 .device-icon, .channel-icon {
@@ -1213,5 +1104,4 @@ export default {
   min-width: 0 !important;
   width: fit-content !important;
 }
-</style>
 </style>
