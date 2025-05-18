@@ -309,15 +309,9 @@ export default {
     },
 
     loadProxyDevices(resolve) {
-      if (this.loadingMore) {
-        resolve([]);
-        return;
-      }
-
-      this.loadingMore = true;
       const queryParams = this.getProxyQueryParams();
       this.$store.dispatch('streamProxy/queryList', queryParams)
-        .then((data) => {
+        .then(data => {
           const proxyList = data.list || [];
           const filteredList = proxyList.map(item => ({
             id: `proxy/${item.app}/${item.stream}`, // 添加前缀 "proxy/"
@@ -333,25 +327,11 @@ export default {
             hasMore: filteredList.length >= this.pageSize
           };
 
-          const result = [...filteredList];
-          if (this.devicePageMap.proxy.hasMore) {
-            result.push({
-              id: 'proxy_loadmore',
-              name: '加载更多',
-              deviceType: 'proxy',
-              isLoadMore: true,
-              leaf: true
-            });
-          }
-
-          resolve(result);
+          resolve(filteredList);
         })
-        .catch((error) => {
-          console.error('加载拉流代理设备失败:', error);
+        .catch(error => {
+          console.error('加载拉流代理失败:', error);
           resolve([]);
-        })
-        .finally(() => {
-          this.loadingMore = false;
         });
     },
 
@@ -585,17 +565,12 @@ export default {
         this.collapseOtherDeviceTypes(data.id);
 
         if (data.deviceType === 'proxy') {
-          if (node.expanded) {
-            node.collapse();
-            this.expandedNodes.delete(data.id);
-          } else {
-            // 只在未展开时重置分页并直接展开，触发el-tree懒加载
-            this.devicePageMap.proxy = { page: 1, hasMore: true };
-            this.loadingMore = false;
-            node.loaded = false; // 关键：让el-tree重新触发load
+          this.loadProxyDevices((children = []) => {
+            // 修复：直接使用 resolve 返回的 children 更新节点
+            node.data.children = children; // 更新节点数据的 children 属性
+            node.loaded = true;
             node.expand();
-            this.expandedNodes.add(data.id);
-          }
+          });
           return;
         }
       }
