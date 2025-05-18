@@ -285,12 +285,13 @@ export default {
         .then((data) => {
           const pushList = data.list || [];
           const filteredList = pushList.map(item => ({
-            id: `push/${item.app}/${item.stream}`, // 添加前缀 "push/"
+            id: `push/${item.app}/${item.stream}`, // 树节点唯一标识
             name: item.stream,
             deviceId: null,
             deviceType: 'push',
             online: item.pushing === true,
-            leaf: true
+            leaf: true,
+            realId: item.id // 真实设备id
           }));
 
           this.devicePageMap.push = {
@@ -332,12 +333,13 @@ export default {
         .then((data) => {
           const proxyList = data.list || [];
           const filteredList = proxyList.map(item => ({
-            id: `proxy/${item.app}/${item.stream}`, // 添加前缀 "proxy/"
+            id: `proxy/${item.app}/${item.stream}`, // 树节点唯一标识
             name: item.stream,
             deviceId: null,
             deviceType: 'proxy',
             online: item.pulling === true,
-            leaf: true
+            leaf: true,
+            realId: item.id // 真实设备id
           }));
 
           this.devicePageMap.proxy = {
@@ -620,8 +622,24 @@ export default {
         return;
       }
 
+      // 支持推流/拉流代理设备直接播放
       if (data.leaf && !data.isSearch && !data.isLoadMore) {
-        this.clickEvent?.(data.id);
+        if (
+          (data.deviceType === 'push' || data.deviceType === 'proxy') &&
+          data.online
+        ) {
+          // 用真实设备id作为id传递
+          this.clickEvent?.({
+            id: data.realId,
+            deviceType: data.deviceType,
+            name: data.name,
+            online: data.online,
+            // 可根据需要补充其它属性
+          });
+        } else {
+          // 其他情况（如国标通道）保持原有逻辑
+          this.clickEvent?.(data.id);
+        }
         return;
       }
 

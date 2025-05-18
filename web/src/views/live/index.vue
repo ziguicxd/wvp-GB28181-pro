@@ -196,8 +196,40 @@ export default {
       console.log(idx)
       this.clear(idx.substring(idx.length - 1))
     },
-    clickEvent: function(channelId) {
-      this.sendDevicePush(channelId);
+    clickEvent: function(param) {
+      // 兼容国标通道(channelId为string)和推流/拉流代理设备(device为object)
+      if (typeof param === 'object' && param !== null && (param.deviceType === 'push' || param.deviceType === 'proxy')) {
+        // 推流/拉流代理设备
+        const idxTmp = this.playerIdx;
+        this.save(param.id);
+        this.setPlayUrl('', idxTmp);
+        this.$set(this.videoTip, idxTmp, '正在拉流...');
+        let action;
+        if (param.deviceType === 'push') {
+          action = 'streamPush/play';
+        } else if (param.deviceType === 'proxy') {
+          action = 'streamProxy/play';
+        }
+        this.$store.dispatch(action, param.id)
+          .then(data => {
+            let videoUrl;
+            if (location.protocol === 'https:') {
+              videoUrl = data.wss_flv;
+            } else {
+              videoUrl = data.ws_flv;
+            }
+            this.setPlayUrl(videoUrl, idxTmp);
+          })
+          .catch(err => {
+            this.$set(this.videoTip, idxTmp, '播放失败: ' + err);
+          })
+          .finally(() => {
+            this.loading = false;
+          });
+      } else {
+        // 保持原有国标通道逻辑
+        this.sendDevicePush(param);
+      }
     },
     getPlayerClass: function(splitIndex, i) {
       let classStr = 'play-box-' + splitIndex + '-' + i
