@@ -719,6 +719,16 @@ export default {
     },
     
     refreshDeviceType(data, node) {
+      // 只刷新当前节点，其他同级节点全部合上
+      this.deviceTypes.forEach(type => {
+        if (type !== data.id) {
+          const otherNode = this.$refs.tree.getNode(type);
+          if (otherNode?.expanded) {
+            otherNode.collapse();
+            this.expandedNodes.delete(type);
+          }
+        }
+      });
       this.devicePageMap[data.id] = { page: 1, hasMore: true };
       this.refreshNode(node);
     },
