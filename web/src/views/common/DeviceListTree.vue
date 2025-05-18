@@ -60,9 +60,21 @@
               <i :class="getStatusFilterIcon(data.id)"></i>
             </span>
             <el-dropdown-menu slot="dropdown">
-              <el-dropdown-item command="online">在线</el-dropdown-item>
-              <el-dropdown-item command="offline">离线</el-dropdown-item>
-              <el-dropdown-item command="clear">全部</el-dropdown-item>
+              <template v-if="data.deviceType === 'push'">
+                <el-dropdown-item command="online">推流中</el-dropdown-item>
+                <el-dropdown-item command="offline">已停止</el-dropdown-item>
+                <el-dropdown-item command="clear">全部</el-dropdown-item>
+              </template>
+              <template v-else-if="data.deviceType === 'proxy'">
+                <el-dropdown-item command="online">正在拉流</el-dropdown-item>
+                <el-dropdown-item command="offline">尚未拉流</el-dropdown-item>
+                <el-dropdown-item command="clear">全部</el-dropdown-item>
+              </template>
+              <template v-else>
+                <el-dropdown-item command="online">在线</el-dropdown-item>
+                <el-dropdown-item command="offline">离线</el-dropdown-item>
+                <el-dropdown-item command="clear">全部</el-dropdown-item>
+              </template>
             </el-dropdown-menu>
           </el-dropdown>
           <span class="refresh-button" @click.stop="refreshDeviceType(data, node)">
@@ -368,24 +380,37 @@ export default {
 
     getPushQueryParams() {
       const pageInfo = this.devicePageMap.push || { page: 1, hasMore: true };
+      // 根据 deviceStatusFilter.push 设置 pushing 参数
+      let pushing = undefined;
+      if (this.deviceStatusFilter.push === true) {
+        pushing = true;
+      } else if (this.deviceStatusFilter.push === false) {
+        pushing = false;
+      }
       return {
         page: pageInfo.page,
         count: this.pageSize,
         query: this.searchQuery,
-        status: this.deviceStatusFilter.push,
-        app: 'live', // 示例参数，表示推流应用名称
-        stream: this.searchQuery // 示例参数，表示推流流名称
+        pushing, // 只在有值时传递
+        stream: this.searchQuery
       };
     },
 
     getProxyQueryParams() {
       const pageInfo = this.devicePageMap.proxy || { page: 1, hasMore: true };
+      // 根据 deviceStatusFilter.proxy 设置 pulling 参数
+      let pulling = undefined;
+      if (this.deviceStatusFilter.proxy === true) {
+        pulling = true;
+      } else if (this.deviceStatusFilter.proxy === false) {
+        pulling = false;
+      }
       return {
         page: pageInfo.page,
         count: this.pageSize,
         query: this.searchQuery,
-        pulling: this.deviceStatusFilter.proxy,
-        mediaServerId: null // 示例参数，可根据实际需求调整
+        pulling, // 只在有值时传递
+        mediaServerId: null
       };
     },
 
@@ -484,22 +509,41 @@ export default {
     // 按在线状态过滤设备
     filterDevicesByStatus(command, data, node) {
       const deviceType = data.id;
-      
-      if (command === 'online') {
-        this.deviceStatusFilter[deviceType] = true;
-      } else if (command === 'offline') {
-        this.deviceStatusFilter[deviceType] = false;
-      } else if (command === 'clear') {
-        this.deviceStatusFilter[deviceType] = null;
+
+      // 推流/拉流状态过滤
+      if (deviceType === 'push') {
+        if (command === 'online') {
+          this.deviceStatusFilter[deviceType] = true; // 推流中
+        } else if (command === 'offline') {
+          this.deviceStatusFilter[deviceType] = false; // 已停止
+        } else if (command === 'clear') {
+          this.deviceStatusFilter[deviceType] = null; // 全部
+        }
+      } else if (deviceType === 'proxy') {
+        if (command === 'online') {
+          this.deviceStatusFilter[deviceType] = true; // 正在拉流
+        } else if (command === 'offline') {
+          this.deviceStatusFilter[deviceType] = false; // 尚未拉流
+        } else if (command === 'clear') {
+          this.deviceStatusFilter[deviceType] = null; // 全部
+        }
+      } else {
+        // 国标设备原有逻辑
+        if (command === 'online') {
+          this.deviceStatusFilter[deviceType] = true;
+        } else if (command === 'offline') {
+          this.deviceStatusFilter[deviceType] = false;
+        } else if (command === 'clear') {
+          this.deviceStatusFilter[deviceType] = null;
+        }
       }
-      
+
       // 重置分页信息
       this.devicePageMap[deviceType] = { page: 1, hasMore: true };
-      
+
       // 刷新节点
       node.loaded = false;
       node.expand();
-      
     },
     
     filterDevicesByType(devices, deviceType) {
