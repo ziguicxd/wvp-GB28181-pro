@@ -36,7 +36,6 @@
         <span v-else class="channel-icon">
           <span class="iconfont icon-shexiangtou2" :style="{ color: data.online ? '#409EFF' : '#909399' }"></span>
         </span>
-        
         <!-- 名称和提示 -->
         <el-tooltip 
           :content="getTooltipContent(data)" 
@@ -185,6 +184,10 @@ export default {
     },
     
     isTooltipDisabled(node, data) {
+      // 禁用推流列表和拉流代理叶子节点的悬浮提示
+      if (node.level > 1 && (data.deviceType === 'push' || data.deviceType === 'proxy')) {
+        return true;
+      }
       return node.level === 1 || data.isLoadMore || (!data.deviceId && !data.id) || (this.currentHoverNode !== node.data.id);
     },
     
@@ -420,6 +423,32 @@ export default {
       this.processDeviceData(data, 'gb', resolve);
     },
 
+    loadMoreGbDevices(parentNode, loadMoreNodeId) {
+      const queryParams = this.getGbQueryParams();
+      this.$store.dispatch('device/queryDevices', queryParams)
+        .then(data => {
+          const filteredList = this.filterDevicesByType(data.list || [], 'gb');
+          // 保证图标和颜色一致，补全 deviceType/online 字段
+          const devices = filteredList.map(device => ({
+            id: device.id,
+            name: device.name || device.deviceId,
+            deviceId: device.deviceId,
+            deviceType: 'gb',
+            online: device.status === 'ON' || device.onLine === true,
+            leaf: !this.hasChannel
+          }));
+
+          this.updateDevicePageMap('gb', devices.length);
+
+          if (parentNode && devices.length > 0) {
+            devices.forEach(device => parentNode.insertChild({ data: device }));
+            this.addLoadMoreNode(parentNode, loadMoreNodeId, 'gb');
+          }
+        })
+        .catch(error => console.error('加载国标设备失败:', error))
+        .finally(() => this.loadingMore = false);
+    },
+
     processPushDeviceData(data, resolve) {
       if (data?.records) {
         const filteredList = data.records.map(item => ({
@@ -473,12 +502,13 @@ export default {
         hasMore: filteredList.length >= this.pageSize
       };
 
+      // 保证所有设备都带 deviceType/online 字段，且在线状态判断一致
       const devices = filteredList.map(device => ({
         id: device.id || `${deviceType}/${device.app}/${device.stream}`,
         name: device.name || device.stream || device.deviceId,
         deviceId: device.deviceId,
         deviceType,
-        online: device.onLine || device.status === 'ON',
+        online: device.status === 'ON' || device.onLine === true || device.online === true,
         leaf: !this.hasChannel
       }));
 
@@ -612,7 +642,7 @@ export default {
       const currentTime = Date.now();
 
       if (this.lastClickedNode === node && (currentTime - this.lastClickTime) < 300) {
-        return;
+        return; // 防止双击触发
       }
 
       this.updateNodeClickState(data, node, currentTime);
@@ -622,13 +652,10 @@ export default {
         return;
       }
 
-      // 支持推流/拉流代理设备直接播放
+      // 只允许在线、推流中、正在拉流的设备点击播放
       if (data.leaf && !data.isSearch && !data.isLoadMore) {
-        if (
-          (data.deviceType === 'push' || data.deviceType === 'proxy') &&
-          data.online
-        ) {
-          // 用真实设备id作为id传递
+        // 推流列表
+        if (data.deviceType === 'push'&& data.online) {
           this.clickEvent?.({
             id: data.realId,
             deviceType: data.deviceType,
@@ -636,9 +663,16 @@ export default {
             online: data.online,
             // 可根据需要补充其它属性
           });
-        } else {
-          // 其他情况（如国标通道）保持原有逻辑
-          this.clickEvent?.(data.id);
+        } else if (data.deviceType === 'proxy') {
+          this.clickEvent?.({
+            id: data.realId,
+            deviceType: data.deviceType,
+            name: data.name,
+            online: data.online,
+            // 可根据需要补充其它属性
+          });          
+        }else if (data.online) {
+          this.playChannel(data); 
         }
         return;
       }
@@ -663,6 +697,10 @@ export default {
       }
 
       this.toggleNodeExpansion(node);
+    },
+
+    playChannel(data) {
+      this.clickEvent?.(data.channelId); // 调用 clickEvent 并传递通道 ID
     },
     
     updateNodeClickState(data, node, currentTime) {
@@ -762,15 +800,55 @@ export default {
       
       const menuItems = [];
       const level = node.level;
-      
-      if (level === 1) {
-        menuItems.push({ label: '刷新设备', icon: 'el-icon-refresh', onClick: () => this.refreshDeviceType(data, node) });
-      } else if (level === 2 && !data.isSearch && !data.isLoadMore) {
-        menuItems.push({ label: '刷新通道', icon: 'el-icon-refresh', onClick: () => this.refreshChannels(data, node) });
-      } else if (level === 3 && data.leaf && data.online) {
-        menuItems.push({ label: '播放', icon: 'el-icon-video-play', onClick: () => this.playChannel(data) });
+
+      if (data.deviceType === 'push') {
+        // 推流列表
+        if (level === 1) {
+          menuItems.push({ label: '刷新设备', icon: 'el-icon-refresh', onClick: () => this.refreshDeviceType(data, node) });
+        } else if (level === 2 && data.leaf && data.online) {
+          menuItems.push({
+            label: '播放',
+            icon: 'el-icon-video-play',
+            onClick: () => {
+              this.clickEvent?.({
+                id: data.realId,
+                deviceType: data.deviceType,
+                name: data.name,
+                online: data.online,
+                // 可根据需要补充其它属性
+              });
+            }
+          });
+        }
+      } else if (data.deviceType === 'proxy') {
+        // 拉流代理
+        if (level === 1) {
+          menuItems.push({ label: '刷新设备', icon: 'el-icon-refresh', onClick: () => this.refreshDeviceType(data, node) });
+        } else if (level === 2 && data.leaf) {
+          menuItems.push({
+            label: '播放',
+            icon: 'el-icon-video-play',
+            onClick: () => {
+              this.clickEvent?.({
+                id: data.realId,
+                deviceType: data.deviceType,
+                name: data.name,
+                online: data.online,
+                // 可根据需要补充其它属性
+              });
+            }
+          });
+        }
+      } else {
+          if (level === 1) {
+            menuItems.push({ label: '刷新设备', icon: 'el-icon-refresh', onClick: () => this.refreshDeviceType(data, node) });
+          } else if (level === 2 && !data.isSearch && !data.isLoadMore) {
+            menuItems.push({ label: '刷新通道', icon: 'el-icon-refresh', onClick: () => this.refreshChannels(data, node) });
+          } else if (level === 3 && data.leaf && data.online) {
+            menuItems.push({ label: '播放', icon: 'el-icon-video-play', onClick: () => this.playChannel(data) });
+          }
       }
-      
+
       return menuItems;
     },
     // 节点操作方法
@@ -1024,10 +1102,20 @@ export default {
       this.$store.dispatch('device/queryDevices', queryParams)
         .then(data => {
           const filteredList = this.filterDevicesByType(data.list || [], 'gb');
-          this.updateDevicePageMap('gb', filteredList.length);
+          // 保证图标和颜色一致，补全 deviceType/online 字段
+          const devices = filteredList.map(device => ({
+            id: device.id,
+            name: device.name || device.deviceId,
+            deviceId: device.deviceId,
+            deviceType: 'gb',
+            online: device.status === 'ON' || device.onLine === true,
+            leaf: !this.hasChannel
+          }));
 
-          if (parentNode && filteredList.length > 0) {
-            filteredList.forEach(device => parentNode.insertChild({ data: device }));
+          this.updateDevicePageMap('gb', devices.length);
+
+          if (parentNode && devices.length > 0) {
+            devices.forEach(device => parentNode.insertChild({ data: device }));
             this.addLoadMoreNode(parentNode, loadMoreNodeId, 'gb');
           }
         })
