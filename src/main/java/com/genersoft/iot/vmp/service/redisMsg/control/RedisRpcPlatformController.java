@@ -9,7 +9,6 @@ import com.genersoft.iot.vmp.conf.redis.bean.RedisRpcResponse;
 import com.genersoft.iot.vmp.gb28181.bean.CommonGBChannel;
 import com.genersoft.iot.vmp.gb28181.bean.Platform;
 import com.genersoft.iot.vmp.gb28181.event.EventPublisher;
-import com.genersoft.iot.vmp.gb28181.event.subscribe.catalog.CatalogEvent;
 import com.genersoft.iot.vmp.gb28181.service.IPlatformChannelService;
 import com.genersoft.iot.vmp.gb28181.service.IPlatformService;
 import com.genersoft.iot.vmp.service.redisMsg.dto.RedisRpcController;
@@ -43,8 +42,7 @@ public class RedisRpcPlatformController extends RpcController {
     @Autowired
     private EventPublisher eventPublisher;
 
-
-    private void sendResponse(RedisRpcResponse response){
+    private void sendResponse(RedisRpcResponse response) {
         log.info("[redis-rpc] >> {}", response);
         response.setToId(userSetting.getServerId());
         RedisRpcMessage message = new RedisRpcMessage();
