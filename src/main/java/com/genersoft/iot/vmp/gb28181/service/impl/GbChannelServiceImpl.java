@@ -174,7 +174,7 @@ public class GbChannelServiceImpl implements IGbChannelService {
         // return 0;
         // }
 
-        log.debug("[调试] 在线通道列表: {}", commonGBChannelList);
+        log.info("[通道离线] 共 {} 个", commonGBChannelList.size());
 
         int limitCount = 1000;
         int result = 0;
@@ -248,13 +248,11 @@ public class GbChannelServiceImpl implements IGbChannelService {
         } else {
             result += commonGBChannelMapper.updateStatusForListById(commonGBChannelList, "ON");
         }
-        if (result > 0) {
-            try {
-                // 发送catalog
-                eventPublisher.catalogEventPublish(null, commonGBChannelList, CatalogEvent.ON);
-            } catch (Exception e) {
-                log.warn("[多个通道上线] 发送失败，数量：{}", commonGBChannelList.size(), e);
-            }
+        try {
+            // 发送catalog
+            eventPublisher.catalogEventPublish(null, commonGBChannelList, CatalogEvent.ON);
+        } catch (Exception e) {
+            log.warn("[多个通道上线] 发送失败，数量：{}", commonGBChannelList.size(), e);
         }
 
         return result;

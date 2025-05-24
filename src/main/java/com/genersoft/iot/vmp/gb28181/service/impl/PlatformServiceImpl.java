@@ -63,11 +63,6 @@ import java.util.concurrent.TimeUnit;
 @Order(value = 15)
 public class PlatformServiceImpl implements IPlatformService, CommandLineRunner {
 
-    private final static String REGISTER_KEY_PREFIX = "platform_register_";
-
-    private final static String REGISTER_FAIL_AGAIN_KEY_PREFIX = "platform_register_fail_again_";
-    private final static String KEEPALIVE_KEY_PREFIX = "platform_keepalive_";
-
     @Autowired
     private PlatformMapper platformMapper;
 
@@ -133,7 +128,7 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
             sendUnRegister(platform, taskInfo.getSipTransactionInfo());
         }
         // 启动时所有平台默认离线
-        platformMapper.offlineAll();
+        platformMapper.offlineAll(userSetting.getServerId());
     }
 
     @Scheduled(fixedDelay = 20, timeUnit = TimeUnit.SECONDS) // 每3秒执行一次
@@ -203,6 +198,7 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
                 return;
             }
             log.info("[集群] 检测到 {} 已离线", serverId);
+            redisCatchStorage.removeOfflineWVPInfo(serverId);
             String chooseServerId = redisCatchStorage.chooseOneServer(serverId);
             if (!userSetting.getServerId().equals(chooseServerId)) {
                 return;
@@ -395,7 +391,7 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
                 this::keepaliveExpire);
         statusTaskRunner.addKeepAliveTask(keepaliveTask);
 
-        platformMapper.updateStatus(platform.getId(), true);
+        platformMapper.updateStatus(platform.getId(), true, userSetting.getServerId());
         if (platform.getAutoPushChannel() != null && platform.getAutoPushChannel()) {
             if (subscribeHolder.getCatalogSubscribe(platform.getServerGBId()) == null) {
                 log.info("[国标级联]：{}, 添加自动通道推送模拟订阅信息", platform.getServerGBId());
@@ -484,7 +480,7 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
         subscribeHolder.removeCatalogSubscribe(platform.getServerGBId());
         subscribeHolder.removeMobilePositionSubscribe(platform.getServerGBId());
 
-        platformMapper.updateStatus(platform.getId(), false);
+        platformMapper.updateStatus(platform.getId(), false, userSetting.getServerId());
 
         // 停止所有推流
         log.info("[平台离线] {}({}), 停止所有推流", platform.getName(), platform.getServerGBId());
@@ -903,7 +899,7 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
     }
 
     @Override
-    public List<Platform> queryAll() {
-        return platformMapper.queryAll();
+    public List<Platform> queryAll(String serverId) {
+        return platformMapper.queryByServerId(serverId);
     }
 }

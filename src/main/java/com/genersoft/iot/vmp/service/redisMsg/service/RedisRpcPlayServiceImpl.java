@@ -26,13 +26,11 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
 
-
     @Autowired
     private RedisRpcConfig redisRpcConfig;
 
     @Autowired
     private UserSetting userSetting;
-
 
     private RedisRpcRequest buildRequest(String uri, Object param) {
         RedisRpcRequest request = new RedisRpcRequest();
@@ -46,14 +44,15 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
     public void play(String serverId, Integer channelId, ErrorCallback<StreamInfo> callback) {
         RedisRpcRequest request = buildRequest("channel/play", channelId);
         request.setToId(serverId);
-        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(), TimeUnit.MILLISECONDS);
+        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(),
+                TimeUnit.MILLISECONDS);
         if (response == null) {
             callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), null);
-        }else {
+        } else {
             if (response.getStatusCode() == ErrorCode.SUCCESS.getCode()) {
                 StreamInfo streamInfo = JSON.parseObject(response.getBody().toString(), StreamInfo.class);
                 callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
-            }else {
+            } else {
                 callback.run(response.getStatusCode(), response.getBody().toString(), null);
             }
         }
@@ -70,7 +69,7 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         RedisRpcResponse response = redisRpcConfig.request(request, 50, TimeUnit.MICROSECONDS);
         if (response == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg());
-        }else {
+        } else {
             if (response.getStatusCode() != ErrorCode.SUCCESS.getCode()) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg());
             }
@@ -78,28 +77,31 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
     }
 
     @Override
-    public void queryRecordInfo(String serverId, Integer channelId, String startTime, String endTime, ErrorCallback<RecordInfo> callback) {
+    public void queryRecordInfo(String serverId, Integer channelId, String startTime, String endTime,
+            ErrorCallback<RecordInfo> callback) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("channelId", channelId);
         jsonObject.put("startTime", startTime);
         jsonObject.put("endTime", endTime);
         RedisRpcRequest request = buildRequest("channel/queryRecordInfo", jsonObject);
         request.setToId(serverId);
-        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getRecordInfoTimeout(), TimeUnit.MILLISECONDS);
+        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getRecordInfoTimeout(),
+                TimeUnit.MILLISECONDS);
         if (response == null) {
             callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), null);
-        }else {
+        } else {
             if (response.getStatusCode() == ErrorCode.SUCCESS.getCode()) {
                 RecordInfo recordInfo = JSON.parseObject(response.getBody().toString(), RecordInfo.class);
                 callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), recordInfo);
-            }else {
+            } else {
                 callback.run(response.getStatusCode(), response.getBody().toString(), null);
             }
         }
     }
 
     @Override
-    public void playback(String serverId, Integer channelId, String startTime, String endTime, ErrorCallback<StreamInfo> callback) {
+    public void playback(String serverId, Integer channelId, String startTime, String endTime,
+            ErrorCallback<StreamInfo> callback) {
 
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("channelId", channelId);
@@ -107,14 +109,15 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         jsonObject.put("endTime", endTime);
         RedisRpcRequest request = buildRequest("channel/playback", jsonObject.toString());
         request.setToId(serverId);
-        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(), TimeUnit.MILLISECONDS);
+        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(),
+                TimeUnit.MILLISECONDS);
         if (response == null) {
             callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), null);
-        }else {
+        } else {
             if (response.getStatusCode() == ErrorCode.SUCCESS.getCode()) {
                 StreamInfo streamInfo = JSON.parseObject(response.getBody().toString(), StreamInfo.class);
                 callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
-            }else {
+            } else {
                 callback.run(response.getStatusCode(), response.getBody().toString(), null);
             }
         }
@@ -127,7 +130,7 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         RedisRpcResponse response = redisRpcConfig.request(request, 5, TimeUnit.SECONDS);
         if (response == null) {
             log.info("[RPC 暂停回放] 失败, streamId: {}", streamId);
-        }else {
+        } else {
             if (response.getStatusCode() != ErrorCode.SUCCESS.getCode()) {
                 log.info("[RPC 暂停回放] 失败, {},  streamId: {}", response.getBody(), streamId);
             }
@@ -141,7 +144,7 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         RedisRpcResponse response = redisRpcConfig.request(request, 5, TimeUnit.SECONDS);
         if (response == null) {
             log.info("[RPC 恢复回放] 失败, streamId: {}", streamId);
-        }else {
+        } else {
             if (response.getStatusCode() != ErrorCode.SUCCESS.getCode()) {
                 log.info("[RPC 恢复回放] 失败, {},  streamId: {}", response.getBody(), streamId);
             }
@@ -149,7 +152,8 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
     }
 
     @Override
-    public void download(String serverId, Integer channelId, String startTime, String endTime, int downloadSpeed, ErrorCallback<StreamInfo> callback) {
+    public void download(String serverId, Integer channelId, String startTime, String endTime, int downloadSpeed,
+            ErrorCallback<StreamInfo> callback) {
 
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("channelId", channelId);
@@ -158,21 +162,23 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         jsonObject.put("downloadSpeed", downloadSpeed);
         RedisRpcRequest request = buildRequest("channel/download", jsonObject.toString());
         request.setToId(serverId);
-        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(), TimeUnit.MILLISECONDS);
+        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(),
+                TimeUnit.MILLISECONDS);
         if (response == null) {
             callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), null);
-        }else {
+        } else {
             if (response.getStatusCode() == ErrorCode.SUCCESS.getCode()) {
                 StreamInfo streamInfo = JSON.parseObject(response.getBody().toString(), StreamInfo.class);
                 callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
-            }else {
+            } else {
                 callback.run(response.getStatusCode(), response.getBody().toString(), null);
             }
         }
     }
 
     @Override
-    public String frontEndCommand(String serverId, Integer channelId, int cmdCode, int parameter1, int parameter2, int combindCode2) {
+    public String frontEndCommand(String serverId, Integer channelId, int cmdCode, int parameter1, int parameter2,
+            int combindCode2) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("channelId", channelId);
         jsonObject.put("cmdCode", cmdCode);
@@ -181,10 +187,11 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         jsonObject.put("combindCode2", combindCode2);
         RedisRpcRequest request = buildRequest("channel/ptz/frontEndCommand", jsonObject.toString());
         request.setToId(serverId);
-        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(), TimeUnit.MILLISECONDS);
+        RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(),
+                TimeUnit.MILLISECONDS);
         if (response == null) {
             return ErrorCode.ERROR100.getMsg();
-        }else {
+        } else {
             if (response.getStatusCode() != ErrorCode.SUCCESS.getCode()) {
                 return response.getBody().toString();
             }
@@ -193,16 +200,17 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
     }
 
     @Override
-    public void playPush(Integer id, ErrorCallback<StreamInfo> callback) {
-        RedisRpcRequest request = buildRequest("streamPush/play", id);
+    public void playPush(String serverId, Integer id, ErrorCallback<StreamInfo> callback) {
+        RedisRpcRequest request = buildRequest("streamPush/play", id + "");
+        request.setToId(serverId);
         RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(), TimeUnit.SECONDS);
         if (response == null) {
             callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), null);
-        }else {
+        } else {
             if (response.getStatusCode() == ErrorCode.SUCCESS.getCode()) {
                 StreamInfo streamInfo = JSON.parseObject(response.getBody().toString(), StreamInfo.class);
                 callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
-            }else {
+            } else {
                 callback.run(response.getStatusCode(), response.getBody().toString(), null);
             }
         }
@@ -224,7 +232,7 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         RedisRpcResponse response = redisRpcConfig.request(request, userSetting.getPlayTimeout(), TimeUnit.SECONDS);
         if (response != null && response.getStatusCode() == ErrorCode.SUCCESS.getCode()) {
             log.info("[rpc 拉流代理] 停止成功： id: {}", id);
-        }else {
+        } else {
             log.info("[rpc 拉流代理] 停止失败 id: {}", id);
         }
     }
@@ -240,7 +248,8 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
     }
 
     @Override
-    public AudioBroadcastResult audioBroadcast(String serverId, String deviceId, String channelDeviceId, Boolean broadcastMode) {
+    public AudioBroadcastResult audioBroadcast(String serverId, String deviceId, String channelDeviceId,
+            Boolean broadcastMode) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("deviceId", deviceId);
         jsonObject.put("channelDeviceId", channelDeviceId);
@@ -254,4 +263,3 @@ public class RedisRpcPlayServiceImpl implements IRedisRpcPlayService {
         return null;
     }
 }
-

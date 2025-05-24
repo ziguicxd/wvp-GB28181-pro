@@ -9,24 +9,27 @@ import com.genersoft.iot.vmp.vmanager.bean.AudioBroadcastResult;
 
 public interface IRedisRpcPlayService {
 
-
     void play(String serverId, Integer channelId, ErrorCallback<StreamInfo> callback);
 
     void stop(String serverId, InviteSessionType type, int channelId, String stream);
 
-    void playback(String serverId, Integer channelId, String startTime, String endTime, ErrorCallback<StreamInfo> callback);
+    void playback(String serverId, Integer channelId, String startTime, String endTime,
+            ErrorCallback<StreamInfo> callback);
 
-    void download(String serverId, Integer channelId, String startTime, String endTime, int downloadSpeed, ErrorCallback<StreamInfo> callback);
+    void download(String serverId, Integer channelId, String startTime, String endTime, int downloadSpeed,
+            ErrorCallback<StreamInfo> callback);
 
-    void queryRecordInfo(String serverId, Integer channelId, String startTime, String endTime, ErrorCallback<RecordInfo> callback);
+    void queryRecordInfo(String serverId, Integer channelId, String startTime, String endTime,
+            ErrorCallback<RecordInfo> callback);
 
     void pauseRtp(String serverId, String streamId);
 
     void resumeRtp(String serverId, String streamId);
 
-    String frontEndCommand(String serverId, Integer channelId, int cmdCode, int parameter1, int parameter2, int combindCode2);
+    String frontEndCommand(String serverId, Integer channelId, int cmdCode, int parameter1, int parameter2,
+            int combindCode2);
 
-    void playPush(Integer id, ErrorCallback<StreamInfo> callback);
+    void playPush(String serverId, Integer id, ErrorCallback<StreamInfo> callback);
 
     StreamInfo playProxy(String serverId, int id);
 
@@ -34,6 +37,6 @@ public interface IRedisRpcPlayService {
 
     DownloadFileInfo getRecordPlayUrl(String serverId, Integer recordId);
 
-
-    AudioBroadcastResult audioBroadcast(String serverId, String deviceId, String channelDeviceId, Boolean broadcastMode);
+    AudioBroadcastResult audioBroadcast(String serverId, String deviceId, String channelDeviceId,
+            Boolean broadcastMode);
 }

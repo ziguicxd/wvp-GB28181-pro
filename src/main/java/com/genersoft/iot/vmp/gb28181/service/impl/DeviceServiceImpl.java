@@ -204,6 +204,7 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
             handleDeviceOnline(device);
 
         } else {
+            device.setServerId(userSetting.getServerId());
             if (!device.isOnLine()) {
                 device.setOnLine(true);
                 device.setCreateTime(now);
@@ -368,17 +369,17 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
             return;
         }
         for (Device device : deviceList) {
-            if (device == null || !device.isOnLine()) {
+            if (device == null || !device.isOnLine() || !device.getServerId().equals(userSetting.getServerId())) {
                 continue;
             }
             if (device.getSubscribeCycleForCatalog() > 0
                     && !subscribeTaskRunner.containsKey(SubscribeTaskForCatalog.getKey(device))) {
-                log.info("[订阅丢失] 目录订阅， 编号： {}, 重新发起订阅", device.getDeviceId());
+                log.debug("[订阅丢失] 目录订阅， 编号： {}, 重新发起订阅", device.getDeviceId());
                 addCatalogSubscribe(device, null);
             }
             if (device.getSubscribeCycleForMobilePosition() > 0
                     && !subscribeTaskRunner.containsKey(SubscribeTaskForMobilPosition.getKey(device))) {
-                log.info("[订阅丢失] 移动位置订阅， 编号： {}, 重新发起订阅", device.getDeviceId());
+                log.debug("[订阅丢失] 移动位置订阅， 编号： {}, 重新发起订阅", device.getDeviceId());
                 addMobilePositionSubscribe(device, null);
             }
         }

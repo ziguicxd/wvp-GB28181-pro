@@ -107,7 +107,7 @@ public class SubscribeHolder {
             String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "catalog",
                     platform.getServerGBId());
             if (redisTemplate.hasKey(key)) {
-                result.add(platform.getServerId());
+                result.add(platform.getServerGBId());
             }
         }
         return result;
@@ -122,7 +122,7 @@ public class SubscribeHolder {
             String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "mobilePosition",
                     platform.getServerGBId());
             if (redisTemplate.hasKey(key)) {
-                result.add(platform.getServerId());
+                result.add(platform.getServerGBId());
             }
         }
         return result;

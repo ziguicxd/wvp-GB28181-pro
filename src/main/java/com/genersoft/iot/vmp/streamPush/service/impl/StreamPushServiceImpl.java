@@ -77,7 +77,8 @@ public class StreamPushServiceImpl implements IStreamPushService {
             return;
         }
 
-        StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(event.getApp(), event.getStream());
+        StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(event.getApp(),
+                event.getStream());
         if (streamAuthorityInfo == null) {
             streamAuthorityInfo = StreamAuthorityInfo.getInstanceByHook(event);
         } else {
@@ -93,7 +94,7 @@ public class StreamPushServiceImpl implements IStreamPushService {
             streamPush.setUpdateTime(DateUtil.getNow());
             streamPush.setPushTime(DateUtil.getNow());
             add(streamPush);
-        }else {
+        } else {
             streamPushInDb.setPushTime(DateUtil.getNow());
             streamPushInDb.setPushing(true);
             streamPushInDb.setServerId(userSetting.getServerId());
@@ -112,7 +113,8 @@ public class StreamPushServiceImpl implements IStreamPushService {
         jsonObject.put("stream", event.getStream());
         jsonObject.put("register", true);
         jsonObject.put("mediaServerId", event.getMediaServer().getId());
-        redisCatchStorage.sendStreamChangeMsg(OriginType.values()[event.getMediaInfo().getOriginType()].getType(), jsonObject);
+        redisCatchStorage.sendStreamChangeMsg(OriginType.values()[event.getMediaInfo().getOriginType()].getType(),
+                jsonObject);
     }
 
     /**
@@ -147,7 +149,7 @@ public class StreamPushServiceImpl implements IStreamPushService {
         if (streamPush.getGbDeviceId() != null) {
             streamPush.setPushing(false);
             updatePushStatus(streamPush);
-        }else {
+        } else {
             deleteByAppAndStream(event.getApp(), event.getStream());
         }
     }
@@ -173,7 +175,8 @@ public class StreamPushServiceImpl implements IStreamPushService {
     }
 
     @Override
-    public PageInfo<StreamPush> getPushList(Integer page, Integer count, String query, Boolean pushing, String mediaServerId) {
+    public PageInfo<StreamPush> getPushList(Integer page, Integer count, String query, Boolean pushing,
+            String mediaServerId) {
         PageHelper.startPage(page, count);
         if (query != null) {
             query = query.replaceAll("/", "//")
@@ -188,7 +191,6 @@ public class StreamPushServiceImpl implements IStreamPushService {
     public List<StreamPush> getPushList(String mediaServerId) {
         return streamPushMapper.selectAllByMediaServerIdWithOutGbID(mediaServerId);
     }
-
 
     @Override
     public StreamPush getPush(String app, String stream) {
@@ -214,7 +216,8 @@ public class StreamPushServiceImpl implements IStreamPushService {
         }
         CommonGBChannel channel = gbChannelService.queryByDeviceId(stream.getGbDeviceId());
         if (channel != null) {
-            log.info("[添加推流]失败，国标编号已存在: {} app: {}, stream: {}, ", stream.getGbDeviceId(), stream.getApp(), stream.getStream());
+            log.info("[添加推流]失败，国标编号已存在: {} app: {}, stream: {}, ", stream.getGbDeviceId(), stream.getApp(),
+                    stream.getStream());
         }
         int addChannelResult = gbChannelService.add(stream.buildCommonGBChannel());
         return addChannelResult > 0;
@@ -237,17 +240,22 @@ public class StreamPushServiceImpl implements IStreamPushService {
         }
         streamPushMapper.del(streamPush.getId());
     }
+
     @Override
     @Transactional
     public boolean update(StreamPush streamPush) {
         Assert.notNull(streamPush, "推流信息不可为NULL");
         Assert.isTrue(streamPush.getId() > 0, "推流信息ID必须存在");
-        log.info("[更新推流]：id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+        log.info("[更新推流]：id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(),
+                streamPush.getStream());
         StreamPush streamPushInDb = streamPushMapper.queryOne(streamPush.getId());
-        if (!streamPushInDb.getApp().equals(streamPush.getApp()) || !streamPushInDb.getStream().equals(streamPush.getStream())) {
+        if (!streamPushInDb.getApp().equals(streamPush.getApp())
+                || !streamPushInDb.getStream().equals(streamPush.getStream())) {
             // app或者stream变化
-            StreamPush streamPushInDbForAppAndStream = streamPushMapper.selectByAppAndStream(streamPush.getApp(), streamPush.getStream());
-            if (streamPushInDbForAppAndStream != null && !streamPushInDbForAppAndStream.getId().equals(streamPush.getId())) {
+            StreamPush streamPushInDbForAppAndStream = streamPushMapper.selectByAppAndStream(streamPush.getApp(),
+                    streamPush.getStream());
+            if (streamPushInDbForAppAndStream != null
+                    && !streamPushInDbForAppAndStream.getId().equals(streamPush.getId())) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "应用名+流ID已存在");
             }
         }
@@ -259,29 +267,36 @@ public class StreamPushServiceImpl implements IStreamPushService {
         return true;
     }
 
-
     @Override
     @Transactional
     public boolean stop(StreamPush streamPush) {
-        log.info("[主动停止推流] id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+        log.info("[主动停止推流] id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(),
+                streamPush.getStream());
         MediaServer mediaServer = null;
         if (streamPush.getMediaServerId() == null) {
-            log.info("[主动停止推流]未找到使用MediaServer，开始自动检索 id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+            log.info("[主动停止推流]未找到使用MediaServer，开始自动检索 id: {}, app: {}, stream: {}, ", streamPush.getId(),
+                    streamPush.getApp(), streamPush.getStream());
             mediaServer = mediaServerService.getMediaServerByAppAndStream(streamPush.getApp(), streamPush.getStream());
             if (mediaServer != null) {
-                log.info("[主动停止推流] 检索到MediaServer为{}， id: {}, app: {}, stream: {}, ", mediaServer.getId(), streamPush.getId(), streamPush.getApp(), streamPush.getStream());
-            }else {
-                log.info("[主动停止推流]未找到使用MediaServer id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+                log.info("[主动停止推流] 检索到MediaServer为{}， id: {}, app: {}, stream: {}, ", mediaServer.getId(),
+                        streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+            } else {
+                log.info("[主动停止推流]未找到使用MediaServer id: {}, app: {}, stream: {}, ", streamPush.getId(),
+                        streamPush.getApp(), streamPush.getStream());
             }
-        }else {
+        } else {
             mediaServer = mediaServerService.getOne(streamPush.getMediaServerId());
             if (mediaServer == null) {
-                log.info("[主动停止推流]未找到使用的MediaServer： {}，开始自动检索 id: {}, app: {}, stream: {}, ",streamPush.getMediaServerId(),  streamPush.getId(), streamPush.getApp(), streamPush.getStream());
-                mediaServer = mediaServerService.getMediaServerByAppAndStream(streamPush.getApp(), streamPush.getStream());
+                log.info("[主动停止推流]未找到使用的MediaServer： {}，开始自动检索 id: {}, app: {}, stream: {}, ",
+                        streamPush.getMediaServerId(), streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+                mediaServer = mediaServerService.getMediaServerByAppAndStream(streamPush.getApp(),
+                        streamPush.getStream());
                 if (mediaServer != null) {
-                    log.info("[主动停止推流] 检索到MediaServer为{}， id: {}, app: {}, stream: {}, ", mediaServer.getId(), streamPush.getId(), streamPush.getApp(), streamPush.getStream());
-                }else {
-                    log.info("[主动停止推流]未找到使用MediaServer id: {}, app: {}, stream: {}, ", streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+                    log.info("[主动停止推流] 检索到MediaServer为{}， id: {}, app: {}, stream: {}, ", mediaServer.getId(),
+                            streamPush.getId(), streamPush.getApp(), streamPush.getStream());
+                } else {
+                    log.info("[主动停止推流]未找到使用MediaServer id: {}, app: {}, stream: {}, ", streamPush.getId(),
+                            streamPush.getApp(), streamPush.getStream());
                 }
             }
         }
@@ -342,7 +357,8 @@ public class StreamPushServiceImpl implements IStreamPushService {
         List<StreamAuthorityInfo> allStreamAuthorityInfo = redisCatchStorage.getAllStreamAuthorityInfo();
         Map<String, StreamAuthorityInfo> streamAuthorityInfoInfoMap = new HashMap<>();
         for (StreamAuthorityInfo streamAuthorityInfo : allStreamAuthorityInfo) {
-            streamAuthorityInfoInfoMap.put(streamAuthorityInfo.getApp() + streamAuthorityInfo.getStream(), streamAuthorityInfo);
+            streamAuthorityInfoInfoMap.put(streamAuthorityInfo.getApp() + streamAuthorityInfo.getStream(),
+                    streamAuthorityInfo);
         }
         List<StreamInfo> mediaList = mediaServerService.getMediaList(mediaServer, null, null, null);
         if (mediaList == null) {
@@ -385,7 +401,8 @@ public class StreamPushServiceImpl implements IStreamPushService {
         if (!streamAuthorityInfos.isEmpty()) {
             for (StreamAuthorityInfo streamAuthorityInfo : streamAuthorityInfos) {
                 // 移除redis内流的信息
-                redisCatchStorage.removeStreamAuthorityInfo(streamAuthorityInfo.getApp(), streamAuthorityInfo.getStream());
+                redisCatchStorage.removeStreamAuthorityInfo(streamAuthorityInfo.getApp(),
+                        streamAuthorityInfo.getStream());
             }
         }
     }
@@ -399,11 +416,11 @@ public class StreamPushServiceImpl implements IStreamPushService {
                 stop(streamPushItem);
             }
         }
-//        // 移除没有GBId的推流
-//        streamPushMapper.deleteWithoutGBId(mediaServerId);
-//        // 其他的流设置未启用
-//        streamPushMapper.updateStatusByMediaServerId(mediaServerId, false);
-//        streamProxyMapper.updateStatusByMediaServerId(mediaServerId, false);
+        // // 移除没有GBId的推流
+        // streamPushMapper.deleteWithoutGBId(mediaServerId);
+        // // 其他的流设置未启用
+        // streamPushMapper.updateStatusByMediaServerId(mediaServerId, false);
+        // streamProxyMapper.updateStatusByMediaServerId(mediaServerId, false);
         // 发送流停止消息
         String type = "PUSH";
         // 发送redis消息
@@ -458,16 +475,27 @@ public class StreamPushServiceImpl implements IStreamPushService {
     @Override
     public void offline(List<StreamPushItemFromRedis> offlineStreams) {
         // 更新部分设备离线
-        List<StreamPush> streamPushList = streamPushMapper.getListFromRedis(offlineStreams);
+        List<StreamPush> streamPushList = streamPushMapper.getListInList(offlineStreams);
+        if (streamPushList.isEmpty()) {
+            log.info("[推流设备] 设备离线操作未发现可操作数据。");
+            return;
+        }
         List<CommonGBChannel> commonGBChannelList = gbChannelService.queryListByStreamPushList(streamPushList);
         gbChannelService.offline(commonGBChannelList);
     }
 
     @Override
     public void online(List<StreamPushItemFromRedis> onlineStreams) {
+        if (onlineStreams.isEmpty()) {
+            log.info("[设备上线] 推流设备列表为空");
+            return;
+        }
         // 更新部分设备上线streamPushService
-        List<StreamPush> streamPushList = streamPushMapper.getListFromRedis(onlineStreams);
+        List<StreamPush> streamPushList = streamPushMapper.getListInList(onlineStreams);
         if (streamPushList.isEmpty()) {
+            for (StreamPushItemFromRedis onlineStream : onlineStreams) {
+                log.info("[设备上线] 未查询到这些通道： {}/{}", onlineStream.getApp(), onlineStream.getStream());
+            }
             return;
         }
         List<CommonGBChannel> commonGBChannelList = gbChannelService.queryListByStreamPushList(streamPushList);
@@ -501,16 +529,16 @@ public class StreamPushServiceImpl implements IStreamPushService {
     @Transactional
     public void updatePushStatus(StreamPush streamPush) {
         if (userSetting.getUsePushingAsStatus()) {
-            streamPush.setGbStatus(streamPush.isPushing()?"ON":"OFF");
+            streamPush.setGbStatus(streamPush.isPushing() ? "ON" : "OFF");
         }
         streamPushMapper.updatePushStatus(streamPush);
         if (ObjectUtils.isEmpty(streamPush.getGbDeviceId())) {
             return;
         }
         if (userSetting.getUsePushingAsStatus()) {
-            if ("ON".equalsIgnoreCase(streamPush.getGbStatus()) ) {
+            if ("ON".equalsIgnoreCase(streamPush.getGbStatus())) {
                 gbChannelService.online(streamPush.buildCommonGBChannel());
-            }else {
+            } else {
                 gbChannelService.offline(streamPush.buildCommonGBChannel());
             }
         }
@@ -525,7 +553,7 @@ public class StreamPushServiceImpl implements IStreamPushService {
             // 不保存国标推理以及拉流代理的流
             if (streamInfo.getOriginType() == OriginType.RTSP_PUSH.ordinal()
                     || streamInfo.getOriginType() == OriginType.RTMP_PUSH.ordinal()
-                    || streamInfo.getOriginType() == OriginType.RTC_PUSH.ordinal() ) {
+                    || streamInfo.getOriginType() == OriginType.RTC_PUSH.ordinal()) {
                 String key = streamInfo.getApp() + "_" + streamInfo.getStream();
                 StreamPush streamPushItem = result.get(key);
                 if (streamPushItem == null) {
@@ -556,7 +584,7 @@ public class StreamPushServiceImpl implements IStreamPushService {
         if (streamPush == null) {
             return 0;
         }
-        if(streamPush.isPushing()) {
+        if (streamPush.isPushing()) {
             MediaServer mediaServer = mediaServerService.getOne(streamPush.getMediaServerId());
             mediaServerService.closeStreams(mediaServer, streamPush.getApp(), streamPush.getStream());
         }
