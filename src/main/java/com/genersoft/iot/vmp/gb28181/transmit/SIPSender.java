@@ -76,9 +76,9 @@ public class SIPSender {
 
         CallIdHeader callIdHeader = (CallIdHeader) message.getHeader(CallIdHeader.NAME);
         CSeqHeader cSeqHeader = (CSeqHeader) message.getHeader(CSeqHeader.NAME);
-        FromHeader fromHeader = (FromHeader) message.getHeader(FromHeader.NAME);
         String key = callIdHeader.getCallId() + cSeqHeader.getSeqNumber();
         if (okEvent != null || errorEvent != null) {
+            FromHeader fromHeader = (FromHeader) message.getHeader(FromHeader.NAME);
             SipEvent sipEvent = SipEvent.getInstance(key, eventResult -> {
                 sipSubscribe.removeSubscribe(key);
                 if (okEvent != null) {
