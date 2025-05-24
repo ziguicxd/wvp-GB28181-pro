@@ -39,7 +39,7 @@ public class StreamPushPlayServiceImpl implements IStreamPushPlayService {
 
     @Autowired
     private UserSetting userSetting;
-    
+
     @Autowired
     private DynamicTask dynamicTask;
 
@@ -53,11 +53,11 @@ public class StreamPushPlayServiceImpl implements IStreamPushPlayService {
     private RedisPushStreamResponseListener redisPushStreamResponseListener;
 
     @Override
-    public void start(Integer id, ErrorCallback<StreamInfo> callback, String platformDeviceId, String platformName ) {
+    public void start(Integer id, ErrorCallback<StreamInfo> callback, String platformDeviceId, String platformName) {
         StreamPush streamPush = streamPushMapper.queryOne(id);
         Assert.notNull(streamPush, "推流信息未找到");
 
-        if (!userSetting.getServerId().equals(streamPush.getServerId())) {
+        if (streamPush.isPushing() && !userSetting.getServerId().equals(streamPush.getServerId())) {
             redisRpcPlayService.playPush(id, callback);
             return;
         }
@@ -67,12 +67,14 @@ public class StreamPushPlayServiceImpl implements IStreamPushPlayService {
         MediaInfo mediaInfo = mediaServerService.getMediaInfo(mediaServer, streamPush.getApp(), streamPush.getStream());
         if (mediaInfo != null) {
             String callId = null;
-            StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(streamPush.getApp(), streamPush.getStream());
+            StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(streamPush.getApp(),
+                    streamPush.getStream());
             if (streamAuthorityInfo != null) {
                 callId = streamAuthorityInfo.getCallId();
             }
-            callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), mediaServerService.getStreamInfoByAppAndStream(mediaServer,
-                    streamPush.getApp(), streamPush.getStream(), mediaInfo, callId));
+            callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(),
+                    mediaServerService.getStreamInfoByAppAndStream(mediaServer,
+                            streamPush.getApp(), streamPush.getStream(), mediaInfo, callId));
             if (!streamPush.isPushing()) {
                 streamPush.setPushing(true);
                 streamPushMapper.update(streamPush);
@@ -100,12 +102,13 @@ public class StreamPushPlayServiceImpl implements IStreamPushPlayService {
             if (streamInfo == null) {
                 log.warn("等待推流得到结果未空： {}/{}", streamPush.getApp(), streamPush.getStream());
                 callback.run(ErrorCode.ERROR100.getCode(), "fail", null);
-            }else {
+            } else {
                 callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
             }
         });
         // 添加回复的拒绝或者错误的通知
-        // redis消息例如： PUBLISH VM_MSG_STREAM_PUSH_RESPONSE  '{"code":1,"msg":"失败","app":"1","stream":"2"}'
+        // redis消息例如： PUBLISH VM_MSG_STREAM_PUSH_RESPONSE
+        // '{"code":1,"msg":"失败","app":"1","stream":"2"}'
         redisPushStreamResponseListener.addEvent(streamPush.getApp(), streamPush.getStream(), response -> {
             if (response.getCode() != 0) {
                 dynamicTask.stop(timeOutTaskKey);
