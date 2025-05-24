@@ -1,7 +1,8 @@
-package com.genersoft.iot.vmp.gb28181.task;
+package com.genersoft.iot.vmp.gb28181.task.deviceSubscribe;
 
 import com.genersoft.iot.vmp.common.SubscribeCallback;
 import com.genersoft.iot.vmp.gb28181.bean.SipTransactionInfo;
+
 import lombok.Data;
 import org.jetbrains.annotations.NotNull;
 

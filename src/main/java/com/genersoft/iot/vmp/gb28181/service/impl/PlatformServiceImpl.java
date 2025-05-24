@@ -162,6 +162,7 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
             commanderForPlatform.register(platform, sipTransactionInfo, eventResult -> {
                 log.info("[国标级联] {}（{}）,注册失败", platform.getName(), platform.getServerGBId());
                 offline(platform);
+            }, null);
         } catch (InvalidArgumentException | ParseException | SipException e) {
             log.error("[命令发送失败] 国标级联: {}", e.getMessage());
         }
@@ -436,7 +437,8 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
                 // 心跳超时失败
                 if (failCount < 2) {
                     log.info("[国标级联] 心跳发送超时， 平台服务编号： {}", platformServerId);
-                    PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), platform.getKeepTimeout() * 1000L,
+                    PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(),
+                            platform.getKeepTimeout() * 1000L,
                             this::keepaliveExpire);
                     keepaliveTask.setFailCount(failCount + 1);
                     statusTaskRunner.addKeepAliveTask(keepaliveTask);
@@ -444,19 +446,22 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
                     // 心跳超时三次, 不再发送心跳， 平台离线
                     log.info("[国标级联] 心跳发送超时三次，平台离线， 平台服务编号： {}", platformServerId);
                     offline(platform);
+                }
             }, eventResult -> {
-                PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), platform.getKeepTimeout() * 1000L,
+                PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(),
+                        platform.getKeepTimeout() * 1000L,
                         this::keepaliveExpire);
                 statusTaskRunner.addKeepAliveTask(keepaliveTask);
             });
         } catch (SipException | InvalidArgumentException | ParseException e) {
             log.error("[命令发送失败] 国标级联 发送心跳: {}", e.getMessage());
             if (failCount < 2) {
-                PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), platform.getKeepTimeout() * 1000L,
+                PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(),
+                        platform.getKeepTimeout() * 1000L,
                         this::keepaliveExpire);
                 keepaliveTask.setFailCount(failCount + 1);
                 statusTaskRunner.addKeepAliveTask(keepaliveTask);
-            }else {
+            } else {
                 // 心跳超时三次, 不再发送心跳， 平台离线
                 log.info("[国标级联] 心跳发送失败三次，平台离线， 平台服务编号： {}", platformServerId);
                 offline(platform);
@@ -888,14 +893,14 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
                 sendUnRegister(platform, transactionInfo);
             } catch (Exception ignored) {
             }
-            platformMapper.delete(platform.getId());
         }
+        platformMapper.delete(platform.getId());
+
         statusTaskRunner.removeRegisterTask(platform.getServerGBId());
         statusTaskRunner.removeKeepAliveTask(platform.getServerGBId());
-    }
 
-    subscribeHolder.removeCatalogSubscribe(platform.getServerGBId());subscribeHolder.removeMobilePositionSubscribe(platform.getServerGBId());
-
+        subscribeHolder.removeCatalogSubscribe(platform.getServerGBId());
+        subscribeHolder.removeMobilePositionSubscribe(platform.getServerGBId());
     }
 
     @Override
