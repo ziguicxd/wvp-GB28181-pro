@@ -11,6 +11,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -22,6 +23,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 默认异常处理
+     * 
      * @param e 异常
      * @return 统一返回结果
      */
@@ -34,6 +36,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 默认异常处理
+     * 
      * @param e 异常
      * @return 统一返回结果
      */
@@ -45,6 +48,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 默认异常处理
+     * 
      * @param e 异常
      * @return 统一返回结果
      */
@@ -53,8 +57,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public WVPResult<String> exceptionHandler(HttpRequestMethodNotSupportedException e) {
         return WVPResult.fail(ErrorCode.ERROR400);
     }
+
     /**
      * 断言异常处理
+     * 
      * @param e 异常
      * @return 统一返回结果
      */
@@ -64,9 +70,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return WVPResult.fail(ErrorCode.ERROR100.getCode(), e.getMessage());
     }
 
-
     /**
      * 自定义异常处理， 处理controller中返回的错误
+     * 
      * @param e 异常
      * @return 统一返回结果
      */
@@ -78,6 +84,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 登陆失败
+     * 
      * @param e 异常
      * @return 统一返回结果
      */
