@@ -2,6 +2,7 @@ package com.genersoft.iot.vmp.gb28181.task.platformStatus;
 
 import com.genersoft.iot.vmp.common.CommonCallback;
 import com.genersoft.iot.vmp.gb28181.bean.SipTransactionInfo;
+import lombok.Setter;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -20,5 +21,10 @@ public class PlatformRegisterTaskInfo {
     private String platformServerId;
 
     private SipTransactionInfo sipTransactionInfo;
+
+    /**
+     * 过期时间
+     */
+    private long expireTime;
 
 }
