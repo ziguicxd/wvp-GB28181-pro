@@ -1,9 +1,6 @@
 package com.genersoft.iot.vmp.gb28181.transmit.event.request.impl;
 
-import com.genersoft.iot.vmp.gb28181.bean.CmdType;
-import com.genersoft.iot.vmp.gb28181.bean.Platform;
-import com.genersoft.iot.vmp.gb28181.bean.SubscribeHolder;
-import com.genersoft.iot.vmp.gb28181.bean.SubscribeInfo;
+import com.genersoft.iot.vmp.gb28181.bean.*;
 import com.genersoft.iot.vmp.gb28181.service.IPlatformService;
 import com.genersoft.iot.vmp.gb28181.transmit.SIPProcessorObserver;
 import com.genersoft.iot.vmp.gb28181.transmit.SIPSender;
@@ -23,17 +20,20 @@ import org.springframework.stereotype.Component;
 import javax.sip.InvalidArgumentException;
 import javax.sip.RequestEvent;
 import javax.sip.SipException;
+import javax.sip.header.EventHeader;
 import javax.sip.header.ExpiresHeader;
 import javax.sip.message.Response;
 import java.text.ParseException;
 
 /**
  * SIP命令类型： SUBSCRIBE请求
+ * 
  * @author lin
  */
 @Slf4j
 @Component
-public class SubscribeRequestProcessor extends SIPRequestProcessorParent implements InitializingBean, ISIPRequestProcessor {
+public class SubscribeRequestProcessor extends SIPRequestProcessorParent
+		implements InitializingBean, ISIPRequestProcessor {
 
 	private final String method = "SUBSCRIBE";
 
@@ -46,7 +46,6 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 	@Autowired
 	private SIPSender sipSender;
 
-
 	@Autowired
 	private IPlatformService platformService;
 
@@ -56,8 +55,8 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 		sipProcessorObserver.addRequestProcessor(method, this);
 	}
 
-	/**   
-	 * 处理SUBSCRIBE请求  
+	/**
+	 * 处理SUBSCRIBE请求
 	 * 
 	 * @param evt 事件
 	 */
@@ -74,9 +73,9 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 			String cmd = XmlUtil.getText(rootElement, "CmdType");
 			if (CmdType.MOBILE_POSITION.equals(cmd)) {
 				processNotifyMobilePosition(request, rootElement);
-//			} else if (CmdType.ALARM.equals(cmd)) {
-//				logger.info("接收到Alarm订阅");
-//				processNotifyAlarm(serverTransaction, rootElement);
+				// } else if (CmdType.ALARM.equals(cmd)) {
+				// logger.info("接收到Alarm订阅");
+				// processNotifyAlarm(serverTransaction, rootElement);
 			} else if (CmdType.CATALOG.equals(cmd)) {
 				processNotifyCatalogList(request, rootElement);
 			} else {
@@ -106,7 +105,7 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 		String platformId = SipUtils.getUserIdFromFromHeader(request);
 		String deviceId = XmlUtil.getText(rootElement, "DeviceID");
 		Platform platform = platformService.queryPlatformByServerGBId(platformId);
-		SubscribeInfo subscribeInfo = new SubscribeInfo(request, platformId);
+
 		if (platform == null) {
 			return;
 		}
@@ -122,24 +121,27 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 				.append("<Result>OK</Result>\r\n")
 				.append("</Response>\r\n");
 
-		if (subscribeInfo.getExpires() > 0) {
-			// GPS上报时间间隔
-			String interval = XmlUtil.getText(rootElement, "Interval");
-			if (interval == null) {
-				subscribeInfo.setGpsInterval(5);
-			}else {
-				subscribeInfo.setGpsInterval(Integer.parseInt(interval));
-			}
-			subscribeInfo.setSn(sn);
-		}
-
 		try {
-			SIPResponse response = responseXmlAck(request, resultXml.toString(), platform, subscribeInfo.getExpires());
+			int expires = request.getExpires().getExpires();
+			SIPResponse response = responseXmlAck(request, resultXml.toString(), platform, expires);
+
+			SubscribeInfo subscribeInfo = SubscribeInfo.getInstance(response, platformId, expires,
+					(EventHeader) request.getHeader(EventHeader.NAME));
+			if (subscribeInfo.getExpires() > 0) {
+				// GPS上报时间间隔
+				String interval = XmlUtil.getText(rootElement, "Interval");
+				if (interval == null) {
+					subscribeInfo.setGpsInterval(5);
+				} else {
+					subscribeInfo.setGpsInterval(Integer.parseInt(interval));
+				}
+				subscribeInfo.setSn(sn);
+			}
 			if (subscribeInfo.getExpires() == 0) {
 				subscribeHolder.removeMobilePositionSubscribe(platformId);
-			}else {
-				subscribeInfo.setResponse(response);
-				subscribeHolder.putMobilePositionSubscribe(platformId, subscribeInfo, ()->{
+			} else {
+				subscribeInfo.setTransactionInfo(new SipTransactionInfo(response));
+				subscribeHolder.putMobilePositionSubscribe(platformId, subscribeInfo, () -> {
 					platformService.sendNotifyMobilePosition(platformId);
 				});
 			}
@@ -160,10 +162,9 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 		String platformId = SipUtils.getUserIdFromFromHeader(request);
 		String deviceId = XmlUtil.getText(rootElement, "DeviceID");
 		Platform platform = platformService.queryPlatformByServerGBId(platformId);
-		if (platform == null){
+		if (platform == null) {
 			return;
 		}
-		SubscribeInfo subscribeInfo = new SubscribeInfo(request, platformId);
 
 		String sn = XmlUtil.getText(rootElement, "SN");
 		log.info("[回复上级的目录订阅请求]: {}/{}", platformId, deviceId);
@@ -176,18 +177,24 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent impleme
 				.append("<Result>OK</Result>\r\n")
 				.append("</Response>\r\n");
 
-		if (subscribeInfo.getExpires() > 0) {
-			subscribeHolder.putCatalogSubscribe(platformId, subscribeInfo);
-		}else if (subscribeInfo.getExpires() == 0) {
-			subscribeHolder.removeCatalogSubscribe(platformId);
-		}
 		try {
+			int expires = request.getExpires().getExpires();
 			Platform parentPlatform = platformService.queryPlatformByServerGBId(platformId);
-			SIPResponse response = responseXmlAck(request, resultXml.toString(), parentPlatform, subscribeInfo.getExpires());
+			SIPResponse response = responseXmlAck(request, resultXml.toString(), parentPlatform, expires);
+
+			SubscribeInfo subscribeInfo = SubscribeInfo.getInstance(response, platformId, expires,
+					(EventHeader) request.getHeader(EventHeader.NAME));
+
+			if (subscribeInfo.getExpires() > 0) {
+				subscribeHolder.putCatalogSubscribe(platformId, subscribeInfo);
+			} else if (subscribeInfo.getExpires() == 0) {
+				subscribeHolder.removeCatalogSubscribe(platformId);
+			}
+
 			if (subscribeInfo.getExpires() == 0) {
 				subscribeHolder.removeCatalogSubscribe(platformId);
-			}else {
-				subscribeInfo.setResponse(response);
+			} else {
+				subscribeInfo.setTransactionInfo(new SipTransactionInfo(response));
 				subscribeHolder.putCatalogSubscribe(platformId, subscribeInfo);
 			}
 		} catch (SipException | InvalidArgumentException | ParseException e) {
