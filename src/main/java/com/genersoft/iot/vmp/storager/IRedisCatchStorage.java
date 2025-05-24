@@ -23,8 +23,6 @@ public interface IRedisCatchStorage {
      */
     Long getCSEQ();
 
-    void updatePlatformCatchInfo(PlatformCatch parentPlatformCatch);
-
     PlatformCatch queryPlatformCatchInfo(String platformGbId);
 
     void delPlatformCatchInfo(String platformGbId);
@@ -42,18 +40,21 @@ public interface IRedisCatchStorage {
 
     /**
      * 发送推流生成与推流消失消息
+     * 
      * @param jsonObject 消息内容
      */
     void sendStreamChangeMsg(String type, JSONObject jsonObject);
 
     /**
      * 发送报警消息
+     * 
      * @param msg 消息内容
      */
     void sendAlarmMsg(AlarmChannelMessage msg);
 
     /**
      * 添加流信息到redis
+     * 
      * @param mediaServerItem
      * @param app
      * @param streamId
@@ -62,15 +63,16 @@ public interface IRedisCatchStorage {
 
     /**
      * 移除流信息从redis
+     * 
      * @param mediaServerId
      * @param app
      * @param streamId
      */
     void removeStream(String mediaServerId, String type, String app, String streamId);
 
-
     /**
      * 移除流信息从redis
+     * 
      * @param mediaServerId
      */
     void removeStream(String mediaServerId, String type);
@@ -79,6 +81,7 @@ public interface IRedisCatchStorage {
 
     /**
      * 将device信息写入redis
+     * 
      * @param device
      */
     void updateDevice(Device device);
@@ -114,6 +117,7 @@ public interface IRedisCatchStorage {
 
     /**
      * 判断设备状态
+     * 
      * @param deviceId 设备ID
      * @return
      */
@@ -121,22 +125,25 @@ public interface IRedisCatchStorage {
 
     /**
      * 存储推流的鉴权信息
-     * @param app 应用名
-     * @param stream 流
+     * 
+     * @param app                 应用名
+     * @param stream              流
      * @param streamAuthorityInfo 鉴权信息
      */
     void updateStreamAuthorityInfo(String app, String stream, StreamAuthorityInfo streamAuthorityInfo);
 
     /**
      * 移除推流的鉴权信息
-     * @param app 应用名
+     * 
+     * @param app      应用名
      * @param streamId 流
      */
     void removeStreamAuthorityInfo(String app, String streamId);
 
     /**
      * 获取推流的鉴权信息
-     * @param app 应用名
+     * 
+     * @param app    应用名
      * @param stream 流
      * @return
      */
@@ -192,6 +199,5 @@ public interface IRedisCatchStorage {
     ServerInfo queryServerInfo(String serverId);
 
     String chooseOneServer(String serverId);
-
 
 }
