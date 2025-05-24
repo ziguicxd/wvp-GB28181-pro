@@ -180,7 +180,7 @@ public class DeviceQuery {
 
 	@Operation(summary = "修改通道的码流类型", security = @SecurityRequirement(name = JwtUtils.HEADER))
 	@PostMapping("/channel/stream/identification/update/")
-	public void updateChannelStreamIdentification(DeviceChannel channel) {
+	public void updateChannelStreamIdentification(@RequestBody DeviceChannel channel) {
 		deviceChannelService.updateChannelStreamIdentification(channel);
 	}
 
