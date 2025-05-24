@@ -1,13 +1,13 @@
 package com.genersoft.iot.vmp.common;
 
-/**    
- * @description: 定义常量   
+/**
+ * @description: 定义常量
  * @author: swwheihei
- * @date:   2019年5月30日 下午3:04:04   
- *   
+ * @date: 2019年5月30日 下午3:04:04
+ * 
  */
 public class VideoManagerConstants {
-	
+
 	public static final String WVP_SERVER_PREFIX = "VMP_SIGNALLING_SERVER_INFO_";
 
 	public static final String WVP_SERVER_LIST = "VMP_SERVER_LIST";
@@ -21,10 +21,6 @@ public class VideoManagerConstants {
 	public static final String DEVICE_PREFIX = "VMP_DEVICE_INFO";
 
 	public static final String INVITE_PREFIX = "VMP_GB_INVITE_INFO";
-
-	public static final String PLATFORM_CATCH_PREFIX = "VMP_PLATFORM_CATCH_";
-
-	public static final String PLATFORM_REGISTER_INFO_PREFIX = "VMP_PLATFORM_REGISTER_INFO_";
 
 	public static final String SEND_RTP_PORT = "VM_SEND_RTP_PORT:";
 	public static final String SEND_RTP_INFO_CALLID = "VMP_SEND_RTP_INFO:CALL_ID:";
@@ -56,10 +52,7 @@ public class VideoManagerConstants {
 	public static final String START_SEND_PUSH_STREAM = "VMP_START_SEND_PUSH_STREAM:";
 	public static final String SSE_TASK_KEY = "SSE_TASK_";
 
-
-
-
-	//************************** redis 消息*********************************
+	// ************************** redis 消息*********************************
 
 	/**
 	 * 流变化的通知
@@ -100,7 +93,6 @@ public class VideoManagerConstants {
 	 */
 	public static final String VM_MSG_STREAM_PUSH_CLOSE_REQUESTED = "VM_MSG_STREAM_PUSH_CLOSE_REQUESTED";
 
-
 	/**
 	 * redis 消息通知平台通知设备推流结果
 	 */
@@ -126,19 +118,17 @@ public class VideoManagerConstants {
 	 */
 	public static final String VM_MSG_SUBSCRIBE_ALARM = "alarm";
 
-
 	/**
 	 * 报警通知的发送 （收到redis发出的通知，转发给其他平台）
 	 */
-	public static final String VM_MSG_SUBSCRIBE_ALARM_RECEIVE= "alarm_receive";
+	public static final String VM_MSG_SUBSCRIBE_ALARM_RECEIVE = "alarm_receive";
 
 	/**
 	 * 设备状态订阅的通知
 	 */
 	public static final String VM_MSG_SUBSCRIBE_DEVICE_STATUS = "device";
 
-
-	//**************************    第三方  ****************************************
+	// ************************** 第三方 ****************************************
 
 	public static final String WVP_STREAM_GB_ID_PREFIX = "memberNo_";
 	public static final String WVP_STREAM_GPS_MSG_PREFIX = "WVP_STREAM_GPS_MSG_";

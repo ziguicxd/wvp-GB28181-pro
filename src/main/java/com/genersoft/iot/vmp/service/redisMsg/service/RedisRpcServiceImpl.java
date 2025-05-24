@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RedisRpcServiceImpl implements IRedisRpcService {
 
-
     @Autowired
     private RedisRpcConfig redisRpcConfig;
 
@@ -68,12 +67,13 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
         if (response.getBody() == null) {
             return null;
         }
-        return (SendRtpInfo)redisTemplate.opsForValue().get(response.getBody().toString());
+        return (SendRtpInfo) redisTemplate.opsForValue().get(response.getBody().toString());
     }
 
     @Override
     public WVPResult startSendRtp(String callId, SendRtpInfo sendRtpItem) {
-        log.info("[请求其他WVP] 开始推流，wvp：{}， {}/{}", sendRtpItem.getServerId(), sendRtpItem.getApp(), sendRtpItem.getStream());
+        log.info("[请求其他WVP] 开始推流，wvp：{}， {}/{}", sendRtpItem.getServerId(), sendRtpItem.getApp(),
+                sendRtpItem.getStream());
         RedisRpcRequest request = buildRequest("sendRtp/startSendRtp", callId);
         request.setToId(sendRtpItem.getServerId());
         RedisRpcResponse response = redisRpcConfig.request(request, 10, TimeUnit.MILLISECONDS);
@@ -82,12 +82,13 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
 
     @Override
     public WVPResult stopSendRtp(String callId) {
-        SendRtpInfo sendRtpItem = (SendRtpInfo)redisTemplate.opsForValue().get(callId);
+        SendRtpInfo sendRtpItem = (SendRtpInfo) redisTemplate.opsForValue().get(callId);
         if (sendRtpItem == null) {
             log.info("[请求其他WVP] 停止推流, 未找到redis中的发流信息， key：{}", callId);
             return WVPResult.fail(ErrorCode.ERROR100.getCode(), "未找到发流信息");
         }
-        log.info("[请求其他WVP] 停止推流，wvp：{}， {}/{}", sendRtpItem.getServerId(), sendRtpItem.getApp(), sendRtpItem.getStream());
+        log.info("[请求其他WVP] 停止推流，wvp：{}， {}/{}", sendRtpItem.getServerId(), sendRtpItem.getApp(),
+                sendRtpItem.getStream());
         RedisRpcRequest request = buildRequest("sendRtp/stopSendRtp", callId);
         request.setToId(sendRtpItem.getServerId());
         RedisRpcResponse response = redisRpcConfig.request(request, 10, TimeUnit.MILLISECONDS);
@@ -106,7 +107,9 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
             // 读取redis中的上级点播信息，生成sendRtpItm发送出去
             if (sendRtpItem.getSsrc() == null) {
                 // 上级平台点播时不使用上级平台指定的ssrc，使用自定义的ssrc，参考国标文档-点播外域设备媒体流SSRC处理方式
-                String ssrc = "Play".equalsIgnoreCase(sendRtpItem.getSessionName()) ? ssrcFactory.getPlaySsrc(hookData.getMediaServer().getId()) : ssrcFactory.getPlayBackSsrc(hookData.getMediaServer().getId());
+                String ssrc = "Play".equalsIgnoreCase(sendRtpItem.getSessionName())
+                        ? ssrcFactory.getPlaySsrc(hookData.getMediaServer().getId())
+                        : ssrcFactory.getPlayBackSsrc(hookData.getMediaServer().getId());
                 sendRtpItem.setSsrc(ssrc);
             }
             sendRtpItem.setMediaServerId(hookData.getMediaServer().getId());
@@ -125,7 +128,8 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
                 log.info("[请求所有WVP监听流上线] 流上线,但是未找到发流信息：{}/{}", sendRtpItem.getApp(), sendRtpItem.getStream());
                 return;
             }
-            log.info("[请求所有WVP监听流上线] 流上线 {}/{}->{}", sendRtpItem.getApp(), sendRtpItem.getStream(), sendRtpItem.toString());
+            log.info("[请求所有WVP监听流上线] 流上线 {}/{}->{}", sendRtpItem.getApp(), sendRtpItem.getStream(),
+                    sendRtpItem.toString());
 
             if (callback != null) {
                 callback.run(Integer.parseInt(response.getBody().toString()));
@@ -147,7 +151,7 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
 
     @Override
     public void rtpSendStopped(String callId) {
-        SendRtpInfo sendRtpItem = (SendRtpInfo)redisTemplate.opsForValue().get(callId);
+        SendRtpInfo sendRtpItem = (SendRtpInfo) redisTemplate.opsForValue().get(callId);
         if (sendRtpItem == null) {
             log.info("[停止WVP监听流上线] 未找到redis中的发流信息， key：{}", callId);
             return;
@@ -231,6 +235,9 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
         RedisRpcRequest request = buildRequest("platform/update", platform);
         request.setToId(serverId);
         RedisRpcResponse response = redisRpcConfig.request(request, 40, TimeUnit.MILLISECONDS);
+        if (response == null) {
+            return false;
+        }
         return Boolean.parseBoolean(response.getBody().toString());
     }
 
@@ -317,7 +324,8 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
     }
 
     @Override
-    public WVPResult<String> resetAlarm(String serverId, Device device, String channelId, String alarmMethod, String alarmType) {
+    public WVPResult<String> resetAlarm(String serverId, Device device, String channelId, String alarmMethod,
+            String alarmType) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("device", device.getDeviceId());
         jsonObject.put("channelId", channelId);
@@ -340,7 +348,8 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
     }
 
     @Override
-    public WVPResult<String> homePosition(String serverId, Device device, String channelId, Boolean enabled, Integer resetTime, Integer presetIndex) {
+    public WVPResult<String> homePosition(String serverId, Device device, String channelId, Boolean enabled,
+            Integer resetTime, Integer presetIndex) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("device", device.getDeviceId());
         jsonObject.put("channelId", channelId);
@@ -355,7 +364,7 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
 
     @Override
     public void dragZoomIn(String serverId, Device device, String channelId, int length, int width, int midpointx,
-                           int midpointy, int lengthx, int lengthy) {
+            int midpointy, int lengthx, int lengthy) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("device", device.getDeviceId());
         jsonObject.put("channelId", channelId);
@@ -371,7 +380,8 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
     }
 
     @Override
-    public void dragZoomOut(String serverId, Device device, String channelId, int length, int width, int midpointx, int midpointy, int lengthx, int lengthy) {
+    public void dragZoomOut(String serverId, Device device, String channelId, int length, int width, int midpointx,
+            int midpointy, int lengthx, int lengthy) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("device", device.getDeviceId());
         jsonObject.put("channelId", channelId);
@@ -415,10 +425,10 @@ public class RedisRpcServiceImpl implements IRedisRpcService {
 
     @Override
     public WVPResult<String> alarm(String serverId, Device device, String startPriority, String endPriority,
-                                   String alarmMethod, String alarmType, String startTime, String endTime) {
+            String alarmMethod, String alarmType, String startTime, String endTime) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("device", device.getDeviceId());
-//        jsonObject.put("channelId", channelId);
+        // jsonObject.put("channelId", channelId);
         jsonObject.put("startPriority", startPriority);
         jsonObject.put("endPriority", endPriority);
         jsonObject.put("alarmMethod", alarmMethod);

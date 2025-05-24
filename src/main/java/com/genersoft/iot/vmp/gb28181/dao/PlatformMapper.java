@@ -102,7 +102,7 @@ public interface PlatformMapper {
         @Update("UPDATE wvp_platform SET status=#{online} WHERE id=#{id}")
         int updateStatus(@Param("id") int id, @Param("online") boolean online);
 
-        @Select("SELECT server_id FROM wvp_platform WHERE enable=true and server_id != #{serverId} group by server_id")
+        @Select("SELECT * FROM wvp_platform WHERE enable=true and server_id = #{serverId}")
         List<String> queryServerIdsWithEnableAndNotInServer(@Param("serverId") String serverId);
 
         @Select("SELECT * FROM wvp_platform WHERE server_id = #{serverId}")
