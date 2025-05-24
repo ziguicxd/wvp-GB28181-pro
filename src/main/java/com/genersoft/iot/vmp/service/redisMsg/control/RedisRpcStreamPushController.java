@@ -51,8 +51,7 @@ public class RedisRpcStreamPushController extends RpcController {
     @Autowired
     private IStreamPushPlayService streamPushPlayService;
 
-
-    private void sendResponse(RedisRpcResponse response){
+    private void sendResponse(RedisRpcResponse response) {
         log.info("[redis-rpc] >> {}", response);
         response.setToId(userSetting.getServerId());
         RedisRpcMessage message = new RedisRpcMessage();
@@ -66,15 +65,20 @@ public class RedisRpcStreamPushController extends RpcController {
     @RedisRpcMapping("waitePushStreamOnline")
     public RedisRpcResponse waitePushStreamOnline(RedisRpcRequest request) {
         SendRtpInfo sendRtpItem = JSONObject.parseObject(request.getParam().toString(), SendRtpInfo.class);
-        log.info("[redis-rpc] 监听流上线： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(), sendRtpItem.getIp(), sendRtpItem.getPort());
+        log.info("[redis-rpc] 监听流上线： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(),
+                sendRtpItem.getIp(), sendRtpItem.getPort());
         // 查询本级是否有这个流
-        MediaServer mediaServer = mediaServerService.getMediaServerByAppAndStream(sendRtpItem.getApp(), sendRtpItem.getStream());
+        MediaServer mediaServer = mediaServerService.getMediaServerByAppAndStream(sendRtpItem.getApp(),
+                sendRtpItem.getStream());
         if (mediaServer != null) {
-            log.info("[redis-rpc] 监听流上线时发现流已存在直接返回： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(), sendRtpItem.getIp(), sendRtpItem.getPort() );
+            log.info("[redis-rpc] 监听流上线时发现流已存在直接返回： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(),
+                    sendRtpItem.getIp(), sendRtpItem.getPort());
             // 读取redis中的上级点播信息，生成sendRtpItm发送出去
             if (sendRtpItem.getSsrc() == null) {
                 // 上级平台点播时不使用上级平台指定的ssrc，使用自定义的ssrc，参考国标文档-点播外域设备媒体流SSRC处理方式
-                String ssrc = "Play".equalsIgnoreCase(sendRtpItem.getSessionName()) ? ssrcFactory.getPlaySsrc(mediaServer.getId()) : ssrcFactory.getPlayBackSsrc(mediaServer.getId());
+                String ssrc = "Play".equalsIgnoreCase(sendRtpItem.getSessionName())
+                        ? ssrcFactory.getPlaySsrc(mediaServer.getId())
+                        : ssrcFactory.getPlayBackSsrc(mediaServer.getId());
                 sendRtpItem.setSsrc(ssrc);
             }
             sendRtpItem.setMediaServerId(mediaServer.getId());
@@ -89,11 +93,14 @@ public class RedisRpcStreamPushController extends RpcController {
         // 监听流上线。 流上线直接发送sendRtpItem消息给实际的信令处理者
         Hook hook = Hook.getInstance(HookType.on_media_arrival, sendRtpItem.getApp(), sendRtpItem.getStream(), null);
         hookSubscribe.addSubscribe(hook, (hookData) -> {
-            log.info("[redis-rpc] 监听流上线，流已上线： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(), sendRtpItem.getIp(), sendRtpItem.getPort());
+            log.info("[redis-rpc] 监听流上线，流已上线： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(),
+                    sendRtpItem.getIp(), sendRtpItem.getPort());
             // 读取redis中的上级点播信息，生成sendRtpItm发送出去
             if (sendRtpItem.getSsrc() == null) {
                 // 上级平台点播时不使用上级平台指定的ssrc，使用自定义的ssrc，参考国标文档-点播外域设备媒体流SSRC处理方式
-                String ssrc = "Play".equalsIgnoreCase(sendRtpItem.getSessionName()) ? ssrcFactory.getPlaySsrc(hookData.getMediaServer().getId()) : ssrcFactory.getPlayBackSsrc(hookData.getMediaServer().getId());
+                String ssrc = "Play".equalsIgnoreCase(sendRtpItem.getSessionName())
+                        ? ssrcFactory.getPlaySsrc(hookData.getMediaServer().getId())
+                        : ssrcFactory.getPlayBackSsrc(hookData.getMediaServer().getId());
                 sendRtpItem.setSsrc(ssrc);
             }
             sendRtpItem.setMediaServerId(hookData.getMediaServer().getId());
@@ -120,7 +127,8 @@ public class RedisRpcStreamPushController extends RpcController {
         StreamInfo streamInfo = JSONObject.parseObject(request.getParam().toString(), StreamInfo.class);
         log.info("[redis-rpc] 监听流信息，等待流上线： {}/{}", streamInfo.getApp(), streamInfo.getStream());
         // 查询本级是否有这个流
-        StreamInfo streamInfoInServer = mediaServerService.getMediaByAppAndStream(streamInfo.getApp(), streamInfo.getStream());
+        StreamInfo streamInfoInServer = mediaServerService.getMediaByAppAndStream(streamInfo.getApp(),
+                streamInfo.getStream());
         if (streamInfoInServer != null) {
             log.info("[redis-rpc] 监听流上线时发现流已存在直接返回： {}/{}", streamInfo.getApp(), streamInfo.getStream());
             RedisRpcResponse response = request.getResponse();
@@ -134,7 +142,8 @@ public class RedisRpcStreamPushController extends RpcController {
             log.info("[redis-rpc] 监听流上线，流已上线： {}/{}", streamInfo.getApp(), streamInfo.getStream());
             // 读取redis中的上级点播信息，生成sendRtpItm发送出去
             RedisRpcResponse response = request.getResponse();
-            StreamInfo streamInfoByAppAndStream = mediaServerService.getStreamInfoByAppAndStream(hookData.getMediaServer(),
+            StreamInfo streamInfoByAppAndStream = mediaServerService.getStreamInfoByAppAndStream(
+                    hookData.getMediaServer(),
                     streamInfo.getApp(), streamInfo.getStream(), hookData.getMediaInfo(),
                     hookData.getMediaInfo() != null ? hookData.getMediaInfo().getCallId() : null);
             response.setBody(JSONObject.toJSONString(streamInfoByAppAndStream));
@@ -152,7 +161,8 @@ public class RedisRpcStreamPushController extends RpcController {
     @RedisRpcMapping("stopWaitePushStreamOnline")
     public RedisRpcResponse stopWaitePushStreamOnline(RedisRpcRequest request) {
         SendRtpInfo sendRtpItem = JSONObject.parseObject(request.getParam().toString(), SendRtpInfo.class);
-        log.info("[redis-rpc] 停止监听流上线： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(), sendRtpItem.getIp(), sendRtpItem.getPort() );
+        log.info("[redis-rpc] 停止监听流上线： {}/{}, 目标地址： {}：{}", sendRtpItem.getApp(), sendRtpItem.getStream(),
+                sendRtpItem.getIp(), sendRtpItem.getPort());
         // 监听流上线。 流上线直接发送sendRtpItem消息给实际的信令处理者
         Hook hook = Hook.getInstance(HookType.on_media_arrival, sendRtpItem.getApp(), sendRtpItem.getStream(), null);
         hookSubscribe.removeSubscribe(hook);
@@ -181,7 +191,8 @@ public class RedisRpcStreamPushController extends RpcController {
      */
     @RedisRpcMapping("play")
     public RedisRpcResponse play(RedisRpcRequest request) {
-        int id = Integer.parseInt(request.getParam().toString());
+        JSONObject paramJson = JSONObject.parseObject(request.getParam().toString());
+        int id = paramJson.getInteger("id");
         RedisRpcResponse response = request.getResponse();
         if (id <= 0) {
             response.setStatusCode(ErrorCode.ERROR400.getCode());
