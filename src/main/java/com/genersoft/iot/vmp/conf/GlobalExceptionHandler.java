@@ -11,13 +11,14 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
  * 全局异常处理
  */
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 默认异常处理
@@ -84,5 +85,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ResponseEntity<WVPResult<String>> exceptionHandler(BadCredentialsException e) {
         return new ResponseEntity<>(WVPResult.fail(ErrorCode.ERROR100.getCode(), e.getMessage()), HttpStatus.OK);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public WVPResult<String> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        log.error("[全局异常] 请求体缺失或格式错误: {}", ex.getMessage());
+        return WVPResult.fail(ErrorCode.ERROR400.getCode(), "请求体缺失或格式错误");
     }
 }
