@@ -3,6 +3,7 @@ package com.genersoft.iot.vmp.gb28181.bean;
 import gov.nist.javax.sip.message.SIPResponse;
 import lombok.Data;
 
+@Data
 public class SipTransactionInfo {
 
     private String callId;

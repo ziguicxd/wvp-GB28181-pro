@@ -1,11 +1,7 @@
 package com.genersoft.iot.vmp.gb28181.bean;
 
-import com.genersoft.iot.vmp.common.VideoManagerConstants;
 import com.genersoft.iot.vmp.conf.DynamicTask;
 import com.genersoft.iot.vmp.conf.UserSetting;
-import com.genersoft.iot.vmp.gb28181.task.ISubscribeTask;
-
-import com.genersoft.iot.vmp.gb28181.task.ISubscribeTask;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author lin
@@ -36,7 +31,7 @@ public class SubscribeHolder {
     private final String prefix = "VMP_SUBSCRIBE_OVERDUE";
 
     public void putCatalogSubscribe(String platformId, SubscribeInfo subscribeInfo) {
-        log.info("[国标级联] 添加目录订阅，平台： {}， 有效期： {}", platformId, subscribeInfo.getExpires());
+        log.info("[国标级联] 添加移动位置订阅，平台： {}， 有效期： {}s", platformId, subscribeInfo.getExpires());
 
         String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "catalog", platformId);
         if (subscribeInfo.getExpires() > 0) {
