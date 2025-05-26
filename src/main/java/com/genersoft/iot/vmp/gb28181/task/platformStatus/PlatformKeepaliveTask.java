@@ -1,6 +1,5 @@
 package com.genersoft.iot.vmp.gb28181.task.platformStatus;
 
-import com.genersoft.iot.vmp.common.CommonCallback;
 import com.genersoft.iot.vmp.gb28181.bean.PlatformKeepaliveCallback;
 import lombok.Getter;
 import lombok.Setter;

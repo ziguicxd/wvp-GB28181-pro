@@ -43,23 +43,17 @@ public class SubscribeHolder {
     }
 
     public SubscribeInfo getCatalogSubscribe(String platformId) {
-
-        if (platformId == null) {
-            return null;
-        }
         String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "catalog", platformId);
         return (SubscribeInfo) redisTemplate.opsForValue().get(key);
     }
 
     public void removeCatalogSubscribe(String platformId) {
-
         String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "catalog", platformId);
         redisTemplate.delete(key);
     }
 
     public void putMobilePositionSubscribe(String platformId, SubscribeInfo subscribeInfo, Runnable gpsTask) {
         log.info("[国标级联] 添加移动位置订阅，平台： {}， 有效期： {}", platformId, subscribeInfo.getExpires());
-
         String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "mobilePosition", platformId);
         if (subscribeInfo.getExpires() > 0) {
             Duration duration = Duration.ofSeconds(subscribeInfo.getExpires());
@@ -67,7 +61,6 @@ public class SubscribeHolder {
         } else {
             redisTemplate.opsForValue().set(key, subscribeInfo);
         }
-
         int cycleForCatalog;
         if (subscribeInfo.getGpsInterval() <= 0) {
             cycleForCatalog = 5;

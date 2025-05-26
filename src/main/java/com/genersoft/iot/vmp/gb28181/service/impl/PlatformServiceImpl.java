@@ -366,7 +366,11 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
         if (!userSetting.getServerId().equals(platformInDb.getServerId())) {
             return redisRpcService.updatePlatform(platformInDb.getServerId(), platform);
         }
-
+        // 更新数据库
+        if (platform.getCatalogGroup() == 0) {
+            platform.setCatalogGroup(1);
+        }
+        platformMapper.update(platform);
         if (statusTaskRunner.containsRegister(platformInDb.getServerGBId())) {
             SipTransactionInfo transactionInfo = statusTaskRunner
                     .getRegisterTransactionInfo(platformInDb.getServerGBId());

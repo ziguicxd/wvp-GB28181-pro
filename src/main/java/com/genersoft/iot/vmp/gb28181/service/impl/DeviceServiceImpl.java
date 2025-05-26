@@ -220,7 +220,6 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
                     }
                     sync(device);
                     // 延迟执行通道上线逻辑
-
                     // TODO 如果设备下的通道级联到了其他平台，那么需要发送事件或者notify给上级平台
                 }
                 // 上线添加订阅
