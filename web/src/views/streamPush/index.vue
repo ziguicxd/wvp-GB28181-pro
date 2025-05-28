@@ -255,7 +255,8 @@ export default {
       this.getPushList()
     },
     queryCloudRecords: function(row) {
-      this.$router.push(`/cloudRecordDetail/${row.app}/${row.stream}`)
+      // 修复跳转路径，使其与路由定义一致
+      this.$router.push(`/cloudRecord/detail/${row.app}/${row.stream}`);
     },
     importChannel: function() {
       this.$refs.importChannel.openDialog(() => {})
