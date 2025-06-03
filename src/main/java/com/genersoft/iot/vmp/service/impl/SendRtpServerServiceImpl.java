@@ -9,6 +9,7 @@ import com.genersoft.iot.vmp.service.ISendRtpServerService;
 import com.genersoft.iot.vmp.utils.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.math3.analysis.function.Add;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.support.atomic.RedisAtomicInteger;
@@ -28,11 +29,11 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
 
     @Autowired
     private RedisTemplate<Object, Object> redisTemplate;
-    
 
     @Override
-    public SendRtpInfo createSendRtpInfo(MediaServer mediaServer, String ip, Integer port, String ssrc, String requesterId,
-                                         String deviceId, Integer channelId, Boolean isTcp, Boolean rtcp) {
+    public SendRtpInfo createSendRtpInfo(MediaServer mediaServer, String ip, Integer port, String ssrc,
+            String requesterId,
+            String deviceId, Integer channelId, Boolean isTcp, Boolean rtcp) {
         int localPort = getNextPort(mediaServer);
         if (localPort <= 0) {
             return null;
@@ -42,14 +43,16 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
     }
 
     @Override
-    public SendRtpInfo createSendRtpInfo(MediaServer mediaServer, String ip, Integer port, String ssrc, String platformId,
-                                         String app, String stream, Integer channelId, Boolean tcp, Boolean rtcp){
+    public SendRtpInfo createSendRtpInfo(MediaServer mediaServer, String ip, Integer port, String ssrc,
+            String platformId,
+            String app, String stream, Integer channelId, Boolean tcp, Boolean rtcp) {
 
         int localPort = getNextPort(mediaServer);
         if (localPort <= 0) {
             throw new PlayException(javax.sip.message.Response.SERVER_INTERNAL_ERROR, "server internal error");
         }
-        SendRtpInfo sendRtpInfo = SendRtpInfo.getInstance(localPort, mediaServer, ip, port, ssrc, null, platformId, channelId,
+        SendRtpInfo sendRtpInfo = SendRtpInfo.getInstance(localPort, mediaServer, ip, port, ssrc, null, platformId,
+                channelId,
                 tcp, rtcp, userSetting.getServerId());
         if (sendRtpInfo == null) {
             return null;
@@ -61,9 +64,12 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
 
     @Override
     public void update(SendRtpInfo sendRtpItem) {
-        redisTemplate.opsForHash().put(VideoManagerConstants.SEND_RTP_INFO_CALLID, sendRtpItem.getCallId(), sendRtpItem);
-        redisTemplate.opsForHash().put(VideoManagerConstants.SEND_RTP_INFO_STREAM + sendRtpItem.getStream(), sendRtpItem.getTargetId(), sendRtpItem);
-        redisTemplate.opsForHash().put(VideoManagerConstants.SEND_RTP_INFO_CHANNEL + sendRtpItem.getChannelId(), sendRtpItem.getTargetId(), sendRtpItem);
+        redisTemplate.opsForHash().put(VideoManagerConstants.SEND_RTP_INFO_CALLID, sendRtpItem.getCallId(),
+                sendRtpItem);
+        redisTemplate.opsForHash().put(VideoManagerConstants.SEND_RTP_INFO_STREAM + sendRtpItem.getStream(),
+                sendRtpItem.getTargetId(), sendRtpItem);
+        redisTemplate.opsForHash().put(VideoManagerConstants.SEND_RTP_INFO_CHANNEL + sendRtpItem.getChannelId(),
+                sendRtpItem.getTargetId(), sendRtpItem);
     }
 
     @Override
@@ -75,7 +81,7 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
     @Override
     public SendRtpInfo queryByCallId(String callId) {
         String key = VideoManagerConstants.SEND_RTP_INFO_CALLID;
-        return (SendRtpInfo)redisTemplate.opsForHash().get(key, callId);
+        return (SendRtpInfo) redisTemplate.opsForHash().get(key, callId);
     }
 
     @Override
@@ -88,7 +94,7 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
     public List<SendRtpInfo> queryByStream(String stream) {
         String key = VideoManagerConstants.SEND_RTP_INFO_STREAM + stream;
         List<Object> values = redisTemplate.opsForHash().values(key);
-        List<SendRtpInfo> result= new ArrayList<>();
+        List<SendRtpInfo> result = new ArrayList<>();
         for (Object o : values) {
             result.add((SendRtpInfo) o);
         }
@@ -105,9 +111,12 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
             return;
         }
         redisTemplate.opsForHash().delete(VideoManagerConstants.SEND_RTP_INFO_CALLID, sendRtpInfo.getCallId());
-        redisTemplate.opsForHash().delete(VideoManagerConstants.SEND_RTP_INFO_STREAM + sendRtpInfo.getStream(), sendRtpInfo.getTargetId());
-        redisTemplate.opsForHash().delete(VideoManagerConstants.SEND_RTP_INFO_CHANNEL + sendRtpInfo.getChannelId(), sendRtpInfo.getTargetId());
+        redisTemplate.opsForHash().delete(VideoManagerConstants.SEND_RTP_INFO_STREAM + sendRtpInfo.getStream(),
+                sendRtpInfo.getTargetId());
+        redisTemplate.opsForHash().delete(VideoManagerConstants.SEND_RTP_INFO_CHANNEL + sendRtpInfo.getChannelId(),
+                sendRtpInfo.getTargetId());
     }
+
     @Override
     public void deleteByCallId(String callId) {
         SendRtpInfo sendRtpInfo = queryByCallId(callId);
@@ -116,6 +125,7 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
         }
         delete(sendRtpInfo);
     }
+
     @Override
     public void deleteByStream(String stream, String targetId) {
         SendRtpInfo sendRtpInfo = queryByStream(stream, targetId);
@@ -146,7 +156,7 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
     public List<SendRtpInfo> queryByChannelId(int channelId) {
         String key = VideoManagerConstants.SEND_RTP_INFO_CHANNEL + channelId;
         List<Object> values = redisTemplate.opsForHash().values(key);
-        List<SendRtpInfo> result= new ArrayList<>();
+        List<SendRtpInfo> result = new ArrayList<>();
         for (Object o : values) {
             result.add((SendRtpInfo) o);
         }
@@ -157,7 +167,7 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
     public List<SendRtpInfo> queryAll() {
         String key = VideoManagerConstants.SEND_RTP_INFO_CALLID;
         List<Object> values = redisTemplate.opsForHash().values(key);
-        List<SendRtpInfo> result= new ArrayList<>();
+        List<SendRtpInfo> result = new ArrayList<>();
         for (Object o : values) {
             result.add((SendRtpInfo) o);
         }
@@ -177,7 +187,8 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
     public List<SendRtpInfo> queryForPlatform(String platformId) {
         List<SendRtpInfo> sendRtpInfos = queryAll();
         if (!sendRtpInfos.isEmpty()) {
-            sendRtpInfos.removeIf(sendRtpInfo -> !sendRtpInfo.isSendToPlatform() || !sendRtpInfo.getTargetId().equals(platformId));
+            sendRtpInfos.removeIf(
+                    sendRtpInfo -> !sendRtpInfo.isSendToPlatform() || !sendRtpInfo.getTargetId().equals(platformId));
         }
         return sendRtpInfos;
     }
@@ -193,35 +204,36 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
         return result;
     }
 
-
     @Override
     public synchronized int getNextPort(MediaServer mediaServer) {
         if (mediaServer == null) {
             log.warn("[发送端口管理] 参数错误，mediaServer为NULL");
             return -1;
         }
-        String sendIndexKey = VideoManagerConstants.SEND_RTP_PORT + userSetting.getServerId() + ":" +  mediaServer.getId();
+        String sendIndexKey = VideoManagerConstants.SEND_RTP_PORT + userSetting.getServerId() + ":"
+                + mediaServer.getId();
         Set<Integer> sendRtpSet = getAllSendRtpPort();
         String sendRtpPortRange = mediaServer.getSendRtpPortRange();
         int startPort;
         int endPort;
         if (sendRtpPortRange != null) {
             String[] portArray = sendRtpPortRange.split(",");
-            if (portArray.length != 2 || !NumberUtils.isParsable(portArray[0]) || !NumberUtils.isParsable(portArray[1])) {
+            if (portArray.length != 2 || !NumberUtils.isParsable(portArray[0])
+                    || !NumberUtils.isParsable(portArray[1])) {
                 log.warn("{}发送端口配置格式错误，自动使用50000-60000作为端口范围", mediaServer.getId());
                 startPort = 50000;
                 endPort = 60000;
-            }else {
-                if ( Integer.parseInt(portArray[1]) - Integer.parseInt(portArray[0]) < 1) {
+            } else {
+                if (Integer.parseInt(portArray[1]) - Integer.parseInt(portArray[0]) < 1) {
                     log.warn("{}发送端口配置错误,结束端口至少比开始端口大一，自动使用50000-60000作为端口范围", mediaServer.getId());
                     startPort = 50000;
                     endPort = 60000;
-                }else {
+                } else {
                     startPort = Integer.parseInt(portArray[0]);
                     endPort = Integer.parseInt(portArray[1]);
                 }
             }
-        }else {
+        } else {
             log.warn("{}未设置发送端口默认值，自动使用50000-60000作为端口范围", mediaServer.getId());
             startPort = 50000;
             endPort = 60000;
@@ -230,30 +242,29 @@ public class SendRtpServerServiceImpl implements ISendRtpServerService {
             log.warn("{}获取redis连接信息失败", mediaServer.getId());
             return -1;
         }
-        return getSendPort(startPort, endPort, sendIndexKey, sendRtpSet);
-    }
 
-    private synchronized int getSendPort(int startPort, int endPort, String sendIndexKey, Set<Integer> sendRtpPortSet){
-        // TODO 这里改为只取偶数端口
-        RedisAtomicInteger redisAtomicInteger = new RedisAtomicInteger(sendIndexKey , redisTemplate.getConnectionFactory());
+        RedisAtomicInteger redisAtomicInteger = new RedisAtomicInteger(sendIndexKey,
+                redisTemplate.getConnectionFactory());
         if (redisAtomicInteger.get() < startPort) {
             redisAtomicInteger.set(startPort);
             return startPort;
-        }else {
-            int port = redisAtomicInteger.getAndIncrement();
-            if (port > endPort) {
-                redisAtomicInteger.set(startPort);
-                if (sendRtpPortSet.contains(startPort)) {
-                    return getSendPort(startPort, endPort, sendIndexKey, sendRtpPortSet);
-                }else {
-                    return startPort;
+        } else {
+            for (int i = 0; i < endPort - startPort; i++) {
+                int port = redisAtomicInteger.getAndIncrement();
+                if (port > endPort) {
+                    redisAtomicInteger.set(startPort);
+                    if (sendRtpSet.contains(startPort)) {
+                        continue;
+                    } else {
+                        return startPort;
+                    }
+                }
+                if (!sendRtpSet.contains(port)) {
+                    return port;
                 }
             }
-            if (sendRtpPortSet.contains(port)) {
-                return getSendPort(startPort, endPort, sendIndexKey, sendRtpPortSet);
-            }else {
-                return port;
-            }
+            log.warn("{}获取发送端口失败, 无可用端口", mediaServer.getId());
+            return -1;
         }
     }
 
