@@ -69,37 +69,31 @@ public class EventPublisher {
 		catalogEventPublish(platform, deviceChannelList, type);
 	}
 
-	public void catalogEventPublish(Platform platform, List<CommonGBChannel> deviceChannels, String type) {
-		catalogEventPublish(platform, deviceChannels, type, true);
-	}
+	if(platform!=null&&!userSetting.getServerId().equals(platform.getServerId()))
 
-	public void catalogEventPublish(Platform platform, List<CommonGBChannel> deviceChannels, String type,
-			boolean share) {
-		if (platform != null && !userSetting.getServerId().equals(platform.getServerId())) {
-			log.info("[国标级联] 目录状态推送， 此上级平台由其他服务处理，消息已经忽略");
-			return;
-		}
-		CatalogEvent outEvent = new CatalogEvent(this);
-		List<CommonGBChannel> channels = new ArrayList<>();
-		if (deviceChannels.size() > 1) {
-			// 数据去重
-			Set<String> gbIdSet = new HashSet<>();
-			for (CommonGBChannel deviceChannel : deviceChannels) {
-				if (deviceChannel != null && deviceChannel.getGbDeviceId() != null
-						&& !gbIdSet.contains(deviceChannel.getGbDeviceId())) {
-					gbIdSet.add(deviceChannel.getGbDeviceId());
-					channels.add(deviceChannel);
-				}
+	{
+		log.info("[国标级联] 目录状态推送， 此上级平台由其他服务处理，消息已经忽略");
+		return;
+	}
+	CatalogEvent outEvent = new CatalogEvent(this);
+	List<CommonGBChannel> channels = new ArrayList<>();if(deviceChannels.size()>1)
+	{
+		// 数据去重
+		Set<String> gbIdSet = new HashSet<>();
+		for (CommonGBChannel deviceChannel : deviceChannels) {
+			if (deviceChannel != null && deviceChannel.getGbDeviceId() != null
+					&& !gbIdSet.contains(deviceChannel.getGbDeviceId())) {
+				gbIdSet.add(deviceChannel.getGbDeviceId());
+				channels.add(deviceChannel);
 			}
-		} else {
-			channels = deviceChannels;
 		}
-		outEvent.setChannels(channels);
-		outEvent.setType(type);
-		if (platform != null) {
-			outEvent.setPlatform(platform);
-		}
-		applicationEventPublisher.publishEvent(outEvent);
+	}else
+	{
+		channels = deviceChannels;
+	}System.out.println(5);outEvent.setChannels(channels);outEvent.setType(type);if(platform!=null)
+	{
+		outEvent.setPlatform(platform);
+	}applicationEventPublisher.publishEvent(outEvent);
 	}
 
 	public void mobilePositionEventPublish(MobilePosition mobilePosition) {

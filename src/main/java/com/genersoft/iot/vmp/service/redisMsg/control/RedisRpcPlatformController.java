@@ -72,7 +72,7 @@ public class RedisRpcPlatformController extends RpcController {
         Platform platform = jsonObject.getObject("platform", Platform.class);
         List<CommonGBChannel> channels = jsonObject.getJSONArray("channels").toJavaList(CommonGBChannel.class);
         String type = jsonObject.getString("type");
-        eventPublisher.catalogEventPublish(platform, channels, type, false);
+        eventPublisher.catalogEventPublish(platform, channels, type);
         RedisRpcResponse response = request.getResponse();
         response.setStatusCode(ErrorCode.SUCCESS.getCode());
         return response;

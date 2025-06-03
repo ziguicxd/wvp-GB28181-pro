@@ -50,7 +50,7 @@ public class SIPRequestHeaderProvider {
 		SipURI requestURI = SipFactory.getInstance().createAddressFactory().createSipURI(device.getDeviceId(),
 				device.getHostAddress());
 		// via
-		ArrayList<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();
+		ArrayList<ViaHeader> viaHeaders = new ArrayList<>();
 		ViaHeader viaHeader = SipFactory.getInstance().createHeaderFactory().createViaHeader(
 				sipLayer.getLocalIp(device.getLocalIp()), sipConfig.getPort(), device.getTransport(), viaTag);
 		viaHeader.setRPort();

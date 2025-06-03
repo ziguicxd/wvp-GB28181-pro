@@ -4,6 +4,8 @@ import com.genersoft.iot.vmp.gb28181.bean.*;
 import com.genersoft.iot.vmp.gb28181.dao.provider.ChannelProvider;
 import com.genersoft.iot.vmp.service.bean.GPSMsgInfo;
 import com.genersoft.iot.vmp.streamPush.bean.StreamPush;
+
+import org.apache.commons.math3.analysis.function.Add;
 import org.apache.ibatis.annotations.*;
 import org.springframework.stereotype.Repository;
 
@@ -611,4 +613,6 @@ public interface CommonGBChannelMapper {
                         " </script>" })
         void removeParentIdByChannelIds(List<Integer> channelIdsForClear);
 
+        @SelectProvider(type = ChannelProvider.class, method = "queryOnlineListsByGbDeviceId")
+        List<CommonGBChannel> queryOnlineListsByGbDeviceId(@Param("deviceId") int deviceId);
 }

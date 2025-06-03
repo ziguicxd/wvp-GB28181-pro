@@ -31,6 +31,8 @@ import com.genersoft.iot.vmp.web.gb28181.dto.DeviceChannelExtend;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.math3.analysis.function.Add;
 import org.dom4j.Element;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -584,15 +586,19 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             DeviceChannel channelInDb = allChannelMap
                     .get(deviceChannel.getDataDeviceId() + deviceChannel.getDeviceId());
             if (channelInDb != null) {
+                System.out.println(1);
                 deviceChannel.setStreamId(channelInDb.getStreamId());
                 deviceChannel.setHasAudio(channelInDb.isHasAudio());
                 deviceChannel.setId(channelInDb.getId());
                 if (channelInDb.getStatus() != null
-                        && channelInDb.getStatus().equalsIgnoreCase(deviceChannel.getStatus())) {
+                        && !channelInDb.getStatus().equalsIgnoreCase(deviceChannel.getStatus())) {
+                    System.out.println(2);
                     List<Platform> platformList = platformChannelMapper
                             .queryParentPlatformByChannelId(deviceChannel.getDeviceId());
                     if (!CollectionUtils.isEmpty(platformList)) {
+                        System.out.println(3);
                         platformList.forEach(platform -> {
+                            System.out.println(4);
                             eventPublisher.catalogEventPublish(platform, deviceChannel.buildCommonGBChannelForStatus(),
                                     deviceChannel.getStatus().equals("ON") ? CatalogEvent.ON : CatalogEvent.OFF);
                         });

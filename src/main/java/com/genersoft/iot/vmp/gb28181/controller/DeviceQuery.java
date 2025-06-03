@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.utils.IOUtils;
+import org.apache.commons.math3.analysis.function.Add;
 import org.apache.ibatis.annotations.Options;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -120,7 +121,12 @@ public class DeviceQuery {
 			log.debug("设备通道信息同步API调用，deviceId：" + deviceId);
 		}
 		Device device = deviceService.getDeviceByDeviceId(deviceId);
-
+		if (device.getRegisterTime() == null) {
+			WVPResult<SyncStatus> wvpResult = new WVPResult<>();
+			wvpResult.setCode(ErrorCode.ERROR100.getCode());
+			wvpResult.setMsg("设备尚未注册过");
+			return wvpResult;
+		}
 		return deviceService.devicesSync(device);
 
 	}
@@ -220,7 +226,7 @@ public class DeviceQuery {
 		if (exist) {
 			throw new ControllerException(ErrorCode.ERROR100.getCode(), "设备编号已存在");
 		}
-		deviceService.addDevice(device);
+		deviceService.addCustomDevice(device);
 	}
 
 	@Operation(summary = "更新设备信息", security = @SecurityRequirement(name = JwtUtils.HEADER))

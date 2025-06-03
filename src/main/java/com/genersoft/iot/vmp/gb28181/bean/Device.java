@@ -1,11 +1,11 @@
 package com.genersoft.iot.vmp.gb28181.bean;
 
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
  * 国标设备/平台
+ * 
  * @author lin
  */
 @Data
@@ -26,19 +26,19 @@ public class Device {
 	 */
 	@Schema(description = "名称")
 	private String name;
-	
+
 	/**
 	 * 生产厂商
 	 */
 	@Schema(description = "生产厂商")
 	private String manufacturer;
-	
+
 	/**
 	 * 型号
 	 */
 	@Schema(description = "型号")
 	private String model;
-	
+
 	/**
 	 * 固件版本
 	 */
@@ -65,7 +65,7 @@ public class Device {
 	 * wan地址_ip
 	 */
 	@Schema(description = "IP")
-	private String  ip;
+	private String ip;
 
 	/**
 	 * wan地址_port
@@ -77,14 +77,13 @@ public class Device {
 	 * wan地址
 	 */
 	@Schema(description = "wan地址")
-	private String  hostAddress;
-	
+	private String hostAddress;
+
 	/**
 	 * 在线
 	 */
 	@Schema(description = "是否在线，true为在线，false为离线")
 	private boolean onLine;
-
 
 	/**
 	 * 注册时间
@@ -92,13 +91,11 @@ public class Device {
 	@Schema(description = "注册时间")
 	private String registerTime;
 
-
 	/**
 	 * 心跳时间
 	 */
 	@Schema(description = "心跳时间")
 	private String keepaliveTime;
-
 
 	/**
 	 * 心跳间隔
@@ -106,13 +103,11 @@ public class Device {
 	@Schema(description = "心跳间隔")
 	private Integer heartBeatInterval;
 
-
 	/**
 	 * 心跳超时次数
 	 */
 	@Schema(description = "心跳超时次数")
 	private Integer heartBeatCount;
-
 
 	/**
 	 * 定位功能支持情况
@@ -154,7 +149,7 @@ public class Device {
 	 * 字符集, 支持 UTF-8 与 GB2312
 	 */
 	@Schema(description = "符集, 支持 UTF-8 与 GB2312")
-	private String charset ;
+	private String charset;
 
 	/**
 	 * 目录订阅周期，0为不订阅
@@ -210,6 +205,4 @@ public class Device {
 	@Schema(description = "控制语音对讲流程，释放收到ACK后发流")
 	private boolean broadcastPushAfterAck;
 
-	@Schema(description = "所属服务Id")
-	private String serverId;
 }
