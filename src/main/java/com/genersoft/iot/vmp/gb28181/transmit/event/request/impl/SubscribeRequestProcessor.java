@@ -71,6 +71,7 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent
 				return;
 			}
 			String cmd = XmlUtil.getText(rootElement, "CmdType");
+			log.info("[收到订阅请求] 类型： {}", cmd);
 			if (CmdType.MOBILE_POSITION.equals(cmd)) {
 				processNotifyMobilePosition(request, rootElement);
 				// } else if (CmdType.ALARM.equals(cmd)) {
