@@ -28,7 +28,6 @@ import java.util.List;
 @Service
 public class PTZServiceImpl implements IPTZService {
 
-
     @Autowired
     private SIPCommander cmder;
 
@@ -44,7 +43,6 @@ public class PTZServiceImpl implements IPTZService {
     @Autowired
     private IDeviceService deviceService;
 
-
     @Override
     public void ptz(Device device, String channelId, int cmdCode, int horizonSpeed, int verticalSpeed, int zoomSpeed) {
         try {
@@ -56,13 +54,15 @@ public class PTZServiceImpl implements IPTZService {
     }
 
     @Override
-    public void frontEndCommand(Device device, String channelId, int cmdCode, int parameter1, int parameter2, int combindCode2) {
+    public void frontEndCommand(Device device, String channelId, int cmdCode, int parameter1, int parameter2,
+            int combindCode2) {
         // 判断设备是否属于当前平台, 如果不属于则发起自动调用
         if (!userSetting.getServerId().equals(device.getServerId())) {
             // 通道ID
             DeviceChannel deviceChannel = deviceChannelService.getOneForSource(device.getDeviceId(), channelId);
             Assert.notNull(deviceChannel, "通道不存在");
-            String msg = redisRpcPlayService.frontEndCommand(device.getServerId(), deviceChannel.getId(), cmdCode, parameter1, parameter2, combindCode2);
+            String msg = redisRpcPlayService.frontEndCommand(device.getServerId(), deviceChannel.getId(), cmdCode,
+                    parameter1, parameter2, combindCode2);
             if (msg != null) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), msg);
             }
@@ -77,7 +77,8 @@ public class PTZServiceImpl implements IPTZService {
     }
 
     @Override
-    public void frontEndCommand(CommonGBChannel channel, Integer cmdCode, Integer parameter1, Integer parameter2, Integer combindCode2) {
+    public void frontEndCommand(CommonGBChannel channel, Integer cmdCode, Integer parameter1, Integer parameter2,
+            Integer combindCode2) {
         if (channel.getDataType() != ChannelDataType.GB28181.value) {
             // 只有国标通道的支持云台控制
             log.warn("[INFO 消息] 只有国标通道的支持云台控制， 通道ID： {}", channel.getGbId());

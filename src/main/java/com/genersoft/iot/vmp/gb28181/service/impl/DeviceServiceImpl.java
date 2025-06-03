@@ -41,8 +41,6 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import gov.nist.javax.sip.message.SIPResponse;
 import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.math3.analysis.function.Add;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -90,6 +88,7 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
 
     @Autowired
     private DeviceChannelMapper deviceChannelMapper;
+
     @Autowired
     private CommonGBChannelMapper commonGBChannelMapper;
 
@@ -116,6 +115,7 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
 
     @Autowired
     private IRedisRpcService redisRpcService;
+
     @Autowired
     private SubscribeTaskRunner subscribeTaskRunner;
 
@@ -499,6 +499,7 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
         GbCode decode = GbCode.decode(deviceId);
         if (decode == null) {
             return true;
+        }
     }
 
     // 订阅丢失检查
