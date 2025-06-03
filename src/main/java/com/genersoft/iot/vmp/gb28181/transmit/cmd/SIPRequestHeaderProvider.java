@@ -203,9 +203,14 @@ public class SIPRequestHeaderProvider {
 		// device.getHostAddress());
 		// via
 		ArrayList<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();
+		// ViaHeader viaHeader =
+		// SipFactory.getInstance().createHeaderFactory().createViaHeader(
+		// sipLayer.getLocalIp(device.getLocalIp()), sipConfig.getPort(),
+		// device.getTransport(),
+		// transactionInfo.getViaBranch());
 		ViaHeader viaHeader = SipFactory.getInstance().createHeaderFactory().createViaHeader(
 				sipLayer.getLocalIp(device.getLocalIp()), sipConfig.getPort(), device.getTransport(),
-				transactionInfo.getViaBranch());
+				SipUtils.getNewViaTag());
 		// viaHeader.setRPort();
 		viaHeaders.add(viaHeader);
 		// from
