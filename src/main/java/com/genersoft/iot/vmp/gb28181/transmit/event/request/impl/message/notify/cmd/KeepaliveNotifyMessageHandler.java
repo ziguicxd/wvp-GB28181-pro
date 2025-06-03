@@ -106,7 +106,7 @@ public class KeepaliveNotifyMessageHandler extends SIPRequestProcessorParent
 
             RemoteAddressInfo remoteAddressInfo = SipUtils.getRemoteAddressFromRequest(request,
                     userSetting.getSipUseSourceIpAsRemoteAddress());
-            if (!device.getIp().equalsIgnoreCase(remoteAddressInfo.getIp())
+            if (device.getIp() == null || !device.getIp().equalsIgnoreCase(remoteAddressInfo.getIp())
                     || device.getPort() != remoteAddressInfo.getPort()) {
                 log.info("[收到心跳] 地址变化, {}({}), {}:{}->{}", device.getName(), device.getDeviceId(),
                         remoteAddressInfo.getIp(), remoteAddressInfo.getPort(),
