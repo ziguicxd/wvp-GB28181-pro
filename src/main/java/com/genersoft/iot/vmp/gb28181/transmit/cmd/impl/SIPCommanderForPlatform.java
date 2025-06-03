@@ -144,6 +144,7 @@ public class SIPCommanderForPlatform implements ISIPCommanderForPlatform {
     @Override
     public String keepalive(Platform parentPlatform, SipSubscribe.Event errorEvent, SipSubscribe.Event okEvent)
             throws SipException, InvalidArgumentException, ParseException {
+        log.info("[国标级联] 发送心跳， 上级平台编号： {}", parentPlatform.getServerGBId());
         String characterSet = parentPlatform.getCharacterSet();
         StringBuffer keepaliveXml = new StringBuffer(200);
         keepaliveXml.append("<?xml version=\"1.0\" encoding=\"")

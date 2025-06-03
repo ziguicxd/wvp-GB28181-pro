@@ -35,6 +35,8 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import gov.nist.javax.sip.message.SIPResponse;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.math3.analysis.function.Add;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.event.EventListener;
@@ -113,6 +115,35 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
 
     @Override
     public void run(String... args) throws Exception {
+
+        // 查找国标推流Add commentMore actions
+        List<SendRtpInfo> sendRtpItems = redisCatchStorage.queryAllSendRTPServer();
+        if (!sendRtpItems.isEmpty()) {
+            for (SendRtpInfo sendRtpItem : sendRtpItems) {
+                MediaServer mediaServerItem = mediaServerService.getOne(sendRtpItem.getMediaServerId());
+                CommonGBChannel channel = channelService.getOne(sendRtpItem.getChannelId());
+                if (channel == null) {
+                    continue;
+                }
+                sendRtpServerService.delete(sendRtpItem);
+                if (mediaServerItem != null) {
+                    ssrcFactory.releaseSsrc(sendRtpItem.getMediaServerId(), sendRtpItem.getSsrc());
+                    boolean stopResult = mediaServerService.initStopSendRtp(mediaServerItem, sendRtpItem.getApp(),
+                            sendRtpItem.getStream(), sendRtpItem.getSsrc());
+                    if (stopResult) {
+                        Platform platform = queryPlatformByServerGBId(sendRtpItem.getTargetId());
+
+                        if (platform != null) {
+                            try {
+                                commanderForPlatform.streamByeCmd(platform, sendRtpItem, channel);
+                            } catch (InvalidArgumentException | ParseException | SipException e) {
+                                log.error("[命令发送失败] 国标级联 发送BYE: {}", e.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+        }
         // 启动时 如果存在未过期的注册平台，则发送注销
         List<PlatformRegisterTaskInfo> registerTaskInfoList = statusTaskRunner.getAllRegisterTaskInfo();
         if (registerTaskInfoList.isEmpty()) {
@@ -425,7 +456,6 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
     }
 
     private void keepaliveExpire(String platformServerId, int failCount) {
-        log.info("[国标级联] 心跳到期， 上级平台编号： {}", platformServerId);
         Platform platform = queryPlatformByServerGBId(platformServerId);
         if (platform == null || !platform.isEnable()) {
             log.info("[国标级联] 心跳到期， 上级平台编号： {}, 平台不存在或者未启用， 忽略", platformServerId);
