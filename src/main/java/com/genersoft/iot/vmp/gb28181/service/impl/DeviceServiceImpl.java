@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.genersoft.iot.vmp.common.CommonCallback;
 import com.genersoft.iot.vmp.common.VideoManagerConstants;
 import com.genersoft.iot.vmp.common.enums.ChannelDataType;
+import com.genersoft.iot.vmp.conf.DynamicTask;
 import com.genersoft.iot.vmp.conf.UserSetting;
 import com.genersoft.iot.vmp.conf.exception.ControllerException;
 import com.genersoft.iot.vmp.gb28181.bean.*;
@@ -67,6 +68,8 @@ import java.util.stream.Collectors;
 @Service
 @Order(value = 16)
 public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
+    @Autowired
+    private DynamicTask dynamicTask;
 
     @Autowired
     private ISIPCommander sipCommander;
@@ -253,8 +256,6 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
         if (subscribeTaskRunner.containsKey(SubscribeTaskForMobilPosition.getKey(device))) {
             subscribeTaskRunner.removeSubscribe(SubscribeTaskForMobilPosition.getKey(device));
         }
-        // 进行通道离线
-        // deviceChannelMapper.offlineByDeviceId(deviceId);
         // 离线释放所有ssrc
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(device.getDeviceId());
         if (ssrcTransactions != null && !ssrcTransactions.isEmpty()) {
@@ -500,6 +501,8 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
         if (decode == null) {
             return true;
         }
+        int code = Integer.parseInt(decode.getTypeCode());
+        return code <= 199;
     }
 
     // 订阅丢失检查
