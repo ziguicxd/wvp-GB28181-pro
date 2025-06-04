@@ -11,6 +11,8 @@ import com.genersoft.iot.vmp.gb28181.utils.XmlUtil;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.math3.analysis.function.Add;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.springframework.beans.factory.InitializingBean;
@@ -68,6 +70,12 @@ public class SubscribeRequestProcessor extends SIPRequestProcessorParent
 			if (rootElement == null) {
 				log.error("处理SUBSCRIBE请求  未获取到消息体{}", evt.getRequest());
 				responseAck(request, Response.BAD_REQUEST);
+				return;
+			}
+			ExpiresHeader expires = request.getExpires();
+			if (expires == null) {
+				log.error("处理SUBSCRIBE请求  未获取到ExpiresHeader{}", evt.getRequest());
+				responseAck(request, Response.BAD_REQUEST, "missing expires");
 				return;
 			}
 			String platformId = SipUtils.getUserIdFromFromHeader(request);
