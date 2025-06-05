@@ -170,12 +170,8 @@ export default {
   mounted() {
     this.initData()
     this.getMediaServerList()
-    // 添加被动事件监听器
-    document.addEventListener('touchmove', this.handleTouchMove, { passive: true })
   },
   destroyed() {
-    // 移除事件监听器
-    document.removeEventListener('touchmove', this.handleTouchMove)
     // this.$destroy('recordVideoPlayer')
   },
   methods: {
@@ -307,9 +303,6 @@ export default {
     },
     formatTimeStamp(time) {
       return moment.unix(time / 1000).format('yyyy-MM-DD HH:mm:ss')
-    },
-    handleTouchMove(event) {
-      // 处理 touchmove 事件的逻辑（如果需要）
     }
   }
 }
