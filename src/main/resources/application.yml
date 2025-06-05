@@ -111,9 +111,9 @@ media:
     # [必须修改] zlm服务器的内网IP
     ip: 127.0.0.1
     # [可选] 返回流地址时的ip，置空使用 media.ip      
-    stream-ip: 192.168.0.9
+    stream-ip: 192.168.148.1
     # [可选] wvp在国标信令中使用的ip，此ip为摄像机可以访问到的ip， 置空使用 media.ip      
-    sdp-ip: 192.168.0.9
+    sdp-ip: 192.168.148.1
       # [可选] zlm服务器访问WVP所使用的IP, 默认使用127.0.0.1，zlm和wvp没有部署在同一台服务器时必须配置      
     hook-ip: 127.0.0.1
     # [必须修改] zlm服务器的http.port
@@ -169,9 +169,9 @@ user-settings:
     interface-authentication-excludes:
       #    - /api/captcha
     # 推流直播是否录制
-    record-push-live: false
+    record-push-live: true
     # 国标是否录制
-    record-sip: false
+    record-sip: true
     # 使用推流状态作为推流通道状态
     use-pushing-as-status: true
     # 使用来源请求ip作为streamIp,当且仅当你只有zlm节点它与wvp在一起的情况下开启
@@ -205,7 +205,7 @@ user-settings:
     # 国标续订方式，true为续订，每次注册在同一个会话里，false为重新注册，每次使用新的会话
     register-keep-int-dialog: false
     # 开启接口文档页面。 默认开启，生产环境建议关闭，遇到swagger相关的漏洞时也可以关闭
-    doc-enable: false
+    doc-enable: true
     # 跨域配置，不配置此项则允许所有跨域请求，配置后则只允许配置的页面的地址请求， 可以配置多个
     #allowed-origins:
       #- http://localhost:8008
@@ -222,9 +222,9 @@ user-settings:
 # 关闭在线文档（生产环境建议关闭）
 springdoc:
     api-docs:
-        enabled: false
+        enabled: true
     swagger-ui:
-        enabled: false   
+        enabled: true 
 # 配置api接口鉴权信息
 system:
   fixedKey: 1a6f92acbbcafe484ac5c180dbec18a9
