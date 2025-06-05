@@ -337,34 +337,108 @@ export default {
         }
       }
       this.playSeekValue = timeLength
+      this.initTime = Number.parseInt(this.detailFiles[index].startTime) // 更新initTime为当前选择文件的开始时间
       this.playRecord()
     },
     playRecord() {
       if (!this.$refs.recordVideoPlayer.playing) {
         this.$refs.recordVideoPlayer.destroy()
       }
-      this.$store.dispatch('cloudRecord/loadRecord', {
-        app: this.app,
-        stream: this.stream,
-        date: this.chooseDate
-      })
-        .then(data => {
-          this.streamInfo = data
-          if (location.protocol === 'https:') {
-            this.videoUrl = data['https_fmp4'] + '&time=' + new Date().getTime()
-          } else {
-            this.videoUrl = data['fmp4'] + '&time=' + new Date().getTime()
-          }
-          this.seekRecord()
+      this.playLoading = true
+
+      if (this.chooseFileIndex !== null && this.detailFiles.length > 0 && this.chooseFileIndex < this.detailFiles.length) {
+        const currentFile = this.detailFiles[this.chooseFileIndex]
+        this.$store.dispatch('cloudRecord/getPlayPath', currentFile.id)
+          .then(data => {
+            if (!data) {
+              this.$message.error('无法加载录像文件')
+              return
+            }
+
+            this.streamInfo = {
+              mediaServerId: currentFile.mediaServerId,
+              app: data.app || this.app,
+              stream: data.stream || this.stream,
+              id: currentFile.id,
+              startTime: currentFile.startTime,
+              endTime: currentFile.endTime
+            }
+
+            if (location.protocol === 'https:') {
+              let url = data.httpsPath
+              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              this.videoUrl = url
+            } else {
+              let url = data.httpPath
+              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              this.videoUrl = url
+            }
+
+            this.playTime = Number.parseInt(currentFile.startTime)
+            this.initTime = this.playTime // 确保initTime与当前选择文件的开始时间一致
+
+            setTimeout(() => {
+              // this.seekRecord()
+              this.$refs.Timeline.setTime(this.playTime) // 时间轴定位到当前播放时间
+            }, 100)
+          })
+          .catch((error) => {
+            console.log('加载录像错误:', error)
+            this.$message.error('加载录像文件失败: ' + (error.message || '未知错误'))
+          })
+          .finally(() => {
+            this.playLoading = false
+          })
+      } else {
+        // 如果没有选中文件，使用原来的方法
+        this.$store.dispatch('cloudRecord/loadRecord', {
+          app: this.app,
+          stream: this.stream,
+          date: this.chooseDate
         })
-        .catch((error) => {
-          console.log(error)
-        })
-        .finally(() => {
-          this.playLoading = false
-        })
+          .then(data => {
+            if (!data) {
+              this.$message.error('无法加载录像文件，服务器返回空数据')
+              return
+            }
+            this.streamInfo = data
+            if (location.protocol === 'https:') {
+              if (!data['https_fmp4']) {
+                this.$message.error('录像文件路径无效，无法播放')
+                return
+              }
+              let url = data['https_fmp4'];
+              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime();
+              this.videoUrl = url;
+            } else {
+              if (!data['fmp4']) {
+                this.$message.error('录像文件路径无效，无法播放')
+                return
+              }
+              let url = data['fmp4'];
+              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime();
+              this.videoUrl = url;
+            }
+            setTimeout(() => {
+              this.seekRecord()
+            }, 100)
+          })
+          .catch((error) => {
+            console.log('加载录像错误:', error)
+            this.$message.error('加载录像文件失败: ' + (error.message || '未知错误'))
+          })
+          .finally(() => {
+            this.playLoading = false
+          })
+      }
     },
     seekRecord() {
+      // 确保streamInfo包含所有必要的信息
+      if (!this.streamInfo || !this.streamInfo.mediaServerId || !this.streamInfo.app || !this.streamInfo.stream) {
+        console.log('流信息不完整，无法定位')
+        return
+      }
+      
       this.$store.dispatch('cloudRecord/seek', {
         mediaServerId: this.streamInfo.mediaServerId,
         app: this.streamInfo.app,
@@ -372,8 +446,12 @@ export default {
         seek: this.playSeekValue,
         schema: 'fmp4'
       })
+        .then(() => {
+          // 定位成功后的操作
+        })
         .catch((error) => {
-          console.log(error)
+          console.log('定位错误:', error)
+          // 即使定位失败，也不影响视频播放
         })
     },
     downloadFile(file) {
@@ -402,6 +480,17 @@ export default {
     showPlayTimeChange(val) {
       this.playTime += (val * 1000 - this.playerTime)
       this.playerTime = val * 1000
+
+      // 更新时间轴随播放时间推进
+      this.timeSegments = this.timeSegments.map(segment => {
+        if (this.playTime >= segment.beginTime && this.playTime <= segment.endTime) {
+          return { ...segment, color: '#ff0000' } // 当前播放段高亮
+        }
+        return { ...segment, color: '#01901d' }
+      })
+
+      // 时间轴实时更新
+      this.$refs.Timeline.setTime(this.playTime)
     },
     playingChange(val) {
       this.playing = val
