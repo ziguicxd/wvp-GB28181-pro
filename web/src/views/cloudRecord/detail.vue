@@ -191,8 +191,18 @@ export default {
         this.dateChange()
       }
     })
+    this.$nextTick(() => {
+      if (this.$refs.recordVideoPlayer) {
+        this.$refs.recordVideoPlayer.$on('playTimeChange', this.showPlayTimeChange); // 监听播放时间变化事件
+        this.$refs.recordVideoPlayer.$on('playStatusChange', this.playingChange); // 监听播放状态变化事件
+      }
+    });
   },
   destroyed() {
+    if (this.$refs.recordVideoPlayer) {
+      this.$refs.recordVideoPlayer.$off('playTimeChange', this.showPlayTimeChange); // 移除播放时间变化监听
+      this.$refs.recordVideoPlayer.$off('playStatusChange', this.playingChange); // 移除播放状态变化监听
+    }
     this.$destroy('recordVideoPlayer')
   },
   methods: {
@@ -210,11 +220,12 @@ export default {
       this.chooseFile(this.chooseFileIndex - 1)
     },
     playNext() {
-      // 播放上一个
-      if (this.chooseFileIndex === this.detailFiles.length - 1) {
-        return
+      // 播放下一个视频
+      if (this.chooseFileIndex < this.detailFiles.length - 1) {
+        this.chooseFile(this.chooseFileIndex + 1)
+      } else {
+        this.$message.info('已播放到最后一个录像')
       }
-      this.chooseFile(this.chooseFileIndex + 1)
     },
     changePlaySpeed(speed) {
       console.log(speed)
@@ -378,7 +389,6 @@ export default {
             this.initTime = this.playTime // 确保initTime与当前选择文件的开始时间一致
 
             setTimeout(() => {
-              // this.seekRecord()
               this.$refs.Timeline.setTime(this.playTime) // 时间轴定位到当前播放时间
             }, 100)
           })
@@ -389,47 +399,14 @@ export default {
           .finally(() => {
             this.playLoading = false
           })
+      }
+    },
+    handleVideoEnd() {
+      // 视频播放结束时触发
+      if (this.chooseFileIndex < this.detailFiles.length - 1) {
+        this.playNext() // 自动播放下一个视频
       } else {
-        // 如果没有选中文件，使用原来的方法
-        this.$store.dispatch('cloudRecord/loadRecord', {
-          app: this.app,
-          stream: this.stream,
-          date: this.chooseDate
-        })
-          .then(data => {
-            if (!data) {
-              this.$message.error('无法加载录像文件，服务器返回空数据')
-              return
-            }
-            this.streamInfo = data
-            if (location.protocol === 'https:') {
-              if (!data['https_fmp4']) {
-                this.$message.error('录像文件路径无效，无法播放')
-                return
-              }
-              let url = data['https_fmp4'];
-              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime();
-              this.videoUrl = url;
-            } else {
-              if (!data['fmp4']) {
-                this.$message.error('录像文件路径无效，无法播放')
-                return
-              }
-              let url = data['fmp4'];
-              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime();
-              this.videoUrl = url;
-            }
-            setTimeout(() => {
-              this.seekRecord()
-            }, 100)
-          })
-          .catch((error) => {
-            console.log('加载录像错误:', error)
-            this.$message.error('加载录像文件失败: ' + (error.message || '未知错误'))
-          })
-          .finally(() => {
-            this.playLoading = false
-          })
+        this.$message.info('已播放到最后一个录像')
       }
     },
     seekRecord() {
@@ -478,30 +455,50 @@ export default {
     },
 
     showPlayTimeChange(val) {
-      this.playTime += (val * 1000 - this.playerTime)
-      this.playerTime = val * 1000
+      // 更新播放时间
+      const newPlayTime = val * 1000; // 将秒转换为毫秒
+      this.playTime = newPlayTime;
 
       // 更新时间轴随播放时间推进
       this.timeSegments = this.timeSegments.map(segment => {
         if (this.playTime >= segment.beginTime && this.playTime <= segment.endTime) {
-          return { ...segment, color: '#ff0000' } // 当前播放段高亮
+          return { ...segment, color: '#ff0000' }; // 当前播放段高亮
         }
-        return { ...segment, color: '#01901d' }
-      })
+        return { ...segment, color: '#01901d' };
+      });
 
       // 时间轴实时更新
-      this.$refs.Timeline.setTime(this.playTime)
+      if (this.$refs.Timeline) {
+        this.$refs.Timeline.setTime(this.playTime);
+      }
     },
     playingChange(val) {
-      this.playing = val
+      // 播放状态变化时触发
+      this.playing = val;
     },
     playTimeChange(val) {
       if (val === this.playTime) {
         return
       }
+
+      // 更新播放时间
       this.playTime = val
+
+      // 根据时间轴的时间更新选择的文件
+      for (let i = 0; i < this.detailFiles.length; i++) {
+        const file = this.detailFiles[i]
+        if (this.playTime >= file.startTime && this.playTime <= file.endTime) {
+          if (this.chooseFileIndex !== i) {
+            this.chooseFileIndex = i
+            this.playSeekValue = this.playTime - file.startTime
+            this.playRecord()
+          }
+          break
+        }
+      }
     },
     timelineMouseDown() {
+      // 标记时间轴拖动开始
       this.timelineControl = true
     },
     mouseupTimeline(event) {
@@ -510,23 +507,80 @@ export default {
         return
       }
       this.timelineControl = false
+
+      // 根据时间轴的时间定位到对应的文件
       let timeLength = 0
+      let fileFound = false
       for (let i = 0; i < this.detailFiles.length; i++) {
         const item = this.detailFiles[i]
         if (this.playTime > item.endTime) {
           timeLength += item.timeLen
-        } else if (this.playTime === item.endTime) {
-          timeLength += item.timeLen
-          this.chooseFileIndex = i
-          break
-        } else if (this.playTime > item.startTime && this.playTime < item.endTime) {
+        } else if (this.playTime >= item.startTime && this.playTime <= item.endTime) {
           timeLength += (this.playTime - item.startTime)
-          this.chooseFileIndex = i
+          this.chooseFileIndex = i // 更新当前选择的文件索引
+          fileFound = true
           break
         }
       }
-      this.playSeekValue = timeLength
-      this.playRecord()
+
+      if (fileFound) {
+        // 更新播放时间和播放位置
+        this.playSeekValue = timeLength
+        this.playRecordFromCurrentTime() // 播放对应文件从当前时间开始
+      } else {
+        // 提示没有视频文件
+        this.$message.warning('该时间没有录像')
+      }
+    },
+    playRecordFromCurrentTime() {
+      if (!this.$refs.recordVideoPlayer.playing) {
+        this.$refs.recordVideoPlayer.destroy()
+      }
+      this.playLoading = true
+
+      if (this.chooseFileIndex !== null && this.detailFiles.length > 0 && this.chooseFileIndex < this.detailFiles.length) {
+        const currentFile = this.detailFiles[this.chooseFileIndex]
+        this.$store.dispatch('cloudRecord/getPlayPath', currentFile.id)
+          .then(data => {
+            if (!data) {
+              this.$message.error('无法加载录像文件')
+              return
+            }
+
+            this.streamInfo = {
+              mediaServerId: currentFile.mediaServerId,
+              app: data.app || this.app,
+              stream: data.stream || this.stream,
+              id: currentFile.id,
+              startTime: currentFile.startTime,
+              endTime: currentFile.endTime
+            }
+
+            if (location.protocol === 'https:') {
+              let url = data.httpsPath
+              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              this.videoUrl = url
+            } else {
+              let url = data.httpPath
+              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              this.videoUrl = url
+            }
+
+            this.playTime = this.playSeekValue + Number.parseInt(currentFile.startTime) // 从当前时间播放
+            this.initTime = this.playTime // 确保initTime与当前选择文件的开始时间一致
+
+            setTimeout(() => {
+              this.$refs.Timeline.setTime(this.playTime) // 时间轴定位到当前播放时间
+            }, 100)
+          })
+          .catch((error) => {
+            console.log('加载录像错误:', error)
+            this.$message.error('加载录像文件失败: ' + (error.message || '未知错误'))
+          })
+          .finally(() => {
+            this.playLoading = false
+          })
+      }
     },
     getTimeForFile(file) {
       const starTime = new Date(file.startTime * 1000)
