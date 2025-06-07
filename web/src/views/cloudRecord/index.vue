@@ -120,23 +120,22 @@
     <el-dialog
       :title="playerTitle"
       :visible.sync="showPlayer"
-      top="2rem"
-      width="1200px"
-      height="560px"
+      width="50%"
     >
-      <h265web ref="recordVideoPlayer" :video-url="videoUrl" :height="false" :show-button="true" />
+      <easyPlayer ref="recordVideoPlayer" :videoUrl="videoUrl" :height="false"></easyPlayer>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import h265web from '../common/h265web.vue'
+// import WasmPlayer from '/static/js/EasyWasmPlayer.js';
+import easyPlayer from '../common/easyPlayer.vue'
 import moment from 'moment'
 import Vue from 'vue'
 
 export default {
   name: 'CloudRecord',
-  components: { h265web },
+  components: { easyPlayer },
   data() {
     return {
       search: '',
@@ -216,20 +215,39 @@ export default {
         })
     },
     play(row) {
-      console.log(row)
-      this.chooseRecord = row
+      console.log(row);
+      this.chooseRecord = row;
+      this.showPlayer = true; // 显示播放器对话框
       this.$store.dispatch('cloudRecord/getPlayPath', row.id)
         .then((data) => {
-          if (location.protocol === 'https:') {
-            this.videoUrl = data.httpsPath
-          } else {
-            this.videoUrl = data.httpPath
+          // 检查返回的 URL 是否有效
+          if (!data || (!data.httpPath && !data.httpsPath)) {
+            console.error('Invalid video URL');
+            this.$message.error('无法加载视频，播放地址无效');
+            return;
           }
-          this.showPlayer = true
+
+          // 根据协议选择正确的 URL
+          this.videoUrl = location.protocol === 'https:' ? data.httpsPath : data.httpPath;
+
+          // 检查 URL 是否为支持的格式
+          if (!this.videoUrl.endsWith('.mp4') && !this.videoUrl.endsWith('.m3u8')) {
+            console.error('Unsupported video format:', this.videoUrl);
+            this.$message.error('不支持的视频格式');
+            return;
+          }
+
+          // 初始化播放器
+          const player = new WasmPlayer({
+            container: '#player', // 播放器容器的 DOM ID
+            url: this.videoUrl,   // 视频播放地址
+          });
+          player.play(); // 开始播放
         })
         .catch((error) => {
-          console.log(error)
-        })
+          console.log(error);
+          this.$message.error('加载视频失败');
+        });
     },
     downloadFile(row) {
       this.$store.dispatch('cloudRecord/getPlayPath', row.id)

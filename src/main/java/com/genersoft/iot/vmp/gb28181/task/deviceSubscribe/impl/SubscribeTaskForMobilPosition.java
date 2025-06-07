@@ -14,7 +14,7 @@ public class SubscribeTaskForMobilPosition extends SubscribeTask {
 
     public static SubscribeTask getInstance(Device device, SubscribeCallback callback,
             SipTransactionInfo transactionInfo) {
-        if (device.getSubscribeCycleForCatalog() <= 0) {
+        if (device.getSubscribeCycleForMobilePosition() <= 0) {
             return null;
         }
         SubscribeTaskForMobilPosition subscribeTaskForMobilPosition = new SubscribeTaskForMobilPosition();
