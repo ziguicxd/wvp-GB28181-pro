@@ -51,7 +51,9 @@
             <div class="el-icon-loading" />
             <div style="width: 100%; line-height: 2rem">正在加载</div>
           </div>
-          <h265web ref="recordVideoPlayer" :video-url="videoUrl" :height="'calc(100vh - 250px)'" :show-button="false" @playTimeChange="showPlayTimeChange" @playStatusChange="playingChange"/>
+          <easyPlayer ref="recordVideoPlayer" :videoUrl="videoUrl" :height="'calc(100vh - 250px)'" :show-button="false" class="disabled-player-events" />
+          <!-- 添加鼠标事件拦截层 -->
+          <div class="mouse-event-blocker" @mousemove.stop @click.stop @mousedown.stop @mouseup.stop @contextmenu.stop @dblclick="fullScreen"></div>
         </div>
         <div class="player-option-box">
           <VideoTimeline
@@ -110,7 +112,7 @@
 
 <script>
 
-import h265web from '../common/h265web.vue'
+import easyPlayer from '../common/easyPlayer.vue'
 import VideoTimeline from '../common/VideoTimeLine/index.vue'
 import moment from 'moment'
 import screenfull from 'screenfull'
@@ -118,7 +120,7 @@ import screenfull from 'screenfull'
 export default {
   name: 'CloudRecordDetail',
   components: {
-    h265web, VideoTimeline
+    easyPlayer, VideoTimeline
   },
   data() {
     return {
@@ -191,18 +193,9 @@ export default {
         this.dateChange()
       }
     })
-    this.$nextTick(() => {
-      if (this.$refs.recordVideoPlayer) {
-        this.$refs.recordVideoPlayer.$on('playTimeChange', this.showPlayTimeChange); // 监听播放时间变化事件
-        this.$refs.recordVideoPlayer.$on('playStatusChange', this.playingChange); // 监听播放状态变化事件
-      }
-    });
+    // easyPlayer不需要手动监听事件，通过props传递
   },
   destroyed() {
-    if (this.$refs.recordVideoPlayer) {
-      this.$refs.recordVideoPlayer.$off('playTimeChange', this.showPlayTimeChange); // 移除播放时间变化监听
-      this.$refs.recordVideoPlayer.$off('playStatusChange', this.playingChange); // 移除播放状态变化监听
-    }
     this.$destroy('recordVideoPlayer')
   },
   methods: {
@@ -238,7 +231,11 @@ export default {
         speed: this.playSpeed,
         schema: 'ts'
       })
-      this.$refs.recordVideoPlayer.setPlaybackRate(this.playSpeed)
+      if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.setPlaybackRate === 'function') {
+        this.$refs.recordVideoPlayer.setPlaybackRate(this.playSpeed)
+      } else {
+        console.warn('播放器不支持倍速播放功能')
+      }
     },
     seekBackward() {
       // 快退五秒
@@ -252,15 +249,28 @@ export default {
     },
     stopPLay() {
       // 停止
-      this.$refs.recordVideoPlayer.destroy()
+      if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.destroy === 'function') {
+        this.$refs.recordVideoPlayer.destroy()
+      }
+      this.videoUrl = null; // 停止播放时清空视频 URL
+      this.playing = false
     },
     pausePlay() {
       // 暂停
-      this.$refs.recordVideoPlayer.pause()
+      if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.pause === 'function') {
+        this.$refs.recordVideoPlayer.pause()
+      } else {
+        console.warn('播放器不支持暂停功能')
+      }
     },
     play() {
-      if (this.$refs.recordVideoPlayer.loaded) {
-        this.$refs.recordVideoPlayer.unPause()
+      console.log('播放按钮被点击')
+      if (this.$refs.recordVideoPlayer) {
+        if (this.$refs.recordVideoPlayer.loaded && typeof this.$refs.recordVideoPlayer.unPause === 'function') {
+          this.$refs.recordVideoPlayer.unPause()
+        } else {
+          this.playRecord()
+        }
       } else {
         this.playRecord()
       }
@@ -272,11 +282,20 @@ export default {
         this.isFullScreen = false
         return
       }
-      const playerWidth = this.$refs.recordVideoPlayer.playerWidth
-      const playerHeight = this.$refs.recordVideoPlayer.playerHeight
+
+      // 安全地获取播放器尺寸
+      let playerWidth = 800
+      let playerHeight = 450
+      if (this.$refs.recordVideoPlayer) {
+        playerWidth = this.$refs.recordVideoPlayer.playerWidth || 800
+        playerHeight = this.$refs.recordVideoPlayer.playerHeight || 450
+      }
+
       screenfull.request(document.getElementById('playerBox'))
       screenfull.on('change', (event) => {
-        this.$refs.recordVideoPlayer.resize(playerWidth, playerHeight)
+        if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.resize === 'function') {
+          this.$refs.recordVideoPlayer.resize(playerWidth, playerHeight)
+        }
         this.isFullScreen = screenfull.isFullscreen
       })
       this.isFullScreen = true
@@ -352,10 +371,10 @@ export default {
       this.playRecord()
     },
     playRecord() {
-      if (!this.$refs.recordVideoPlayer.playing) {
-        this.$refs.recordVideoPlayer.destroy()
+      // 移除对 destroy 方法的调用
+      if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+        this.playLoading = true;
       }
-      this.playLoading = true
 
       if (this.chooseFileIndex !== null && this.detailFiles.length > 0 && this.chooseFileIndex < this.detailFiles.length) {
         const currentFile = this.detailFiles[this.chooseFileIndex]
@@ -385,12 +404,19 @@ export default {
               this.videoUrl = url
             }
 
-            this.playTime = Number.parseInt(currentFile.startTime)
-            this.initTime = this.playTime // 确保initTime与当前选择文件的开始时间一致
+            this.playTime = Number.parseInt(currentFile.startTime);
+            this.initTime = this.playTime;
 
             setTimeout(() => {
-              this.$refs.Timeline.setTime(this.playTime) // 时间轴定位到当前播放时间
-            }, 100)
+              if (this.$refs.Timeline) {
+                this.$refs.Timeline.setTime(this.playTime);
+              }
+              // 确保视频开始播放
+              if (this.$refs.recordVideoPlayer) {
+                this.$refs.recordVideoPlayer.play(this.videoUrl);
+                this.playing = true;
+              }
+            }, 100);
           })
           .catch((error) => {
             console.log('加载录像错误:', error)
@@ -533,10 +559,10 @@ export default {
       }
     },
     playRecordFromCurrentTime() {
-      if (!this.$refs.recordVideoPlayer.playing) {
-        this.$refs.recordVideoPlayer.destroy()
+      // 移除对 destroy 方法的调用
+      if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+        this.playLoading = true;
       }
-      this.playLoading = true
 
       if (this.chooseFileIndex !== null && this.detailFiles.length > 0 && this.chooseFileIndex < this.detailFiles.length) {
         const currentFile = this.detailFiles[this.chooseFileIndex]
@@ -715,5 +741,47 @@ export default {
   left: calc(50% - 85px);
   top: -72px;
   text-shadow: 1px 0 #5f6b7c, -1px 0 #5f6b7c, 0 1px #5f6b7c, 0 -1px #5f6b7c, 1.1px 1.1px #5f6b7c, 1.1px -1.1px #5f6b7c, -1.1px 1.1px #5f6b7c, -1.1px -1.1px #5f6b7c;
+}
+
+/* 添加鼠标事件拦截层样式 */
+.mouse-event-blocker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%; /* 覆盖整个播放区域 */
+  z-index: 1; /* 很低的z-index，只覆盖播放器本身 */
+  pointer-events: auto; /* 启用指针事件来拦截播放窗口的鼠标事件 */
+  background-color: transparent;
+  user-select: none; /* 禁止文本选择 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* 禁用播放器的鼠标事件 */
+.disabled-player-events {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* 禁用播放器内部所有元素的鼠标事件 */
+.disabled-player-events * {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* 禁用播放器可能的控制栏 */
+.disabled-player-events .buttons-box,
+.disabled-player-events .h265web-btn,
+.disabled-player-events .controlBar {
+  display: none !important;
+  pointer-events: none !important;
 }
 </style>
