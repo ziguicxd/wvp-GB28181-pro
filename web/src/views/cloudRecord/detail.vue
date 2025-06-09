@@ -176,9 +176,10 @@ export default {
         }
       },
       playSpeedRange: [1, 2, 4, 6, 8, 16, 20],
-      controlsMonitorInterval: null, // 控制栏监控定时器
-      controlsMutationObserver: null, // DOM变化监控器
-      timeUpdateInterval: null // 时间更新监控定时器
+      timeUpdateInterval: null, // 时间更新监控定时器
+      pausedPosition: null, // 暂停时的播放位置（毫秒）
+      pausedPlayTime: null, // 暂停时的播放时间
+      controlBarMonitorInterval: null // 控制栏监控定时器
     }
   },
   computed: {
@@ -208,40 +209,58 @@ export default {
     })
     // easyPlayer不需要手动监听事件，通过props传递
 
-    // 动态调整拦截层位置
+    // 基本的播放器初始化
     this.$nextTick(() => {
-      this.adjustPlayerControlBlocker()
+      console.log('播放器初始化完成')
     })
 
     // 动态加载html2canvas库用于截图
     this.loadHtml2Canvas()
 
-    // 暴露调试方法到全局
-    window.debugPlayerControls = () => this.debugPlayerControls()
-    window.adjustPlayerControlBlocker = () => this.adjustPlayerControlBlocker()
-    window.hidePlayerControls = () => this.hidePlayerControls()
-    window.showPlayerControls = () => this.showPlayerControls()
-    window.startControlsMonitor = () => this.startControlsMonitor()
-    window.stopControlsMonitor = () => this.stopControlsMonitor()
-    window.disablePlayerEvents = () => this.disablePlayerEvents()
-    window.disablePlayerHoverDetection = () => this.disablePlayerHoverDetection()
-    window.removeExistingPlayerEventListeners = () => this.removeExistingPlayerEventListeners(this.$refs.recordVideoPlayer?.$el)
-    window.forceHideControlsWithMutationObserver = () => this.forceHideControlsWithMutationObserver()
+    // 暴露基本调试方法到全局
     window.startTimeUpdateMonitor = () => this.startTimeUpdateMonitor()
     window.stopTimeUpdateMonitor = () => this.stopTimeUpdateMonitor()
     window.getCurrentPlayerTime = () => this.getCurrentPlayerTime(this.$refs.recordVideoPlayer)
     window.getPlayerPlayingState = () => this.getPlayerPlayingState(this.$refs.recordVideoPlayer)
+
+    // 暴露播放控制调试方法
+    window.debugPausePlay = () => {
+      console.log('调试暂停播放状态:', {
+        playing: this.playing,
+        pausedPosition: this.pausedPosition,
+        pausedPlayTime: this.pausedPlayTime,
+        playTime: this.playTime,
+        videoUrl: this.videoUrl
+      })
+    }
+    window.testPause = () => this.pausePlay()
+    window.testPlay = () => this.play()
+    window.testStop = () => this.stopPLay()
+    window.testResume = () => this.resumeFromPausedPosition()
+
+    // 悬停效果禁用相关的调试方法
+    window.disablePlayerHover = () => this.disablePlayerHoverEffects()
+    window.enablePlayerHover = () => this.enablePlayerHoverEffects()
+    window.disableHoverControlBar = () => this.disableHoverControlBar()
+    window.enableHoverControlBar = () => this.enableHoverControlBar()
+    window.startControlBarMonitor = () => this.startControlBarMonitor()
+    window.stopControlBarMonitor = () => this.stopControlBarMonitor()
+    window.testHoverDisable = () => {
+      console.log('测试悬停效果禁用状态')
+      const player = this.$refs.recordVideoPlayer?.$el
+      if (player) {
+        console.log('播放器元素:', player)
+        console.log('播放器样式:', window.getComputedStyle(player))
+        console.log('是否禁用悬停控制栏:', player.classList.contains('hover-controls-disabled'))
+      }
+    }
   },
   destroyed() {
     this.$destroy('recordVideoPlayer')
 
     // 清理所有监控
-    this.stopControlsMonitor()
     this.stopTimeUpdateMonitor()
-    if (this.controlsMutationObserver) {
-      this.controlsMutationObserver.disconnect()
-      this.controlsMutationObserver = null
-    }
+    this.stopControlBarMonitor()
   },
   methods: {
     sidebarControl() {
@@ -778,6 +797,277 @@ export default {
         this.captureWithServerAPI()
       }
     },
+    disablePlayerHoverEffects() {
+      // 禁用播放器悬停效果
+      try {
+        console.log('禁用播放器悬停效果')
+        const player = this.$refs.recordVideoPlayer
+        const playerEl = player?.$el
+
+        if (!playerEl) {
+          console.warn('播放器元素不存在')
+          return
+        }
+
+        // 添加禁用悬停效果的类
+        playerEl.classList.add('hover-disabled')
+
+        // 禁用播放器及其子元素的悬停事件
+        const disableHover = (element) => {
+          if (element) {
+            element.style.pointerEvents = 'auto'
+            element.style.cursor = 'default'
+
+            // 移除可能的悬停事件监听器
+            const events = ['mouseenter', 'mouseleave', 'mouseover', 'mouseout', 'hover']
+            events.forEach(eventType => {
+              element.removeEventListener(eventType, this.handlePlayerHover, true)
+            })
+
+            // 递归处理子元素
+            Array.from(element.children).forEach(child => {
+              disableHover(child)
+            })
+          }
+        }
+
+        disableHover(playerEl)
+
+        console.log('播放器悬停效果已禁用')
+
+      } catch (error) {
+        console.error('禁用播放器悬停效果失败:', error)
+      }
+    },
+    enablePlayerHoverEffects() {
+      // 启用播放器悬停效果
+      try {
+        console.log('启用播放器悬停效果')
+        const player = this.$refs.recordVideoPlayer
+        const playerEl = player?.$el
+
+        if (!playerEl) {
+          console.warn('播放器元素不存在')
+          return
+        }
+
+        // 移除禁用悬停效果的类
+        playerEl.classList.remove('hover-disabled')
+
+        // 恢复播放器及其子元素的悬停事件
+        const enableHover = (element) => {
+          if (element) {
+            element.style.pointerEvents = ''
+            element.style.cursor = ''
+
+            // 递归处理子元素
+            Array.from(element.children).forEach(child => {
+              enableHover(child)
+            })
+          }
+        }
+
+        enableHover(playerEl)
+
+        console.log('播放器悬停效果已启用')
+
+      } catch (error) {
+        console.error('启用播放器悬停效果失败:', error)
+      }
+    },
+    handlePlayerHover(event) {
+      // 处理播放器悬停事件（用于移除）
+      event.preventDefault()
+      event.stopPropagation()
+      return false
+    },
+    disableHoverControlBar() {
+      // 禁用悬停时控制栏的出现
+      try {
+        console.log('禁用悬停控制栏出现')
+        const player = this.$refs.recordVideoPlayer
+        const playerEl = player?.$el
+
+        if (!playerEl) {
+          console.warn('播放器元素不存在')
+          return
+        }
+
+        // 添加禁用悬停控制栏的类
+        playerEl.classList.add('hover-controls-disabled')
+
+        // 查找并隐藏所有可能的控制栏元素
+        const controlSelectors = [
+          '.controls',
+          '.control-bar',
+          '.player-controls',
+          '.video-controls',
+          '.bottom-controls',
+          '.control-panel',
+          '.media-controls',
+          '.player-control-bar',
+          '.vjs-control-bar',
+          '.plyr__controls',
+          '.fp-controls',
+          '.jw-controls',
+          '.dplayer-controller',
+          '.artplayer-controls',
+          '.xgplayer-controls',
+          '.ckplayer-controls'
+        ]
+
+        controlSelectors.forEach(selector => {
+          const elements = playerEl.querySelectorAll(selector)
+          elements.forEach(element => {
+            element.style.display = 'none'
+            element.style.visibility = 'hidden'
+            element.style.opacity = '0'
+            element.style.pointerEvents = 'none'
+            element.style.position = 'absolute'
+            element.style.left = '-9999px'
+            element.style.top = '-9999px'
+            element.style.zIndex = '-1'
+          })
+        })
+
+        // 禁用悬停事件监听器
+        const hoverEvents = ['mouseenter', 'mouseleave', 'mouseover', 'mouseout']
+        hoverEvents.forEach(eventType => {
+          playerEl.addEventListener(eventType, this.preventControlBarShow, true)
+        })
+
+        // 监控DOM变化，防止控制栏动态出现
+        this.startControlBarMonitor()
+
+        console.log('悬停控制栏出现已禁用')
+
+      } catch (error) {
+        console.error('禁用悬停控制栏失败:', error)
+      }
+    },
+    enableHoverControlBar() {
+      // 启用悬停时控制栏的出现
+      try {
+        console.log('启用悬停控制栏出现')
+        const player = this.$refs.recordVideoPlayer
+        const playerEl = player?.$el
+
+        if (!playerEl) {
+          console.warn('播放器元素不存在')
+          return
+        }
+
+        // 移除禁用悬停控制栏的类
+        playerEl.classList.remove('hover-controls-disabled')
+
+        // 恢复控制栏元素的样式
+        const controlSelectors = [
+          '.controls',
+          '.control-bar',
+          '.player-controls',
+          '.video-controls',
+          '.bottom-controls',
+          '.control-panel',
+          '.media-controls',
+          '.player-control-bar',
+          '.vjs-control-bar',
+          '.plyr__controls',
+          '.fp-controls',
+          '.jw-controls',
+          '.dplayer-controller',
+          '.artplayer-controls',
+          '.xgplayer-controls',
+          '.ckplayer-controls'
+        ]
+
+        controlSelectors.forEach(selector => {
+          const elements = playerEl.querySelectorAll(selector)
+          elements.forEach(element => {
+            element.style.display = ''
+            element.style.visibility = ''
+            element.style.opacity = ''
+            element.style.pointerEvents = ''
+            element.style.position = ''
+            element.style.left = ''
+            element.style.top = ''
+            element.style.zIndex = ''
+          })
+        })
+
+        // 移除悬停事件监听器
+        const hoverEvents = ['mouseenter', 'mouseleave', 'mouseover', 'mouseout']
+        hoverEvents.forEach(eventType => {
+          playerEl.removeEventListener(eventType, this.preventControlBarShow, true)
+        })
+
+        // 停止控制栏监控
+        this.stopControlBarMonitor()
+
+        console.log('悬停控制栏出现已启用')
+
+      } catch (error) {
+        console.error('启用悬停控制栏失败:', error)
+      }
+    },
+    preventControlBarShow(event) {
+      // 阻止控制栏显示
+      event.preventDefault()
+      event.stopPropagation()
+
+      // 隐藏可能出现的控制栏
+      const target = event.target
+      if (target) {
+        const controlElements = target.querySelectorAll('.controls, .control-bar, .player-controls')
+        controlElements.forEach(element => {
+          element.style.display = 'none'
+          element.style.visibility = 'hidden'
+          element.style.opacity = '0'
+        })
+      }
+
+      return false
+    },
+    startControlBarMonitor() {
+      // 启动控制栏监控，防止控制栏动态出现
+      if (this.controlBarMonitorInterval) {
+        clearInterval(this.controlBarMonitorInterval)
+      }
+
+      this.controlBarMonitorInterval = setInterval(() => {
+        const player = this.$refs.recordVideoPlayer
+        const playerEl = player?.$el
+
+        if (playerEl && playerEl.classList.contains('hover-controls-disabled')) {
+          // 查找并隐藏任何可能出现的控制栏
+          const controlSelectors = [
+            '.controls',
+            '.control-bar',
+            '.player-controls',
+            '.video-controls',
+            '.bottom-controls'
+          ]
+
+          controlSelectors.forEach(selector => {
+            const elements = playerEl.querySelectorAll(selector)
+            elements.forEach(element => {
+              if (element.style.display !== 'none') {
+                element.style.display = 'none'
+                element.style.visibility = 'hidden'
+                element.style.opacity = '0'
+                element.style.pointerEvents = 'none'
+              }
+            })
+          })
+        }
+      }, 100) // 每100ms检查一次
+    },
+    stopControlBarMonitor() {
+      // 停止控制栏监控
+      if (this.controlBarMonitorInterval) {
+        clearInterval(this.controlBarMonitorInterval)
+        this.controlBarMonitorInterval = null
+      }
+    },
     captureWithServerAPI() {
       // 使用服务端截图API
       try {
@@ -944,15 +1234,26 @@ export default {
     },
     stopPLay() {
       console.log('停止按钮被点击')
-      // 停止
+
+      // 停止时间更新监控
+      this.stopTimeUpdateMonitor()
+
+      // 清除暂停状态
+      this.pausedPosition = null
+      this.pausedPlayTime = null
+
+      // 停止播放器
       if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.destroy === 'function') {
         this.$refs.recordVideoPlayer.destroy()
       }
-      this.videoUrl = null; // 停止播放时清空视频 URL
+
+      this.videoUrl = null // 停止播放时清空视频 URL
       this.playing = false
+
+      console.log('停止播放完成，已清除暂停状态')
     },
     pausePlay() {
-      console.log('暂停按钮被点击')
+      console.log('暂停按钮被点击，当前播放状态:', this.playing)
       const player = this.$refs.recordVideoPlayer
 
       if (!player) {
@@ -961,6 +1262,17 @@ export default {
       }
 
       try {
+        // 保存当前播放位置
+        const currentPlayerTime = this.getCurrentPlayerTime(player)
+        if (currentPlayerTime !== null) {
+          this.pausedPosition = currentPlayerTime
+          console.log('保存暂停位置:', this.pausedPosition)
+        }
+
+        // 保存当前播放时间
+        this.pausedPlayTime = this.playTime
+        console.log('保存暂停播放时间:', this.pausedPlayTime)
+
         // 尝试多种暂停方法
         if (typeof player.pause === 'function') {
           console.log('使用pause方法暂停')
@@ -981,6 +1293,11 @@ export default {
             console.warn('无法找到暂停方法')
           }
         }
+
+        // 停止时间更新监控
+        this.stopTimeUpdateMonitor()
+
+        console.log('暂停成功，播放状态:', this.playing)
       } catch (error) {
         console.error('暂停失败:', error)
         this.playing = false
@@ -997,6 +1314,13 @@ export default {
       }
 
       try {
+        // 检查是否有暂停位置需要恢复
+        if (this.pausedPosition !== null || this.pausedPlayTime !== null) {
+          console.log('检测到暂停位置，尝试从暂停位置继续播放')
+          this.resumeFromPausedPosition()
+          return
+        }
+
         // 如果有视频URL且播放器已加载，尝试恢复播放
         if (this.videoUrl && player.loaded) {
           console.log('播放器已加载，尝试恢复播放')
@@ -1026,6 +1350,9 @@ export default {
               this.playRecord()
             }
           }
+
+          // 重新启动时间更新监控
+          this.startTimeUpdateMonitor()
         } else {
           console.log('播放器未加载或无视频URL，重新播放录像')
           this.playRecord()
@@ -1033,6 +1360,88 @@ export default {
       } catch (error) {
         console.error('播放失败:', error)
         console.log('播放失败，尝试重新加载录像')
+        this.playRecord()
+      }
+    },
+    resumeFromPausedPosition() {
+      // 从暂停位置恢复播放
+      try {
+        console.log('从暂停位置恢复播放')
+        const player = this.$refs.recordVideoPlayer
+
+        if (!player) {
+          console.warn('播放器不存在，重新播放')
+          this.playRecord()
+          return
+        }
+
+        // 恢复播放时间
+        if (this.pausedPlayTime !== null) {
+          this.playTime = this.pausedPlayTime
+          console.log('恢复播放时间:', this.playTime)
+
+          // 更新时间轴
+          if (this.$refs.Timeline) {
+            this.$refs.Timeline.setTime(this.playTime)
+          }
+        }
+
+        // 尝试设置播放位置
+        if (this.pausedPosition !== null) {
+          console.log('尝试设置播放位置:', this.pausedPosition)
+
+          // 方法1: 使用播放器的seek方法
+          if (typeof player.seek === 'function') {
+            console.log('使用播放器seek方法')
+            player.seek(this.pausedPosition)
+          } else if (typeof player.setCurrentTime === 'function') {
+            console.log('使用播放器setCurrentTime方法')
+            player.setCurrentTime(this.pausedPosition)
+          } else {
+            // 方法2: 直接设置video元素的currentTime
+            const videoElement = player.$el?.querySelector('video')
+            if (videoElement) {
+              console.log('直接设置video元素currentTime')
+              videoElement.currentTime = this.pausedPosition / 1000 // 转换为秒
+            }
+          }
+        }
+
+        // 开始播放
+        if (typeof player.play === 'function') {
+          console.log('使用play方法恢复播放')
+          player.play()
+        } else if (typeof player.resume === 'function') {
+          console.log('使用resume方法恢复播放')
+          player.resume()
+        } else {
+          // 直接操作video元素
+          const videoElement = player.$el?.querySelector('video')
+          if (videoElement && typeof videoElement.play === 'function') {
+            console.log('直接播放video元素')
+            videoElement.play()
+          }
+        }
+
+        this.playing = true
+
+        // 清除暂停位置
+        this.pausedPosition = null
+        this.pausedPlayTime = null
+
+        // 重新启动时间更新监控
+        this.startTimeUpdateMonitor()
+
+        console.log('从暂停位置恢复播放成功')
+
+      } catch (error) {
+        console.error('从暂停位置恢复播放失败:', error)
+
+        // 清除暂停位置
+        this.pausedPosition = null
+        this.pausedPlayTime = null
+
+        // 重新播放
         this.playRecord()
       }
     },
@@ -1141,6 +1550,12 @@ export default {
       this.playRecord()
     },
     playRecord() {
+      console.log('开始播放录像')
+
+      // 清除之前的暂停状态
+      this.pausedPosition = null
+      this.pausedPlayTime = null
+
       // 移除对 destroy 方法的调用
       if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
         this.playLoading = true;
@@ -1189,26 +1604,24 @@ export default {
                 // 启动时间更新监控
                 this.startTimeUpdateMonitor();
 
-                // 播放器加载完成后启动所有控制栏隐藏和悬停禁用机制
+                // 播放器加载完成后的基本设置
                 setTimeout(() => {
-                  this.adjustPlayerControlBlocker();
-                  this.hidePlayerControls(); // 隐藏原生控制栏
-                  this.disablePlayerEvents(); // 禁用播放器悬停事件
-                  this.disablePlayerHoverDetection(); // 禁用悬停检测机制
-                  this.startControlsMonitor(); // 启动持续监控
-                  this.forceHideControlsWithMutationObserver(); // 启动DOM监控
+                  console.log('播放器加载完成，进行基本设置');
+                  // 禁用播放器悬停效果
+                  this.disablePlayerHoverEffects();
+                  // 禁用悬停时控制栏的出现
+                  this.disableHoverControlBar();
                 }, 500);
 
-                // 额外的延迟处理，确保播放器完全加载
+                // 额外的延迟处理，确保所有悬停功能完全禁用
                 setTimeout(() => {
-                  this.disablePlayerHoverDetection(); // 再次禁用悬停检测
-                  this.hidePlayerControls(); // 再次隐藏控制栏
+                  this.disablePlayerHoverEffects();
+                  this.disableHoverControlBar();
                 }, 1000);
 
-                // 定期重新禁用悬停功能
+                // 最后一次确保，防止播放器重新启用控制栏
                 setTimeout(() => {
-                  this.disablePlayerHoverDetection();
-                  this.hidePlayerControls();
+                  this.disableHoverControlBar();
                 }, 2000);
               }
             }, 100);
@@ -1332,28 +1745,45 @@ export default {
       // 尝试多种方式获取播放器当前时间
       try {
         // 方法1: 直接获取currentTime属性
-        if (player.currentTime !== undefined) {
-          return player.currentTime < 1000000000 ? player.currentTime * 1000 : player.currentTime
+        if (player.currentTime !== undefined && player.currentTime !== null) {
+          const time = player.currentTime < 1000000000 ? player.currentTime * 1000 : player.currentTime
+          console.log('从播放器currentTime获取时间:', time)
+          return time
         }
 
         // 方法2: 调用getCurrentTime方法
         if (typeof player.getCurrentTime === 'function') {
           const time = player.getCurrentTime()
-          return time < 1000000000 ? time * 1000 : time
+          if (time !== null && time !== undefined) {
+            const convertedTime = time < 1000000000 ? time * 1000 : time
+            console.log('从播放器getCurrentTime方法获取时间:', convertedTime)
+            return convertedTime
+          }
         }
 
         // 方法3: 从video元素获取
         const videoElement = player.$el?.querySelector('video')
-        if (videoElement && videoElement.currentTime !== undefined) {
-          return videoElement.currentTime < 1000000000 ? videoElement.currentTime * 1000 : videoElement.currentTime
+        if (videoElement && videoElement.currentTime !== undefined && videoElement.currentTime !== null) {
+          const time = videoElement.currentTime < 1000000000 ? videoElement.currentTime * 1000 : videoElement.currentTime
+          console.log('从video元素获取时间:', time)
+          return time
         }
 
         // 方法4: 从canvas元素获取（某些播放器使用canvas）
         const canvasElement = player.$el?.querySelector('canvas')
-        if (canvasElement && canvasElement.currentTime !== undefined) {
-          return canvasElement.currentTime < 1000000000 ? canvasElement.currentTime * 1000 : canvasElement.currentTime
+        if (canvasElement && canvasElement.currentTime !== undefined && canvasElement.currentTime !== null) {
+          const time = canvasElement.currentTime < 1000000000 ? canvasElement.currentTime * 1000 : canvasElement.currentTime
+          console.log('从canvas元素获取时间:', time)
+          return time
         }
 
+        // 方法5: 使用当前的playTime作为备用
+        if (this.playTime !== null && this.playTime !== undefined) {
+          console.log('使用当前playTime作为备用时间:', this.playTime)
+          return this.playTime
+        }
+
+        console.warn('无法获取播放器当前时间')
         return null
       } catch (error) {
         console.error('获取播放器时间失败:', error)
@@ -2443,6 +2873,274 @@ export default {
 </script>
 
 <style>
+/*
+===========================================
+注意：已禁用播放器控制栏强制隐藏功能
+===========================================
+以下所有关于隐藏播放器原生控制栏的CSS样式已被优化，
+现在允许播放器显示原生控制栏。
+如需重新启用控制栏隐藏，请移除下面的注释开始标记。
+
+控制栏隐藏功能已禁用的原因：
+- 用户反馈希望能看到播放器原生控制栏
+- 原生控制栏提供更好的用户体验
+- 避免与播放器内置功能冲突
+*/
+
+/*
+===========================================
+悬停效果禁用功能 - 独立启用
+===========================================
+以下CSS用于禁用播放器的悬停效果，但保持控制栏可见
+*/
+
+/* 禁用播放器的悬停效果 - 但不隐藏控制栏 */
+.easy-player:hover, .easy-player:focus, .easy-player:active, .easy-player:focus-within,
+.easy-player.hover, .easy-player.focused, .easy-player.active {
+  cursor: default !important;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 禁用播放器内所有元素的悬停效果 - 但不影响功能 */
+.easy-player *:hover, .easy-player *:focus, .easy-player *:active,
+.easy-player *.hover, .easy-player *.focused, .easy-player *.active {
+  cursor: default !important;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  /* 移除背景和颜色变化，保持原有样式 */
+}
+
+/* 禁用播放器的指针事件检测 - 但保持基本交互 */
+.easy-player {
+  /* 保持基本交互，只是禁用悬停视觉效果 */
+  pointer-events: auto !important;
+}
+
+/* 禁用可能的CSS动画和过渡效果 */
+.easy-player *[class*="control"],
+.easy-player *[class*="button"],
+.easy-player *[class*="bar"] {
+  transition: none !important;
+  animation: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+
+/* 禁用媒体查询中的悬停效果 - 合并媒体查询 */
+@media (hover: hover), (hover: none), (pointer: coarse) {
+  .easy-player, .easy-player:hover, .easy-player:focus, .easy-player:active, .easy-player * {
+    cursor: default !important;
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/*
+===========================================
+禁用播放器悬停控制栏出现功能
+===========================================
+以下CSS专门用于禁用播放器悬停时控制栏的出现
+*/
+
+/* 强制隐藏所有状态下的控制栏 - 合并选择器 */
+.easy-player:hover .controls, .easy-player:hover .control-bar, .easy-player:hover .player-controls,
+.easy-player:hover .video-controls, .easy-player:hover .bottom-controls, .easy-player:hover .control-panel,
+.easy-player:hover .media-controls, .easy-player:hover .player-control-bar, .easy-player:hover .vjs-control-bar,
+.easy-player:hover .plyr__controls, .easy-player:hover .fp-controls, .easy-player:hover .jwplayer .jw-controls,
+.easy-player:hover .video-js .vjs-control-bar, .easy-player:hover .dplayer-controller,
+.easy-player:hover .artplayer-controls, .easy-player:hover .xgplayer-controls, .easy-player:hover .ckplayer-controls,
+.easy-player:hover .flv-controls, .easy-player:hover .hls-controls, .easy-player:hover .dash-controls,
+.easy-player:hover .webrtc-controls, .easy-player:hover .rtmp-controls, .easy-player:hover .rtsp-controls,
+.easy-player:focus .controls, .easy-player:focus .control-bar, .easy-player:focus .player-controls,
+.easy-player:focus-within .controls, .easy-player:focus-within .control-bar, .easy-player:focus-within .player-controls,
+.easy-player:active .controls, .easy-player:active .control-bar, .easy-player:active .player-controls,
+.easy-player.active .controls, .easy-player.active .control-bar, .easy-player.active .player-controls,
+.easy-player.playing:hover .controls, .easy-player.paused:hover .controls,
+.easy-player.loading:hover .controls, .easy-player.buffering:hover .controls, .easy-player.seeking:hover .controls {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  z-index: -1 !important;
+}
+
+/* 禁用控制栏的CSS动画、过渡效果和显示/隐藏动画 - 合并选择器 */
+.easy-player .controls, .easy-player .control-bar, .easy-player .player-controls,
+.easy-player .controls.show, .easy-player .control-bar.show, .easy-player .player-controls.show,
+.easy-player .controls.visible, .easy-player .control-bar.visible, .easy-player .player-controls.visible {
+  transition: none !important;
+  animation: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 媒体查询中的悬停控制栏禁用 - 合并媒体查询 */
+@media (hover: hover), (hover: none), (pointer: coarse) {
+  .easy-player:hover .controls, .easy-player:hover .control-bar, .easy-player:hover .player-controls,
+  .easy-player .controls, .easy-player .control-bar, .easy-player .player-controls {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* 确保自定义控制栏和UI组件不受悬停效果禁用影响 - 合并选择器 */
+.record-play-control, .record-play-control *, .record-play-control-item,
+.player-option-box, .player-option-box *, .record-list-box, .record-list-box *,
+.timeline-container, .timeline-container *, .video-timeline, .video-timeline *,
+.el-dropdown, .el-dropdown *, .el-dropdown-menu, .el-dropdown-menu *,
+.el-dropdown-item, .el-dropdown-item * {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+/* 恢复自定义控制栏按钮的悬停效果 */
+.record-play-control-item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  transform: scale(1.05) !important;
+  cursor: pointer !important;
+  outline: none !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3) !important;
+}
+
+/* 恢复时间轴的悬停效果 */
+.video-timeline:hover {
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* 恢复侧边栏文件列表的悬停效果 */
+.record-list-item:hover {
+  background-color: rgba(64, 158, 255, 0.1) !important;
+  cursor: pointer !important;
+}
+
+/* 恢复Element UI组件的悬停效果 */
+.el-dropdown-item:hover {
+  background-color: #ecf5ff !important;
+  color: #409eff !important;
+  cursor: pointer !important;
+}
+
+/* 动态禁用悬停效果的类 - 合并选择器 */
+.easy-player.hover-disabled, .easy-player.hover-disabled *, .easy-player.hover-disabled:hover,
+.easy-player.hover-disabled *:hover, .easy-player.hover-disabled:focus, .easy-player.hover-disabled *:focus,
+.easy-player.hover-disabled:active, .easy-player.hover-disabled *:active {
+  cursor: default !important;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: inherit !important;
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+/* 确保禁用悬停时，自定义控制栏仍然可用 - 合并选择器 */
+.easy-player.hover-disabled ~ .record-play-control, .easy-player.hover-disabled ~ .record-play-control *,
+.easy-player.hover-disabled ~ .player-option-box, .easy-player.hover-disabled ~ .player-option-box * {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+/* 悬停效果禁用状态指示 */
+.easy-player.hover-disabled::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  background-color: #f56c6c;
+  border-radius: 50%;
+  z-index: 1000;
+  opacity: 0.7;
+}
+
+/* 悬停控制栏禁用的CSS类 - 合并选择器 */
+.easy-player.hover-controls-disabled .controls, .easy-player.hover-controls-disabled .control-bar,
+.easy-player.hover-controls-disabled .player-controls, .easy-player.hover-controls-disabled .video-controls,
+.easy-player.hover-controls-disabled .bottom-controls, .easy-player.hover-controls-disabled .control-panel,
+.easy-player.hover-controls-disabled .media-controls, .easy-player.hover-controls-disabled .player-control-bar,
+.easy-player.hover-controls-disabled .vjs-control-bar, .easy-player.hover-controls-disabled .plyr__controls,
+.easy-player.hover-controls-disabled .fp-controls, .easy-player.hover-controls-disabled .jw-controls,
+.easy-player.hover-controls-disabled .dplayer-controller, .easy-player.hover-controls-disabled .artplayer-controls,
+.easy-player.hover-controls-disabled .xgplayer-controls, .easy-player.hover-controls-disabled .ckplayer-controls {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  z-index: -1 !important;
+}
+
+/* 悬停控制栏禁用状态指示 */
+.easy-player.hover-controls-disabled::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 20px;
+  width: 8px;
+  height: 8px;
+  background-color: #67c23a;
+  border-radius: 50%;
+  z-index: 1000;
+  opacity: 0.7;
+}
+
+/* 双重禁用状态指示 */
+.easy-player.hover-disabled.hover-controls-disabled::before {
+  background-color: #e6a23c;
+}
+
+/* 强制禁用所有可能的控制栏显示触发器 - 合并选择器 */
+.easy-player.hover-controls-disabled:hover, .easy-player.hover-controls-disabled:focus,
+.easy-player.hover-controls-disabled:active, .easy-player.hover-controls-disabled.playing,
+.easy-player.hover-controls-disabled.paused, .easy-player.hover-controls-disabled.loading,
+.easy-player.hover-controls-disabled.buffering {
+  /* 确保在任何状态下都不显示控制栏 */
+  cursor: default !important;
+  outline: none !important;
+}
+
+.easy-player.hover-controls-disabled:hover .controls, .easy-player.hover-controls-disabled:focus .controls,
+.easy-player.hover-controls-disabled:active .controls, .easy-player.hover-controls-disabled.playing .controls,
+.easy-player.hover-controls-disabled.paused .controls, .easy-player.hover-controls-disabled:hover .control-bar,
+.easy-player.hover-controls-disabled:focus .control-bar, .easy-player.hover-controls-disabled:active .control-bar,
+.easy-player.hover-controls-disabled.playing .control-bar, .easy-player.hover-controls-disabled.paused .control-bar {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 
 .record-list-box-box {
   width: fit-content;
@@ -2759,31 +3457,17 @@ export default {
   user-select: auto !important;
 }
 
-/* 强制隐藏播放器原生控制栏 - 所有状态 */
-.easy-player .controls,
-.easy-player .control-bar,
-.easy-player .player-controls,
-.easy-player .video-controls,
-.easy-player .bottom-controls,
-.easy-player .control-panel,
-.easy-player .player-bar,
-.easy-player .media-controls,
-.easy-player .buttons-box,
-.easy-player .h265web-btn,
-.easy-player .controlBar,
-/* 常见的播放器控制栏类名 */
-.easy-player .vjs-control-bar,
-.easy-player .video-js .vjs-control-bar,
-.easy-player .plyr__controls,
-.easy-player .dplayer-controller,
-.easy-player .jwplayer .jw-controlbar,
-.easy-player .flowplayer .fp-controls,
-.easy-player .clappr-media-control,
-/* EasyPlayer 特定的控制栏 */
-.easy-player .jessibuca-controls,
-.easy-player .jessibuca-control-bar,
-.easy-player .webrtc-controls,
-.easy-player .flv-controls {
+/*
+===========================================
+以下控制栏隐藏样式已被禁用
+===========================================
+*/
+/*
+/* 强制隐藏播放器原生控制栏 - 使用通配符选择器优化 */
+.easy-player [class*="control"], .easy-player [class*="controls"], 
+.easy-player [class*="player-"], .easy-player [class*="bar"],
+.easy-player:hover [class*="control"], .easy-player:hover [class*="controls"],
+.easy-player:hover [class*="player-"], .easy-player:hover [class*="bar"] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
@@ -2795,76 +3479,14 @@ export default {
   height: 0 !important;
   overflow: hidden !important;
   z-index: -1 !important;
-}
-
-/* 强制隐藏悬停状态下的控制栏 */
-.easy-player:hover .controls,
-.easy-player:hover .control-bar,
-.easy-player:hover .player-controls,
-.easy-player:hover .video-controls,
-.easy-player:hover .bottom-controls,
-.easy-player:hover .control-panel,
-.easy-player:hover .player-bar,
-.easy-player:hover .media-controls,
-.easy-player:hover .buttons-box,
-.easy-player:hover .h265web-btn,
-.easy-player:hover .controlBar,
-.easy-player:hover .vjs-control-bar,
-.easy-player:hover .video-js .vjs-control-bar,
-.easy-player:hover .plyr__controls,
-.easy-player:hover .dplayer-controller,
-.easy-player:hover .jwplayer .jw-controlbar,
-.easy-player:hover .flowplayer .fp-controls,
-.easy-player:hover .clappr-media-control,
-.easy-player:hover .jessibuca-controls,
-.easy-player:hover .jessibuca-control-bar,
-.easy-player:hover .webrtc-controls,
-.easy-player:hover .flv-controls {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  left: -9999px !important;
-  top: -9999px !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  z-index: -1 !important;
-}
-
-/* 禁用所有可能的控制栏动画和过渡 */
-.easy-player .controls,
-.easy-player .control-bar,
-.easy-player .player-controls,
-.easy-player .video-controls,
-.easy-player .bottom-controls,
-.easy-player .control-panel,
-.easy-player .player-bar,
-.easy-player .media-controls,
-.easy-player .buttons-box,
-.easy-player .h265web-btn,
-.easy-player .controlBar,
-.easy-player .vjs-control-bar,
-.easy-player .plyr__controls,
-.easy-player .dplayer-controller,
-.easy-player .jessibuca-controls,
-.easy-player .jessibuca-control-bar,
-.easy-player .webrtc-controls,
-.easy-player .flv-controls {
   transition: none !important;
   animation: none !important;
   transform: none !important;
 }
 
-/* 彻底禁用播放器的悬停效果 - 所有可能的悬停状态 */
-.easy-player:hover,
-.easy-player:focus,
-.easy-player:active,
-.easy-player:focus-within,
-.easy-player.hover,
-.easy-player.focused,
-.easy-player.active {
+/* 彻底禁用播放器的悬停效果和控制栏显示 - 合并选择器 */
+.easy-player:hover, .easy-player:focus, .easy-player:active, .easy-player:focus-within,
+.easy-player.hover, .easy-player.focused, .easy-player.active {
   cursor: default !important;
   outline: none !important;
   border: none !important;
@@ -2872,12 +3494,8 @@ export default {
 }
 
 /* 禁用播放器内所有元素的悬停效果 */
-.easy-player *:hover,
-.easy-player *:focus,
-.easy-player *:active,
-.easy-player *.hover,
-.easy-player *.focused,
-.easy-player *.active {
+.easy-player *:hover, .easy-player *:focus, .easy-player *:active,
+.easy-player *.hover, .easy-player *.focused, .easy-player *.active {
   cursor: default !important;
   outline: none !important;
   border: none !important;
@@ -2886,73 +3504,44 @@ export default {
   color: inherit !important;
 }
 
-/* 强制禁用所有可能的悬停显示控制栏 */
-.easy-player:hover .controls,
-.easy-player:focus .controls,
-.easy-player:active .controls,
-.easy-player.hover .controls,
-.easy-player.focused .controls,
-.easy-player.active .controls,
-.easy-player:hover .control-bar,
-.easy-player:focus .control-bar,
-.easy-player:active .control-bar,
-.easy-player.hover .control-bar,
-.easy-player.focused .control-bar,
-.easy-player.active .control-bar,
-.easy-player:hover .player-controls,
-.easy-player:focus .player-controls,
-.easy-player:active .player-controls,
-.easy-player.hover .player-controls,
-.easy-player.focused .player-controls,
-.easy-player.active .player-controls,
-.easy-player:hover .video-controls,
-.easy-player:focus .video-controls,
-.easy-player:active .video-controls,
-.easy-player.hover .video-controls,
-.easy-player.focused .video-controls,
-.easy-player.active .video-controls,
-.easy-player:hover .bottom-controls,
-.easy-player:focus .bottom-controls,
-.easy-player:active .bottom-controls,
-.easy-player.hover .bottom-controls,
-.easy-player.focused .bottom-controls,
-.easy-player.active .bottom-controls,
-.easy-player:hover .control-panel,
-.easy-player:focus .control-panel,
-.easy-player:active .control-panel,
-.easy-player.hover .control-panel,
-.easy-player.focused .control-panel,
-.easy-player.active .control-panel,
-.easy-player:hover .player-bar,
-.easy-player:focus .player-bar,
-.easy-player:active .player-bar,
-.easy-player.hover .player-bar,
-.easy-player.focused .player-bar,
-.easy-player.active .player-bar,
-.easy-player:hover .media-controls,
-.easy-player:focus .media-controls,
-.easy-player:active .media-controls,
-.easy-player.hover .media-controls,
-.easy-player.focused .media-controls,
-.easy-player.active .media-controls,
-.easy-player:hover .buttons-box,
-.easy-player:focus .buttons-box,
-.easy-player:active .buttons-box,
-.easy-player.hover .buttons-box,
-.easy-player.focused .buttons-box,
-.easy-player.active .buttons-box,
-.easy-player:hover .h265web-btn,
-.easy-player:focus .h265web-btn,
-.easy-player:active .h265web-btn,
-.easy-player.hover .h265web-btn,
-.easy-player.focused .h265web-btn,
-.easy-player.active .h265web-btn,
-.easy-player:hover .controlBar,
-.easy-player:focus .controlBar,
-.easy-player:active .controlBar,
-.easy-player.hover .controlBar,
-.easy-player.focused .controlBar,
-.easy-player.active .controlBar {
+/* 强制禁用所有可能的悬停显示控制栏 - 使用通配符选择器 */
+.easy-player:hover [class*="control"], .easy-player:focus [class*="control"], 
+.easy-player:active [class*="control"], .easy-player.hover [class*="control"],
+.easy-player.focused [class*="control"], .easy-player.active [class*="control"] {
+  /* 隐藏播放器控制栏的通用样式 */
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  z-index: -1 !important;
+  transition: none !important;
+  animation: none !important;
+  transform: translateY(100px) !important;
+}
+
+/* 播放器控制栏隐藏选择器 - 合并所有状态和元素 */
+.easy-player:hover .video-controls, .easy-player:focus .video-controls, .easy-player:active .video-controls,
+.easy-player.hover .video-controls, .easy-player.focused .video-controls, .easy-player.active .video-controls,
+.easy-player:hover .bottom-controls, .easy-player:focus .bottom-controls, .easy-player:active .bottom-controls,
+.easy-player.hover .bottom-controls, .easy-player.focused .bottom-controls, .easy-player.active .bottom-controls,
+.easy-player:hover .control-panel, .easy-player:focus .control-panel, .easy-player:active .control-panel,
+.easy-player.hover .control-panel, .easy-player.focused .control-panel, .easy-player.active .control-panel,
+.easy-player:hover .player-bar, .easy-player:focus .player-bar, .easy-player:active .player-bar,
+.easy-player.hover .player-bar, .easy-player.focused .player-bar, .easy-player.active .player-bar,
+.easy-player:hover .media-controls, .easy-player:focus .media-controls, .easy-player:active .media-controls,
+.easy-player.hover .media-controls, .easy-player.focused .media-controls, .easy-player.active .media-controls,
+.easy-player:hover .buttons-box, .easy-player:focus .buttons-box, .easy-player:active .buttons-box,
+.easy-player.hover .buttons-box, .easy-player.focused .buttons-box, .easy-player.active .buttons-box,
+.easy-player:hover .h265web-btn, .easy-player:focus .h265web-btn, .easy-player:active .h265web-btn,
+.easy-player.hover .h265web-btn, .easy-player.focused .h265web-btn, .easy-player.active .h265web-btn,
+.easy-player:hover .controlBar, .easy-player:focus .controlBar, .easy-player:active .controlBar,
+.easy-player.hover .controlBar, .easy-player.focused .controlBar, .easy-player.active .controlBar {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
@@ -3046,66 +3635,40 @@ export default {
 .easy-player {
   /* 禁用CSS悬停检测 */
   pointer-events: auto !important; /* 保持基本交互 */
-}
-
-/* 但是禁用控制栏区域的指针事件 */
-.easy-player .controls,
-.easy-player .control-bar,
-.easy-player .player-controls,
-.easy-player .video-controls,
-.easy-player .bottom-controls,
-.easy-player .control-panel,
-.easy-player .player-bar,
-.easy-player .media-controls,
-.easy-player .buttons-box,
-.easy-player .h265web-btn,
-.easy-player .controlBar,
-.easy-player .vjs-control-bar,
-.easy-player .plyr__controls,
-.easy-player .dplayer-controller,
-.easy-player .jessibuca-controls,
-.easy-player .jessibuca-control-bar,
-.easy-player .webrtc-controls,
-.easy-player .flv-controls {
-  pointer-events: none !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  touch-action: none !important;
-}
-
-/* 使用CSS变量来强制覆盖可能的内联样式 */
-.easy-player {
+  
+  /* 使用CSS变量来强制覆盖可能的内联样式 */
   --controls-display: none !important;
   --controls-visibility: hidden !important;
   --controls-opacity: 0 !important;
   --controls-pointer-events: none !important;
 }
 
-/* 应用CSS变量 */
-.easy-player .controls,
-.easy-player .control-bar,
-.easy-player .player-controls {
+/* 但是禁用控制栏区域的指针事件 - 合并所有播放器控制栏类型 */
+.easy-player .controls, .easy-player .control-bar, .easy-player .player-controls,
+.easy-player .video-controls, .easy-player .bottom-controls, .easy-player .control-panel,
+.easy-player .player-bar, .easy-player .media-controls, .easy-player .buttons-box,
+.easy-player .h265web-btn, .easy-player .controlBar, .easy-player .vjs-control-bar,
+.easy-player .plyr__controls, .easy-player .dplayer-controller, .easy-player .jessibuca-controls,
+.easy-player .jessibuca-control-bar, .easy-player .webrtc-controls, .easy-player .flv-controls {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  touch-action: none !important;
+  
+  /* 应用CSS变量 */
   display: var(--controls-display) !important;
   visibility: var(--controls-visibility) !important;
   opacity: var(--controls-opacity) !important;
   pointer-events: var(--controls-pointer-events) !important;
 }
 
-/* 禁用可能的媒体查询中的悬停效果 */
-@media (hover: hover) {
+/* 禁用可能的媒体查询中的悬停效果 - 合并媒体查询 */
+@media (hover: hover), (hover: none), (pointer: coarse) {
   .easy-player:hover .controls,
   .easy-player:hover .control-bar,
-  .easy-player:hover .player-controls {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-}
-
-@media (hover: none) {
+  .easy-player:hover .player-controls,
   .easy-player .controls,
   .easy-player .control-bar,
   .easy-player .player-controls {
@@ -3116,25 +3679,14 @@ export default {
   }
 }
 
-/* 禁用触摸设备上的悬停效果 */
-@media (pointer: coarse) {
-  .easy-player .controls,
-  .easy-player .control-bar,
-  .easy-player .player-controls {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-}
-
-/* 确保时间轴和侧边栏的鼠标事件正常工作 */
-.player-option-box,
-.player-option-box *,
-.record-list-box,
-.record-list-box *,
-.record-play-control,
-.record-play-control * {
+/* 确保交互元素的鼠标事件正常工作 - 合并选择器 */
+.player-option-box, .player-option-box *,
+.record-list-box, .record-list-box *,
+.record-play-control, .record-play-control *,
+.el-date-editor, .el-date-editor *,
+.el-dropdown, .el-dropdown *,
+.el-dropdown-menu, .el-dropdown-menu *,
+.el-dropdown-item, .el-dropdown-item * {
   pointer-events: auto !important;
   user-select: auto !important;
   -webkit-user-select: auto !important;
@@ -3142,104 +3694,66 @@ export default {
   -ms-user-select: auto !important;
 }
 
-/* 确保时间轴组件的鼠标事件正常 - 最高优先级 */
-.timeline-container,
-.timeline-container *,
-.video-timeline,
-.video-timeline *,
-.timeline-ruler,
-.timeline-ruler *,
-.timeline-track,
-.timeline-track *,
-.timeline-segment,
-.timeline-segment *,
-.timeline-cursor,
-.timeline-cursor *,
-.timeline-handle,
-.timeline-handle *,
-.timeline-progress,
-.timeline-progress *,
-.timeline-time-marker,
-.timeline-time-marker * {
+/* 确保交互元素的鼠标事件正常 - 合并选择器 */
+.timeline-container, .timeline-container *, .video-timeline, .video-timeline *,
+.timeline-ruler, .timeline-ruler *, .timeline-track, .timeline-track *,
+.timeline-segment, .timeline-segment *, .timeline-cursor, .timeline-cursor *,
+.timeline-handle, .timeline-handle *, .timeline-progress, .timeline-progress *,
+.timeline-time-marker, .timeline-time-marker *, .record-list-box-box, .record-list-box-box *,
+.record-list-box, .record-list-box *, .sidebar-container, .sidebar-container *,
+.sidebar-header, .sidebar-header *, .record-list, .record-list *,
+.record-list-item, .record-list-item *, .infinite-list, .infinite-list *,
+.infinite-list-item, .infinite-list-item *, .el-tag, .el-tag *,
+.el-icon-video-camera, .el-icon-download {
   pointer-events: auto !important;
   user-select: auto !important;
   -webkit-user-select: auto !important;
   -moz-user-select: auto !important;
   -ms-user-select: auto !important;
   cursor: pointer !important;
-  z-index: 300 !important; /* 最高层级 */
 }
 
-/* 确保侧边栏容器和所有子元素的鼠标事件正常 */
-.record-list-box-box,
-.record-list-box-box *,
-.record-list-box,
-.record-list-box *,
-.sidebar-container,
-.sidebar-container *,
-.sidebar-header,
-.sidebar-header *,
-.record-list,
-.record-list *,
-.record-list-item,
-.record-list-item *,
-.infinite-list,
-.infinite-list *,
-.infinite-list-item,
-.infinite-list-item *,
-.el-tag,
-.el-tag *,
-.el-icon-video-camera,
-.el-icon-download {
-  pointer-events: auto !important;
-  user-select: auto !important;
-  -webkit-user-select: auto !important;
-  -moz-user-select: auto !important;
-  -ms-user-select: auto !important;
-  cursor: pointer !important;
-  z-index: 1002 !important; /* 确保在最上层 */
+/* 设置不同层级的z-index */
+.timeline-container, .timeline-container *, .video-timeline, .video-timeline *,
+.timeline-ruler, .timeline-ruler *, .timeline-track, .timeline-track *,
+.timeline-segment, .timeline-segment *, .timeline-cursor, .timeline-cursor *,
+.timeline-handle, .timeline-handle *, .timeline-progress, .timeline-progress *,
+.timeline-time-marker, .timeline-time-marker * {
+  z-index: 300 !important; /* 时间轴组件层级 */
 }
 
-/* 确保Element UI组件的鼠标事件正常 */
-.el-date-editor,
-.el-date-editor *,
-.el-dropdown,
-.el-dropdown *,
-.el-dropdown-menu,
-.el-dropdown-menu *,
-.el-dropdown-item,
-.el-dropdown-item * {
-  pointer-events: auto !important;
-  user-select: auto !important;
+.record-list-box-box, .record-list-box-box *, .record-list-box, .record-list-box *,
+.sidebar-container, .sidebar-container *, .sidebar-header, .sidebar-header *,
+.record-list, .record-list *, .record-list-item, .record-list-item *,
+.infinite-list, .infinite-list *, .infinite-list-item, .infinite-list-item *,
+.el-tag, .el-tag *, .el-icon-video-camera, .el-icon-download {
+  z-index: 1002 !important; /* 侧边栏组件层级 */
 }
 
-/* 时间轴拖动时的视觉反馈 */
-.timeline-dragging {
-  cursor: grabbing !important;
-}
-
-.timeline-dragging * {
-  cursor: grabbing !important;
-}
-
-/* 文件选择时的高亮效果 */
-.record-list-item.selected .el-tag {
+/* 交互元素的视觉反馈效果 */
+.timeline-dragging, .timeline-dragging * { cursor: grabbing !important; }
+.record-list-item.selected .el-tag { 
   box-shadow: 0 0 10px rgba(64, 158, 255, 0.5);
   transform: scale(1.02);
   transition: all 0.3s ease;
 }
+.video-timeline:hover { opacity: 1 !important; }
+.player-option-box.timeline-active, .player-option-box.timeline-active * { z-index: 999 !important; }
 
-/* 时间轴悬停效果 */
-.video-timeline:hover {
-  opacity: 1 !important;
-}
+/*
+===========================================
+控制栏隐藏功能已优化
+===========================================
+现在播放器可以正常显示原生控制栏，用户可以：
+- 看到播放器内置的播放/暂停按钮
+- 使用播放器内置的进度条
+- 访问播放器内置的音量控制
+- 使用播放器内置的全屏功能
+- 享受播放器原生的用户体验
 
-/* 确保时间轴在拖动时保持最高优先级 */
-.player-option-box.timeline-active {
-  z-index: 999 !important;
-}
-
-.player-option-box.timeline-active * {
-  z-index: 999 !important;
-}
+如需重新启用控制栏隐藏功能，请：
+1. 移除CSS开头的注释开始标记
+2. 移除CSS末尾的注释结束标记
+3. 重新启用相关的JavaScript方法调用
+*/
 </style>
