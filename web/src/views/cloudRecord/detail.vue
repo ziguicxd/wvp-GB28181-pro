@@ -51,7 +51,18 @@
             <div class="el-icon-loading" />
             <div style="width: 100%; line-height: 2rem">正在加载</div>
           </div>
-          <easyPlayer ref="recordVideoPlayer" :videoUrl="videoUrl" :height="'calc(100vh - 250px)'" :show-button="false" @dblclick="fullScreen" />
+          <easyPlayer
+            ref="recordVideoPlayer"
+            :videoUrl="videoUrl"
+            :height="'calc(100vh - 250px)'"
+            :show-button="false"
+            @dblclick="fullScreen"
+            @timeupdate="showPlayTimeChange"
+            @playing="playingChange"
+            @pause="playingChange"
+            @loadeddata="onPlayerLoaded"
+            @error="onPlayerError"
+          />
           <!-- 精确拦截播放器控制栏 -->
           <div class="player-control-blocker" @click.stop @mousedown.stop @mouseup.stop @contextmenu.stop></div>
         </div>
@@ -166,7 +177,8 @@ export default {
       },
       playSpeedRange: [1, 2, 4, 6, 8, 16, 20],
       controlsMonitorInterval: null, // 控制栏监控定时器
-      controlsMutationObserver: null // DOM变化监控器
+      controlsMutationObserver: null, // DOM变化监控器
+      timeUpdateInterval: null // 时间更新监控定时器
     }
   },
   computed: {
@@ -201,6 +213,9 @@ export default {
       this.adjustPlayerControlBlocker()
     })
 
+    // 动态加载html2canvas库用于截图
+    this.loadHtml2Canvas()
+
     // 暴露调试方法到全局
     window.debugPlayerControls = () => this.debugPlayerControls()
     window.adjustPlayerControlBlocker = () => this.adjustPlayerControlBlocker()
@@ -212,12 +227,17 @@ export default {
     window.disablePlayerHoverDetection = () => this.disablePlayerHoverDetection()
     window.removeExistingPlayerEventListeners = () => this.removeExistingPlayerEventListeners(this.$refs.recordVideoPlayer?.$el)
     window.forceHideControlsWithMutationObserver = () => this.forceHideControlsWithMutationObserver()
+    window.startTimeUpdateMonitor = () => this.startTimeUpdateMonitor()
+    window.stopTimeUpdateMonitor = () => this.stopTimeUpdateMonitor()
+    window.getCurrentPlayerTime = () => this.getCurrentPlayerTime(this.$refs.recordVideoPlayer)
+    window.getPlayerPlayingState = () => this.getPlayerPlayingState(this.$refs.recordVideoPlayer)
   },
   destroyed() {
     this.$destroy('recordVideoPlayer')
 
-    // 清理监控
+    // 清理所有监控
     this.stopControlsMonitor()
+    this.stopTimeUpdateMonitor()
     if (this.controlsMutationObserver) {
       this.controlsMutationObserver.disconnect()
       this.controlsMutationObserver = null
@@ -230,10 +250,650 @@ export default {
     },
     snap() {
       console.log('截图按钮被点击')
-      if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.screenshot === 'function') {
-        this.$refs.recordVideoPlayer.screenshot()
-      } else {
-        console.warn('播放器不支持截图功能')
+      const player = this.$refs.recordVideoPlayer
+
+      if (!player) {
+        console.warn('播放器引用不存在')
+        this.$message.warning('播放器未加载，无法截图')
+        return
+      }
+
+      // 检查播放状态
+      if (!this.playing && !this.videoUrl) {
+        this.$message.warning('请先播放视频再进行截图')
+        return
+      }
+
+      // 显示截图进度
+      this.$message.info('正在截图，请稍候...')
+
+      // 尝试多种截图方法
+      try {
+        // 方法1: 直接调用播放器的截图方法
+        if (typeof player.screenshot === 'function') {
+          console.log('使用播放器screenshot方法截图')
+          const result = player.screenshot()
+          if (result !== false && result !== null && result !== undefined) {
+            this.$message.success('截图成功')
+            return
+          }
+        }
+
+        // 方法2: 调用snap方法
+        if (typeof player.snap === 'function') {
+          console.log('使用播放器snap方法截图')
+          const result = player.snap()
+          if (result !== false && result !== null && result !== undefined) {
+            this.$message.success('截图成功')
+            return
+          }
+        }
+
+        // 方法3: 调用capture方法
+        if (typeof player.capture === 'function') {
+          console.log('使用播放器capture方法截图')
+          const result = player.capture()
+          if (result !== false && result !== null && result !== undefined) {
+            this.$message.success('截图成功')
+            return
+          }
+        }
+
+        // 方法4: 通过自定义方法截图
+        console.log('播放器原生截图方法不可用，使用自定义截图方法')
+        this.captureVideoFrame()
+
+      } catch (error) {
+        console.error('截图失败:', error)
+        this.$message.error('截图失败: ' + error.message)
+        // 尝试备用截图方法
+        this.captureVideoFrame()
+      }
+    },
+    captureVideoFrame() {
+      // 通过多种方式截取视频帧
+      try {
+        console.log('开始自定义截图流程')
+        const player = this.$refs.recordVideoPlayer
+        const playerEl = player?.$el
+
+        if (!playerEl) {
+          console.error('播放器元素不存在')
+          this.captureWithSimpleMethod()
+          return
+        }
+
+        console.log('播放器元素找到，尝试截图方案')
+
+        // 方法1: 尝试使用html2canvas库截图（最兼容）
+        if (window.html2canvas) {
+          console.log('使用html2canvas截图')
+          this.captureWithHtml2Canvas(playerEl)
+          return
+        }
+
+        // 方法2: 尝试直接截取播放器容器
+        console.log('html2canvas不可用，尝试直接截取')
+        this.capturePlayerContainer(playerEl)
+
+      } catch (error) {
+        console.error('自定义截图流程失败:', error)
+        // 方法3: 使用简单方法
+        this.captureWithSimpleMethod()
+      }
+    },
+    captureWithHtml2Canvas(playerEl) {
+      // 使用html2canvas库截图 - 优化配置避免跨域问题
+      try {
+        console.log('使用html2canvas截图，元素:', playerEl)
+
+        // 配置html2canvas选项，尽量避免跨域问题
+        const html2canvasOptions = {
+          allowTaint: true,
+          useCORS: false, // 禁用CORS，避免跨域问题
+          scale: 1,
+          logging: false,
+          width: playerEl.offsetWidth || 800,
+          height: playerEl.offsetHeight || 450,
+          backgroundColor: '#000000',
+          foreignObjectRendering: false, // 禁用外部对象渲染
+          imageTimeout: 0, // 禁用图片超时
+          removeContainer: true,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+          ignoreElements: (element) => {
+            // 忽略可能导致跨域问题的元素
+            const tagName = element.tagName.toLowerCase()
+
+            // 忽略video和canvas元素，因为它们可能导致跨域问题
+            if (tagName === 'video' || tagName === 'canvas') {
+              console.log('忽略可能导致跨域的元素:', tagName)
+              return true
+            }
+
+            // 忽略包含跨域内容的iframe
+            if (tagName === 'iframe') {
+              return true
+            }
+
+            return false
+          }
+        }
+
+        console.log('html2canvas配置:', html2canvasOptions)
+
+        window.html2canvas(playerEl, html2canvasOptions).then(canvas => {
+          console.log('html2canvas渲染完成，canvas尺寸:', canvas.width, 'x', canvas.height)
+
+          // 尝试多种导出方式
+          this.exportHtml2CanvasResult(canvas, playerEl)
+
+        }).catch(error => {
+          console.error('html2canvas渲染失败:', error)
+          // 尝试简化的html2canvas配置
+          this.captureWithSimplifiedHtml2Canvas(playerEl)
+        })
+      } catch (error) {
+        console.error('html2canvas初始化失败:', error)
+        this.captureWithSimplifiedHtml2Canvas(playerEl)
+      }
+    },
+    captureWithSimplifiedHtml2Canvas(playerEl) {
+      // 使用简化的html2canvas配置
+      try {
+        console.log('尝试简化的html2canvas配置')
+
+        const simplifiedOptions = {
+          allowTaint: true,
+          useCORS: false,
+          scale: 0.5, // 降低分辨率
+          logging: false,
+          backgroundColor: '#000000',
+          foreignObjectRendering: false,
+          imageTimeout: 0,
+          ignoreElements: (element) => {
+            // 忽略所有可能有问题的元素
+            const tagName = element.tagName.toLowerCase()
+            return ['video', 'canvas', 'iframe', 'object', 'embed'].includes(tagName)
+          }
+        }
+
+        window.html2canvas(playerEl, simplifiedOptions).then(canvas => {
+          console.log('简化html2canvas渲染完成')
+          this.exportHtml2CanvasResult(canvas, playerEl)
+        }).catch(error => {
+          console.error('简化html2canvas也失败:', error)
+          this.capturePlayerContainer(playerEl)
+        })
+      } catch (error) {
+        console.error('简化html2canvas失败:', error)
+        this.capturePlayerContainer(playerEl)
+      }
+    },
+    exportHtml2CanvasResult(canvas, playerEl) {
+      // 导出html2canvas结果，处理可能的跨域问题
+      try {
+        console.log('尝试导出html2canvas结果')
+
+        // 方法1: 尝试toBlob
+        try {
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              this.downloadScreenshot(blob)
+              this.$message.success('html2canvas截图成功')
+              console.log('html2canvas toBlob成功，文件大小:', blob.size)
+            } else {
+              console.warn('html2canvas toBlob返回空blob')
+              this.tryHtml2CanvasDataURL(canvas, playerEl)
+            }
+          }, 'image/png', 1.0)
+        } catch (blobError) {
+          console.error('html2canvas toBlob失败:', blobError)
+          this.tryHtml2CanvasDataURL(canvas, playerEl)
+        }
+
+      } catch (error) {
+        console.error('导出html2canvas结果失败:', error)
+        this.tryHtml2CanvasDataURL(canvas, playerEl)
+      }
+    },
+    tryHtml2CanvasDataURL(canvas, playerEl) {
+      // 尝试使用dataURL导出html2canvas结果
+      try {
+        console.log('尝试html2canvas dataURL导出')
+
+        const dataURL = canvas.toDataURL('image/png', 1.0)
+
+        if (dataURL && dataURL.length > 100 && !dataURL.includes('data:,')) {
+          this.downloadDataURL(dataURL)
+          this.$message.success('html2canvas截图成功')
+          console.log('html2canvas dataURL成功，数据长度:', dataURL.length)
+        } else {
+          console.error('html2canvas dataURL无效')
+          this.createCustomScreenshot(playerEl)
+        }
+
+      } catch (dataURLError) {
+        console.error('html2canvas dataURL失败:', dataURLError)
+        this.createCustomScreenshot(playerEl)
+      }
+    },
+    createCustomScreenshot(playerEl) {
+      // 创建自定义截图，避免跨域问题
+      try {
+        console.log('创建自定义截图')
+
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+
+        // 设置canvas尺寸
+        canvas.width = playerEl.offsetWidth || 800
+        canvas.height = playerEl.offsetHeight || 450
+
+        // 绘制黑色背景
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // 绘制播放器信息
+        ctx.fillStyle = '#ffffff'
+        ctx.font = 'bold 24px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('录像播放截图', canvas.width / 2, canvas.height / 2 - 60)
+
+        ctx.font = '18px Arial'
+        ctx.fillText(`设备ID: ${this.deviceId || '未知'}`, canvas.width / 2, canvas.height / 2 - 20)
+        ctx.fillText(`通道ID: ${this.channelId || '未知'}`, canvas.width / 2, canvas.height / 2 + 20)
+        ctx.fillText(`时间: ${new Date(this.playTime || Date.now()).toLocaleString()}`, canvas.width / 2, canvas.height / 2 + 60)
+
+        ctx.font = '14px Arial'
+        ctx.fillStyle = '#cccccc'
+        ctx.fillText('由于浏览器安全限制，无法获取视频画面', canvas.width / 2, canvas.height / 2 + 100)
+
+        // 导出自定义截图
+        canvas.toBlob((blob) => {
+          if (blob) {
+            this.downloadScreenshot(blob)
+            this.$message.success('已生成播放信息截图')
+            console.log('自定义截图创建成功')
+          } else {
+            // 最后的备用方案
+            this.captureWithDisplayMedia()
+          }
+        }, 'image/png')
+
+      } catch (error) {
+        console.error('创建自定义截图失败:', error)
+        this.captureWithDisplayMedia()
+      }
+    },
+    capturePlayerContainer(playerEl) {
+      // 截取播放器容器 - 尝试多种方案避免跨域问题
+      try {
+        console.log('尝试截取播放器容器，避免跨域问题', playerEl)
+
+        // 方案1: DOM克隆方案（避免跨域问题）
+        this.captureWithDOMCloning(playerEl)
+
+      } catch (error) {
+        console.error('容器截图失败:', error)
+        // 方案2: SVG方案
+        this.captureWithSVG(playerEl)
+      }
+    },
+    captureVideoElement(videoElement) {
+      // 截取video元素
+      try {
+        console.log('尝试截取video元素:', videoElement)
+
+        // 尝试设置CORS属性（可能会失败，但不影响截图）
+        try {
+          if (!videoElement.crossOrigin) {
+            videoElement.crossOrigin = 'anonymous'
+          }
+        } catch (corsError) {
+          console.warn('无法设置CORS属性:', corsError)
+        }
+
+        // 检查视频状态
+        console.log('视频状态:', {
+          readyState: videoElement.readyState,
+          videoWidth: videoElement.videoWidth,
+          videoHeight: videoElement.videoHeight,
+          currentTime: videoElement.currentTime,
+          duration: videoElement.duration
+        })
+
+        // 等待视频加载
+        if (videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
+          this.drawVideoToCanvas(videoElement)
+        } else {
+          console.log('视频未完全加载，等待loadeddata事件')
+          const timeout = setTimeout(() => {
+            console.log('等待视频加载超时，尝试其他方法')
+            this.captureWithScreenAPI()
+          }, 3000)
+
+          videoElement.addEventListener('loadeddata', () => {
+            clearTimeout(timeout)
+            console.log('视频加载完成，开始截图')
+            this.drawVideoToCanvas(videoElement)
+          }, { once: true })
+        }
+      } catch (error) {
+        console.error('Video元素截图失败:', error)
+        this.captureWithSimpleMethod()
+      }
+    },
+    captureCanvasElement(canvasElement) {
+      // 截取canvas元素
+      try {
+        // 直接从canvas获取图片数据
+        canvasElement.toBlob((blob) => {
+          if (blob) {
+            this.downloadScreenshot(blob)
+            this.$message.success('截图成功')
+            console.log('Canvas元素截图成功')
+          } else {
+            throw new Error('Canvas截图失败')
+          }
+        }, 'image/png')
+      } catch (error) {
+        console.error('Canvas元素截图失败:', error)
+        // 尝试复制canvas内容到新canvas
+        this.copyCanvasContent(canvasElement)
+      }
+    },
+    drawVideoToCanvas(videoElement) {
+      // 将video绘制到canvas
+      try {
+        console.log('开始绘制视频到Canvas')
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+        // 设置canvas尺寸
+        const width = videoElement.videoWidth || videoElement.offsetWidth || 800
+        const height = videoElement.videoHeight || videoElement.offsetHeight || 450
+
+        canvas.width = width
+        canvas.height = height
+
+        console.log('Canvas尺寸:', { width, height })
+
+        // 绘制视频帧到canvas
+        ctx.drawImage(videoElement, 0, 0, width, height)
+
+        console.log('视频已绘制到Canvas，尝试导出')
+
+        // 首先尝试检查canvas是否被污染
+        try {
+          // 尝试读取一个像素来检查是否被污染
+          ctx.getImageData(0, 0, 1, 1)
+          console.log('Canvas未被污染，可以正常导出')
+
+          // 尝试toBlob导出
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              this.downloadScreenshot(blob)
+              this.$message.success('截图成功')
+              console.log('Canvas toBlob截图成功，文件大小:', blob.size)
+            } else {
+              console.warn('toBlob返回空blob，尝试dataURL方法')
+              this.tryDataURLExport(canvas)
+            }
+          }, 'image/png', 1.0)
+
+        } catch (taintError) {
+          console.error('Canvas被污染，无法直接导出:', taintError)
+
+          // Canvas被污染时的处理方案
+          if (taintError.name === 'SecurityError' || taintError.message.includes('tainted')) {
+            console.log('尝试使用代理或其他方法处理跨域问题')
+            this.handleTaintedCanvas(videoElement)
+          } else {
+            this.tryDataURLExport(canvas)
+          }
+        }
+
+      } catch (error) {
+        console.error('绘制视频到Canvas失败:', error)
+        this.captureWithSimpleMethod()
+      }
+    },
+    tryDataURLExport(canvas) {
+      // 尝试使用dataURL导出
+      try {
+        console.log('尝试使用dataURL导出')
+        const dataURL = canvas.toDataURL('image/png', 1.0)
+
+        if (dataURL && dataURL.length > 100) { // 检查dataURL是否有效
+          this.downloadDataURL(dataURL)
+          this.$message.success('截图成功')
+          console.log('DataURL截图成功，数据长度:', dataURL.length)
+        } else {
+          throw new Error('DataURL无效或为空')
+        }
+      } catch (dataURLError) {
+        console.error('DataURL导出失败:', dataURLError)
+        this.captureWithSimpleMethod()
+      }
+    },
+    handleTaintedCanvas(videoElement) {
+      // 处理被污染的Canvas - 使用更安全的方法
+      try {
+        console.log('Canvas被污染，尝试替代方案')
+
+        // 由于Canvas被污染，无法直接导出，尝试其他方法
+
+        // 方法1: 尝试使用html2canvas（如果可用）
+        if (window.html2canvas) {
+          console.log('尝试使用html2canvas处理污染Canvas')
+          const playerEl = videoElement.closest('.playBox') || videoElement.parentElement
+
+          if (playerEl) {
+            this.captureWithHtml2Canvas(playerEl)
+            return
+          }
+        }
+
+        // 方法2: 尝试屏幕捕获API
+        console.log('尝试屏幕捕获API')
+        this.captureWithDisplayMedia()
+
+      } catch (error) {
+        console.error('处理污染Canvas失败:', error)
+        // 最后的备用方案
+        this.captureWithSimpleMethod()
+      }
+    },
+    copyCanvasContent(sourceCanvas) {
+      // 复制canvas内容到新canvas
+      try {
+        const newCanvas = document.createElement('canvas')
+        const ctx = newCanvas.getContext('2d')
+
+        newCanvas.width = sourceCanvas.width
+        newCanvas.height = sourceCanvas.height
+
+        // 复制内容
+        ctx.drawImage(sourceCanvas, 0, 0)
+
+        // 尝试导出
+        newCanvas.toBlob((blob) => {
+          if (blob) {
+            this.downloadScreenshot(blob)
+            this.$message.success('截图成功')
+            console.log('Canvas复制截图成功')
+          } else {
+            throw new Error('Canvas复制失败')
+          }
+        }, 'image/png')
+      } catch (error) {
+        console.error('Canvas复制失败:', error)
+        this.captureWithScreenAPI()
+      }
+    },
+    captureWithScreenAPI() {
+      // 使用屏幕截图API
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          console.log('尝试使用屏幕截图API')
+          navigator.mediaDevices.getDisplayMedia({ video: true })
+            .then(stream => {
+              const video = document.createElement('video')
+              video.srcObject = stream
+              video.play()
+
+              video.addEventListener('loadedmetadata', () => {
+                const canvas = document.createElement('canvas')
+                const ctx = canvas.getContext('2d')
+
+                canvas.width = video.videoWidth
+                canvas.height = video.videoHeight
+
+                ctx.drawImage(video, 0, 0)
+
+                // 停止屏幕共享
+                stream.getTracks().forEach(track => track.stop())
+
+                canvas.toBlob((blob) => {
+                  if (blob) {
+                    this.downloadScreenshot(blob)
+                    this.$message.success('屏幕截图成功')
+                    console.log('屏幕截图API成功')
+                  }
+                }, 'image/png')
+              })
+            })
+            .catch(error => {
+              console.error('屏幕截图API失败:', error)
+              this.captureWithServerAPI()
+            })
+        } else {
+          this.captureWithServerAPI()
+        }
+      } catch (error) {
+        console.error('屏幕截图API不可用:', error)
+        this.captureWithServerAPI()
+      }
+    },
+    captureWithServerAPI() {
+      // 使用服务端截图API
+      try {
+        console.log('尝试使用服务端截图API')
+
+        // 检查必要参数
+        if (!this.deviceId || !this.channelId) {
+          console.error('缺少必要参数:', { deviceId: this.deviceId, channelId: this.channelId })
+          this.captureWithSimpleMethod()
+          return
+        }
+
+        // 构建截图请求参数
+        const screenshotParams = {
+          deviceId: this.deviceId,
+          channelId: this.channelId,
+          time: this.playTime || Date.now(),
+          format: 'png'
+        }
+
+        console.log('截图请求参数:', screenshotParams)
+
+        // 使用正确的axios引用
+        const axiosInstance = this.$http || this.axios || window.axios
+
+        if (!axiosInstance) {
+          console.error('axios实例不可用，尝试使用fetch')
+          this.captureWithFetch(screenshotParams)
+          return
+        }
+
+        // 调用服务端截图接口
+        axiosInstance.post('/api/device/screenshot', screenshotParams, {
+          responseType: 'blob',
+          timeout: 10000
+        }).then(response => {
+          if (response.data && response.data.size > 0) {
+            this.downloadScreenshot(response.data)
+            this.$message.success('服务端截图成功')
+            console.log('服务端截图API成功，文件大小:', response.data.size)
+          } else {
+            throw new Error('服务端截图返回空数据')
+          }
+        }).catch(error => {
+          console.error('服务端截图API失败:', error)
+          this.captureWithFetch(screenshotParams)
+        })
+      } catch (error) {
+        console.error('服务端截图失败:', error)
+        this.captureWithSimpleMethod()
+      }
+    },
+    captureWithFetch(screenshotParams) {
+      // 使用fetch API进行截图请求
+      try {
+        console.log('使用fetch API请求截图')
+
+        fetch('/api/device/screenshot', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(screenshotParams)
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+          return response.blob()
+        })
+        .then(blob => {
+          if (blob && blob.size > 0) {
+            this.downloadScreenshot(blob)
+            this.$message.success('截图成功')
+            console.log('Fetch截图成功，文件大小:', blob.size)
+          } else {
+            throw new Error('Fetch返回空数据')
+          }
+        })
+        .catch(error => {
+          console.error('Fetch截图失败:', error)
+          this.captureWithSimpleMethod()
+        })
+      } catch (error) {
+        console.error('Fetch截图异常:', error)
+        this.captureWithSimpleMethod()
+      }
+    },
+    downloadScreenshot(blob) {
+      // 下载截图文件
+      try {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `screenshot_${this.deviceId}_${new Date().getTime()}.png`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      } catch (error) {
+        console.error('下载截图失败:', error)
+        this.$message.error('下载截图失败')
+      }
+    },
+    downloadDataURL(dataURL) {
+      // 下载DataURL格式的图片
+      try {
+        const link = document.createElement('a')
+        link.href = dataURL
+        link.download = `screenshot_${this.deviceId}_${new Date().getTime()}.png`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } catch (error) {
+        console.error('下载DataURL失败:', error)
+        this.$message.error('下载截图失败')
       }
     },
     playLast() {
@@ -293,22 +953,86 @@ export default {
     },
     pausePlay() {
       console.log('暂停按钮被点击')
-      // 暂停
-      if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.pause === 'function') {
-        this.$refs.recordVideoPlayer.pause()
-      } else {
-        console.warn('播放器不支持暂停功能')
+      const player = this.$refs.recordVideoPlayer
+
+      if (!player) {
+        console.warn('播放器引用不存在')
+        return
+      }
+
+      try {
+        // 尝试多种暂停方法
+        if (typeof player.pause === 'function') {
+          console.log('使用pause方法暂停')
+          player.pause()
+          this.playing = false
+        } else if (typeof player.stop === 'function') {
+          console.log('使用stop方法暂停')
+          player.stop()
+          this.playing = false
+        } else {
+          // 直接操作video元素
+          const videoElement = player.$el?.querySelector('video')
+          if (videoElement && typeof videoElement.pause === 'function') {
+            console.log('直接暂停video元素')
+            videoElement.pause()
+            this.playing = false
+          } else {
+            console.warn('无法找到暂停方法')
+          }
+        }
+      } catch (error) {
+        console.error('暂停失败:', error)
+        this.playing = false
       }
     },
     play() {
-      console.log('播放按钮被点击')
-      if (this.$refs.recordVideoPlayer) {
-        if (this.$refs.recordVideoPlayer.loaded && typeof this.$refs.recordVideoPlayer.unPause === 'function') {
-          this.$refs.recordVideoPlayer.unPause()
+      console.log('播放按钮被点击，当前播放状态:', this.playing)
+      const player = this.$refs.recordVideoPlayer
+
+      if (!player) {
+        console.warn('播放器引用不存在，重新播放录像')
+        this.playRecord()
+        return
+      }
+
+      try {
+        // 如果有视频URL且播放器已加载，尝试恢复播放
+        if (this.videoUrl && player.loaded) {
+          console.log('播放器已加载，尝试恢复播放')
+
+          // 尝试多种播放方法
+          if (typeof player.play === 'function') {
+            console.log('使用play方法播放')
+            player.play()
+            this.playing = true
+          } else if (typeof player.unPause === 'function') {
+            console.log('使用unPause方法播放')
+            player.unPause()
+            this.playing = true
+          } else if (typeof player.resume === 'function') {
+            console.log('使用resume方法播放')
+            player.resume()
+            this.playing = true
+          } else {
+            // 直接操作video元素
+            const videoElement = player.$el?.querySelector('video')
+            if (videoElement && typeof videoElement.play === 'function') {
+              console.log('直接播放video元素')
+              videoElement.play()
+              this.playing = true
+            } else {
+              console.log('无法恢复播放，重新加载录像')
+              this.playRecord()
+            }
+          }
         } else {
+          console.log('播放器未加载或无视频URL，重新播放录像')
           this.playRecord()
         }
-      } else {
+      } catch (error) {
+        console.error('播放失败:', error)
+        console.log('播放失败，尝试重新加载录像')
         this.playRecord()
       }
     },
@@ -330,7 +1054,7 @@ export default {
       }
 
       screenfull.request(document.getElementById('playerBox'))
-      screenfull.on('change', (event) => {
+      screenfull.on('change', () => {
         if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.resize === 'function') {
           this.$refs.recordVideoPlayer.resize(playerWidth, playerHeight)
         }
@@ -462,6 +1186,9 @@ export default {
                 this.$refs.recordVideoPlayer.play(this.videoUrl);
                 this.playing = true;
 
+                // 启动时间更新监控
+                this.startTimeUpdateMonitor();
+
                 // 播放器加载完成后启动所有控制栏隐藏和悬停禁用机制
                 setTimeout(() => {
                   this.adjustPlayerControlBlocker();
@@ -550,25 +1277,152 @@ export default {
 
     showPlayTimeChange(val) {
       // 更新播放时间
-      const newPlayTime = val * 1000; // 将秒转换为毫秒
-      this.playTime = newPlayTime;
+      console.log('播放时间更新:', val)
 
-      // 更新时间轴随播放时间推进
-      this.timeSegments = this.timeSegments.map(segment => {
-        if (this.playTime >= segment.beginTime && this.playTime <= segment.endTime) {
-          return { ...segment, color: '#ff0000' }; // 当前播放段高亮
+      let newPlayTime
+      if (typeof val === 'number') {
+        // 如果val是秒数，转换为毫秒
+        newPlayTime = val < 1000000000 ? val * 1000 : val
+      } else if (val && val.currentTime !== undefined) {
+        // 如果val是事件对象，提取currentTime
+        newPlayTime = val.currentTime < 1000000000 ? val.currentTime * 1000 : val.currentTime
+      } else {
+        // 尝试从播放器直接获取当前时间
+        const player = this.$refs.recordVideoPlayer
+        if (player) {
+          const currentTime = this.getCurrentPlayerTime(player)
+          if (currentTime !== null) {
+            newPlayTime = currentTime
+          }
         }
-        return { ...segment, color: '#01901d' };
-      });
+      }
 
-      // 时间轴实时更新
-      if (this.$refs.Timeline) {
-        this.$refs.Timeline.setTime(this.playTime);
+      if (newPlayTime !== undefined && newPlayTime !== null) {
+        // 计算相对于当前文件开始时间的播放时间
+        if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+          const currentFile = this.detailFiles[this.chooseFileIndex]
+          const fileStartTime = Number.parseInt(currentFile.startTime)
+          this.playTime = fileStartTime + newPlayTime
+        } else {
+          this.playTime = newPlayTime
+        }
+
+        // 更新时间轴随播放时间推进
+        this.timeSegments = this.timeSegments.map(segment => {
+          if (this.playTime >= segment.beginTime && this.playTime <= segment.endTime) {
+            return { ...segment, color: '#ff0000' }; // 当前播放段高亮
+          }
+          return { ...segment, color: '#01901d' };
+        });
+
+        // 时间轴实时更新
+        if (this.$refs.Timeline) {
+          this.$refs.Timeline.setTime(this.playTime);
+        }
+
+        console.log('播放时间已更新:', {
+          originalVal: val,
+          newPlayTime: newPlayTime,
+          finalPlayTime: this.playTime,
+          currentFileIndex: this.chooseFileIndex
+        })
+      }
+    },
+    getCurrentPlayerTime(player) {
+      // 尝试多种方式获取播放器当前时间
+      try {
+        // 方法1: 直接获取currentTime属性
+        if (player.currentTime !== undefined) {
+          return player.currentTime < 1000000000 ? player.currentTime * 1000 : player.currentTime
+        }
+
+        // 方法2: 调用getCurrentTime方法
+        if (typeof player.getCurrentTime === 'function') {
+          const time = player.getCurrentTime()
+          return time < 1000000000 ? time * 1000 : time
+        }
+
+        // 方法3: 从video元素获取
+        const videoElement = player.$el?.querySelector('video')
+        if (videoElement && videoElement.currentTime !== undefined) {
+          return videoElement.currentTime < 1000000000 ? videoElement.currentTime * 1000 : videoElement.currentTime
+        }
+
+        // 方法4: 从canvas元素获取（某些播放器使用canvas）
+        const canvasElement = player.$el?.querySelector('canvas')
+        if (canvasElement && canvasElement.currentTime !== undefined) {
+          return canvasElement.currentTime < 1000000000 ? canvasElement.currentTime * 1000 : canvasElement.currentTime
+        }
+
+        return null
+      } catch (error) {
+        console.error('获取播放器时间失败:', error)
+        return null
       }
     },
     playingChange(val) {
       // 播放状态变化时触发
-      this.playing = val;
+      console.log('播放状态变化:', val)
+
+      if (typeof val === 'boolean') {
+        this.playing = val
+      } else if (val && val.type) {
+        // 如果是事件对象
+        this.playing = val.type === 'playing' || val.type === 'play'
+      } else {
+        // 尝试从播放器获取状态
+        const player = this.$refs.recordVideoPlayer
+        if (player) {
+          this.playing = this.getPlayerPlayingState(player)
+        }
+      }
+
+      console.log('播放状态已更新:', this.playing)
+    },
+    getPlayerPlayingState(player) {
+      // 尝试多种方式获取播放器播放状态
+      try {
+        // 方法1: 直接获取playing属性
+        if (player.playing !== undefined) {
+          return player.playing
+        }
+
+        // 方法2: 调用isPlaying方法
+        if (typeof player.isPlaying === 'function') {
+          return player.isPlaying()
+        }
+
+        // 方法3: 从video元素获取
+        const videoElement = player.$el?.querySelector('video')
+        if (videoElement) {
+          return !videoElement.paused && !videoElement.ended && videoElement.readyState > 2
+        }
+
+        // 方法4: 检查paused属性
+        if (player.paused !== undefined) {
+          return !player.paused
+        }
+
+        return false
+      } catch (error) {
+        console.error('获取播放器状态失败:', error)
+        return false
+      }
+    },
+    onPlayerLoaded() {
+      // 播放器加载完成回调
+      console.log('播放器加载完成')
+      this.playLoading = false
+
+      // 启动时间更新监控
+      this.startTimeUpdateMonitor()
+    },
+    onPlayerError(error) {
+      // 播放器错误回调
+      console.error('播放器错误:', error)
+      this.playLoading = false
+      this.playing = false
+      this.$message.error('播放器加载失败')
     },
     playTimeChange(val) {
       console.log('时间轴时间变化:', val, '当前播放时间:', this.playTime)
@@ -1204,6 +2058,385 @@ export default {
       }
 
       console.log('已禁用播放器悬停检测机制')
+    },
+    startTimeUpdateMonitor() {
+      // 启动时间更新监控
+      if (this.timeUpdateInterval) {
+        clearInterval(this.timeUpdateInterval)
+      }
+
+      this.timeUpdateInterval = setInterval(() => {
+        if (this.playing && this.$refs.recordVideoPlayer) {
+          const currentTime = this.getCurrentPlayerTime(this.$refs.recordVideoPlayer)
+          if (currentTime !== null) {
+            this.showPlayTimeChange(currentTime / 1000) // 转换为秒
+          }
+        }
+      }, 1000) // 每秒更新一次
+
+      console.log('已启动时间更新监控')
+    },
+    stopTimeUpdateMonitor() {
+      // 停止时间更新监控
+      if (this.timeUpdateInterval) {
+        clearInterval(this.timeUpdateInterval)
+        this.timeUpdateInterval = null
+      }
+
+      console.log('已停止时间更新监控')
+    },
+    loadHtml2Canvas() {
+      // 动态加载html2canvas库
+      if (window.html2canvas) {
+        console.log('html2canvas已加载')
+        return Promise.resolve()
+      }
+
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+        script.onload = () => {
+          console.log('html2canvas加载成功')
+          resolve()
+        }
+        script.onerror = () => {
+          console.warn('html2canvas加载失败，将使用其他截图方法')
+          reject(new Error('html2canvas加载失败'))
+        }
+        document.head.appendChild(script)
+      })
+    },
+    captureWithDOMCloning(playerEl) {
+      // 通过DOM克隆避免跨域问题
+      try {
+        console.log('尝试DOM克隆截图方案')
+
+        if (!playerEl) {
+          const player = this.$refs.recordVideoPlayer
+          playerEl = player?.$el
+        }
+
+        if (!playerEl) {
+          this.captureWithDisplayMedia()
+          return
+        }
+
+        // 克隆播放器容器
+        const clonedEl = playerEl.cloneNode(true)
+
+        // 移除所有可能导致跨域问题的元素
+        const problematicElements = clonedEl.querySelectorAll('video, canvas, iframe, object, embed')
+        problematicElements.forEach(el => {
+          // 用占位符替换
+          const placeholder = document.createElement('div')
+          placeholder.style.width = el.offsetWidth + 'px' || '100%'
+          placeholder.style.height = el.offsetHeight + 'px' || '100%'
+          placeholder.style.backgroundColor = '#000000'
+          placeholder.style.display = 'flex'
+          placeholder.style.alignItems = 'center'
+          placeholder.style.justifyContent = 'center'
+          placeholder.style.color = '#ffffff'
+          placeholder.style.fontSize = '16px'
+          placeholder.textContent = '视频播放区域'
+
+          el.parentNode.replaceChild(placeholder, el)
+        })
+
+        // 将克隆的元素临时添加到页面
+        clonedEl.style.position = 'absolute'
+        clonedEl.style.left = '-9999px'
+        clonedEl.style.top = '-9999px'
+        document.body.appendChild(clonedEl)
+
+        // 使用html2canvas截取克隆的元素
+        if (window.html2canvas) {
+          window.html2canvas(clonedEl, {
+            allowTaint: true,
+            useCORS: false,
+            scale: 1,
+            logging: false,
+            backgroundColor: '#000000'
+          }).then(canvas => {
+            // 移除临时元素
+            document.body.removeChild(clonedEl)
+
+            // 导出截图
+            canvas.toBlob((blob) => {
+              if (blob && blob.size > 0) {
+                this.downloadScreenshot(blob)
+                this.$message.success('DOM克隆截图成功')
+                console.log('DOM克隆截图成功')
+              } else {
+                this.createCustomScreenshot(playerEl)
+              }
+            }, 'image/png')
+          }).catch(error => {
+            console.error('DOM克隆html2canvas失败:', error)
+            document.body.removeChild(clonedEl)
+            this.createCustomScreenshot(playerEl)
+          })
+        } else {
+          document.body.removeChild(clonedEl)
+          this.createCustomScreenshot(playerEl)
+        }
+
+      } catch (error) {
+        console.error('DOM克隆截图失败:', error)
+        this.createCustomScreenshot(playerEl)
+      }
+    },
+    captureWithSVG(playerEl) {
+      // 使用SVG方案截图
+      try {
+        console.log('尝试SVG截图方案')
+
+        if (!playerEl) {
+          const player = this.$refs.recordVideoPlayer
+          playerEl = player?.$el
+        }
+
+        if (!playerEl) {
+          this.captureWithDisplayMedia()
+          return
+        }
+
+        // 创建SVG
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        svg.setAttribute('width', playerEl.offsetWidth || 800)
+        svg.setAttribute('height', playerEl.offsetHeight || 450)
+
+        // 创建foreignObject
+        const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject')
+        foreignObject.setAttribute('width', '100%')
+        foreignObject.setAttribute('height', '100%')
+
+        // 创建简化的HTML内容
+        const htmlContent = document.createElement('div')
+        htmlContent.style.width = '100%'
+        htmlContent.style.height = '100%'
+        htmlContent.style.backgroundColor = '#000000'
+        htmlContent.style.display = 'flex'
+        htmlContent.style.flexDirection = 'column'
+        htmlContent.style.alignItems = 'center'
+        htmlContent.style.justifyContent = 'center'
+        htmlContent.style.color = '#ffffff'
+        htmlContent.style.fontFamily = 'Arial, sans-serif'
+
+        // 添加内容
+        const title = document.createElement('h2')
+        title.textContent = '录像播放截图'
+        title.style.margin = '0 0 20px 0'
+        htmlContent.appendChild(title)
+
+        const info = [
+          `设备ID: ${this.deviceId || '未知'}`,
+          `通道ID: ${this.channelId || '未知'}`,
+          `时间: ${new Date(this.playTime || Date.now()).toLocaleString()}`
+        ]
+
+        info.forEach(text => {
+          const p = document.createElement('p')
+          p.textContent = text
+          p.style.margin = '5px 0'
+          htmlContent.appendChild(p)
+        })
+
+        foreignObject.appendChild(htmlContent)
+        svg.appendChild(foreignObject)
+
+        // 转换SVG为图片
+        const svgData = new XMLSerializer().serializeToString(svg)
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+        const url = URL.createObjectURL(svgBlob)
+
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+
+          canvas.width = img.width
+          canvas.height = img.height
+
+          ctx.drawImage(img, 0, 0)
+
+          URL.revokeObjectURL(url)
+
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              this.downloadScreenshot(blob)
+              this.$message.success('SVG截图成功')
+              console.log('SVG截图成功')
+            } else {
+              this.captureWithDisplayMedia()
+            }
+          }, 'image/png')
+        }
+
+        img.onerror = () => {
+          console.error('SVG图片加载失败')
+          URL.revokeObjectURL(url)
+          this.captureWithDisplayMedia()
+        }
+
+        img.src = url
+
+      } catch (error) {
+        console.error('SVG截图失败:', error)
+        this.captureWithDisplayMedia()
+      }
+    },
+    captureWithSimpleMethod() {
+      // 简单截图方法，避免跨域问题
+      try {
+        console.log('使用简单截图方法')
+
+        // 方法1: 尝试使用浏览器的截图功能
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          this.captureWithDisplayMedia()
+          return
+        }
+
+        // 方法2: 创建一个简单的截图提示
+        this.showScreenshotInstructions()
+
+      } catch (error) {
+        console.error('简单截图方法失败:', error)
+        this.showScreenshotInstructions()
+      }
+    },
+    captureWithDisplayMedia() {
+      // 使用屏幕捕获API
+      console.log('使用屏幕捕获API')
+
+      navigator.mediaDevices.getDisplayMedia({
+        video: {
+          mediaSource: 'screen',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      })
+      .then(stream => {
+        console.log('屏幕捕获流获取成功')
+
+        const video = document.createElement('video')
+        video.srcObject = stream
+        video.autoplay = true
+        video.muted = true
+
+        video.addEventListener('loadedmetadata', () => {
+          console.log('屏幕捕获视频加载完成')
+
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+
+          // 绘制屏幕内容
+          ctx.drawImage(video, 0, 0)
+
+          // 停止屏幕捕获
+          stream.getTracks().forEach(track => {
+            track.stop()
+            console.log('屏幕捕获轨道已停止')
+          })
+
+          // 导出截图
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              this.downloadScreenshot(blob)
+              this.$message.success('屏幕截图成功')
+              console.log('屏幕截图成功，文件大小:', blob.size)
+            } else {
+              console.error('屏幕截图生成失败')
+              this.showScreenshotInstructions()
+            }
+          }, 'image/png', 1.0)
+        })
+
+        video.addEventListener('error', (error) => {
+          console.error('屏幕捕获视频错误:', error)
+          stream.getTracks().forEach(track => track.stop())
+          this.showScreenshotInstructions()
+        })
+
+      })
+      .catch(error => {
+        console.error('屏幕捕获失败:', error)
+        if (error.name === 'NotAllowedError') {
+          this.$message.warning('用户拒绝了屏幕捕获权限')
+        } else if (error.name === 'NotSupportedError') {
+          this.$message.warning('浏览器不支持屏幕捕获功能')
+        } else {
+          this.$message.warning('屏幕捕获失败: ' + error.message)
+        }
+        this.showScreenshotInstructions()
+      })
+    },
+    showScreenshotInstructions() {
+      // 显示截图说明
+      console.log('显示截图说明')
+
+      this.$alert(
+        '由于浏览器安全限制，无法自动截图。请使用以下方法手动截图：\n\n' +
+        '1. Windows: 按 Win + Shift + S 或 PrtScn 键\n' +
+        '2. Mac: 按 Cmd + Shift + 4 或 Cmd + Shift + 3\n' +
+        '3. 使用浏览器的开发者工具截图功能\n' +
+        '4. 使用第三方截图工具\n\n' +
+        '截图后可以保存到本地文件。',
+        '截图说明',
+        {
+          confirmButtonText: '我知道了',
+          type: 'info',
+          dangerouslyUseHTMLString: false
+        }
+      )
+    },
+    createFallbackScreenshot() {
+      // 创建备用截图（显示当前播放信息）
+      try {
+        console.log('创建备用截图')
+
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+
+        canvas.width = 800
+        canvas.height = 450
+
+        // 绘制背景
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // 绘制文本信息
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '24px Arial'
+        ctx.textAlign = 'center'
+
+        const info = [
+          '录像截图',
+          `设备ID: ${this.deviceId || '未知'}`,
+          `通道ID: ${this.channelId || '未知'}`,
+          `时间: ${new Date(this.playTime || Date.now()).toLocaleString()}`,
+          '由于浏览器安全限制，无法获取视频画面'
+        ]
+
+        info.forEach((text, index) => {
+          ctx.fillText(text, canvas.width / 2, 150 + index * 40)
+        })
+
+        // 导出截图
+        canvas.toBlob((blob) => {
+          if (blob) {
+            this.downloadScreenshot(blob)
+            this.$message.success('已生成信息截图')
+            console.log('备用截图创建成功')
+          }
+        }, 'image/png')
+
+      } catch (error) {
+        console.error('创建备用截图失败:', error)
+        this.$message.error('截图功能完全不可用')
+      }
     }
   }
 }
