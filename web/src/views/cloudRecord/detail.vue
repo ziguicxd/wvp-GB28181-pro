@@ -555,28 +555,7 @@ export default {
         this.$message.info('已播放到最后一个录像')
       }
     },
-    seekRecord() {
-      // 确保streamInfo包含所有必要的信息
-      if (!this.streamInfo || !this.streamInfo.mediaServerId || !this.streamInfo.app || !this.streamInfo.stream) {
-        console.log('流信息不完整，无法定位')
-        return
-      }
-      
-      this.$store.dispatch('cloudRecord/seek', {
-        mediaServerId: this.streamInfo.mediaServerId,
-        app: this.streamInfo.app,
-        stream: this.streamInfo.stream,
-        seek: this.playSeekValue,
-        schema: 'fmp4'
-      })
-        .then(() => {
-          // 定位成功后的操作
-        })
-        .catch((error) => {
-          console.log('定位错误:', error)
-          // 即使定位失败，也不影响视频播放
-        })
-    },
+
     downloadFile(file) {
       this.$store.dispatch('cloudRecord/getPlayPath', file.id)
         .then(data => {
@@ -817,17 +796,7 @@ export default {
           })
       }
     },
-    getTimeForFile(file) {
-      const starTime = new Date(file.startTime * 1000)
-      let endTime = new Date(file.endTime * 1000)
-      if (this.checkIsOver24h(starTime, endTime)) {
-        endTime = new Date(this.chooseDate + ' ' + '23:59:59')
-      }
-      return [starTime, endTime, endTime.getTime() - starTime.getTime()]
-    },
-    checkIsOver24h(starTime, endTime) {
-      return starTime > endTime
-    },
+
     playTimeFormat(val) {
       const h = parseInt(val / 3600)
       const m = parseInt((val - h * 3600) / 60)
@@ -873,55 +842,7 @@ export default {
     goBack() {
       this.$router.push('/cloudRecord')
     },
-    adjustPlayerControlBlocker() {
-      // 动态检测并调整播放器控制栏拦截层
-      this.$nextTick(() => {
-        const playerElement = this.$refs.recordVideoPlayer?.$el
-        if (!playerElement) return
 
-        const blocker = document.querySelector('.player-control-blocker')
-        if (!blocker) return
-
-        // 检测播放器内部的控制栏元素
-        const playerControls = playerElement.querySelectorAll([
-          '.controls',
-          '.control-bar',
-          '.player-controls',
-          '.video-controls',
-          '.bottom-controls',
-          '.control-panel',
-          '.player-bar',
-          '.media-controls'
-        ].join(','))
-
-        if (playerControls.length > 0) {
-          // 如果找到控制栏，精确覆盖
-          const controlBar = playerControls[0]
-          const rect = controlBar.getBoundingClientRect()
-          const playerRect = playerElement.getBoundingClientRect()
-
-          // 计算相对位置
-          const relativeBottom = playerRect.bottom - rect.bottom
-          const relativeHeight = rect.height
-
-          blocker.style.bottom = `${relativeBottom}px`
-          blocker.style.height = `${relativeHeight}px`
-
-          console.log('检测到播放器控制栏，已精确覆盖:', {
-            controlBarHeight: relativeHeight,
-            bottomOffset: relativeBottom
-          })
-        } else {
-          // 如果没有找到控制栏，使用默认设置
-          blocker.style.bottom = '0px'
-          blocker.style.height = '40px'
-          console.log('未检测到播放器控制栏，使用默认拦截设置')
-        }
-      })
-    },
-    hidePlayerControls() {
-      // 播放器控制栏方法已移除
-    },
     startTimeUpdateMonitor() {
       // 启动时间更新监控
       if (this.timeUpdateInterval) {
