@@ -45,16 +45,16 @@
           </div>
         </div>
       </div>
-      <div id="playerBox">
-        <div class="playBox" style="height: calc(100% - 90px); width: 100%; background-color: #000000; position: relative;">
-          <div v-if="playLoading" style="position: relative; left: calc(50% - 32px); top: 43%; z-index: 100;color: #fff;float: left; text-align: center;">
+      <div id="playerBox" class="responsive-player-box">
+        <div class="playBox" style="width: 100%; background-color: #000000; position: relative;">
+          <div v-if="playLoading" class="player-loading">
             <div class="el-icon-loading" />
             <div style="width: 100%; line-height: 2rem">正在加载</div>
           </div>
           <easyPlayer
             ref="recordVideoPlayer"
             :videoUrl="videoUrl"
-            :height="'calc(100vh - 250px)'"
+            :height="playerHeight"
             :show-button="false"
             @dblclick="fullScreen"
             @timeupdate="showPlayTimeChange"
@@ -163,6 +163,9 @@ export default {
       timelineControl: false,
       showOtherSpeed: true,
       timeSegments: [],
+      playerHeight: 'calc(100vh - 250px)', // 动态播放器高度
+      windowWidth: window.innerWidth, // 当前窗口宽度
+      windowHeight: window.innerHeight, // 当前窗口高度
       pickerOptions: {
         cellClassName: (date) => {
           // 通过显示一个点标识这一天有录像
@@ -196,6 +199,20 @@ export default {
     },
     showTimeValue() {
       return moment(this.playTime).format('YYYY-MM-DD HH:mm:ss')
+    },
+    // 根据窗口大小动态计算播放器高度
+    playerHeight() {
+      // 根据屏幕尺寸调整高度
+      if (this.windowWidth <= 768) {
+        // 移动设备
+        return `calc(${this.windowHeight}px - 200px)`
+      } else if (this.windowWidth <= 1200) {
+        // 平板设备
+        return `calc(${this.windowHeight}px - 220px)`
+      } else {
+        // 桌面设备
+        return `calc(${this.windowHeight}px - 250px)`
+      }
     }
   },
   mounted() {
@@ -206,12 +223,22 @@ export default {
         this.dateChange()
       }
     })
+    
+    // 添加窗口大小变化监听器
+    window.addEventListener('resize', this.handleResize)
+    
+    // 初始化窗口尺寸
+    this.handleResize()
+    
     // easyPlayer不需要手动监听事件，通过props传递
 
     // 截图功能已移除
   },
   destroyed() {
     this.$destroy('recordVideoPlayer')
+
+    // 移除窗口大小变化监听器
+    window.removeEventListener('resize', this.handleResize)
 
     // 清理监控
     this.stopTimeUpdateMonitor()
@@ -384,24 +411,38 @@ export default {
       if (this.isFullScreen) {
         screenfull.exit()
         this.isFullScreen = false
+        
+        // 退出全屏后重新调整大小
+        this.$nextTick(() => {
+          this.handleResize()
+        })
+        
         return
       }
 
-      // 安全地获取播放器尺寸
-      let playerWidth = 800
-      let playerHeight = 450
-      if (this.$refs.recordVideoPlayer) {
-        playerWidth = this.$refs.recordVideoPlayer.playerWidth || 800
-        playerHeight = this.$refs.recordVideoPlayer.playerHeight || 450
-      }
-
-      screenfull.request(document.getElementById('playerBox'))
+      // 获取播放器容器
+      const playerBox = document.getElementById('playerBox')
+      
+      // 进入全屏
+      screenfull.request(playerBox)
+      
+      // 监听全屏状态变化
       screenfull.on('change', () => {
-        if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.resize === 'function') {
-          this.$refs.recordVideoPlayer.resize(playerWidth, playerHeight)
-        }
         this.isFullScreen = screenfull.isFullscreen
+        
+        // 添加或移除全屏样式类
+        if (this.isFullScreen) {
+          playerBox.classList.add('fullscreen')
+        } else {
+          playerBox.classList.remove('fullscreen')
+        }
+        
+        // 调整播放器大小
+        this.$nextTick(() => {
+          this.handleResize()
+        })
       })
+      
       this.isFullScreen = true
     },
     dateChange() {
@@ -677,6 +718,11 @@ export default {
 
       // 启动时间更新监控
       this.startTimeUpdateMonitor()
+      
+      // 调整播放器大小以适应当前窗口
+      this.$nextTick(() => {
+        this.handleResize()
+      })
     },
     onPlayerError(error) {
       // 播放器错误回调
@@ -866,6 +912,20 @@ export default {
       }
     },
 
+    // 处理窗口大小变化
+    handleResize() {
+      this.windowWidth = window.innerWidth
+      this.windowHeight = window.innerHeight
+      
+      // 如果播放器已加载，尝试调整大小
+      if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.resize === 'function') {
+        // 根据当前窗口大小计算合适的播放器尺寸
+        const playerWidth = this.isFullScreen ? window.innerWidth : document.getElementById('playerBox').clientWidth
+        const playerHeight = this.isFullScreen ? window.innerHeight : parseInt(this.playerHeight)
+        
+        this.$refs.recordVideoPlayer.resize(playerWidth, playerHeight)
+      }
+    }
   }
 }
 </script>
@@ -1246,5 +1306,73 @@ export default {
 .easy-player video {
   pointer-events: auto !important;
   user-select: auto !important;
+}
+/* 隐藏控制栏（通过特定样式特征定位） */
+#easyplayer > div[style*="position: absolute"][style*="left: 0px"][style*="bottom: 0px"] {
+    display: none !important;
+}
+
+/* 响应式播放器容器 */
+.responsive-player-box {
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 播放器加载状态样式 */
+.player-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  color: #fff;
+  text-align: center;
+}
+
+/* 响应式媒体查询 */
+@media (max-width: 768px) {
+  .playBox {
+    height: calc(100vh - 180px) !important;
+  }
+  
+  .player-option-box {
+    height: 40px;
+  }
+  
+  .record-list-box {
+    height: calc(100vh - 150px) !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+  .playBox {
+    height: calc(100vh - 200px) !important;
+  }
+  
+  .record-list-box {
+    height: calc(100vh - 160px) !important;
+  }
+}
+
+@media (min-width: 1201px) {
+  .playBox {
+    height: calc(100vh - 220px) !important;
+  }
+}
+
+/* 全屏模式样式 */
+.responsive-player-box.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+}
+
+.responsive-player-box.fullscreen .playBox {
+  height: calc(100vh - 90px) !important;
 }
 </style>

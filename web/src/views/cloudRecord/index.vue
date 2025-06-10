@@ -118,11 +118,15 @@
       />
     </div>
     <el-dialog
-      :title="playerTitle"
+      title=" "
       :visible.sync="showPlayer"
-      width="50%"
+      width="auto"
+      custom-class="player-dialog"
     >
-      <easyPlayer ref="recordVideoPlayer" :videoUrl="videoUrl" :height="false"></easyPlayer>
+      <div class="player-container">
+        <i class="el-icon-close close-btn" @click="showPlayer = false"></i>
+        <easyPlayer ref="recordVideoPlayer" :videoUrl="videoUrl" :height="true" class="responsive-player"></easyPlayer>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -217,6 +221,7 @@ export default {
     play(row) {
       console.log(row);
       this.chooseRecord = row;
+      // 不显示文件名称
       this.showPlayer = true; // 显示播放器对话框
       this.$store.dispatch('cloudRecord/getPlayPath', row.id)
         .then((data) => {
@@ -236,13 +241,6 @@ export default {
             this.$message.error('不支持的视频格式');
             return;
           }
-
-          // 初始化播放器
-          const player = new WasmPlayer({
-            container: '#player', // 播放器容器的 DOM ID
-            url: this.videoUrl,   // 视频播放地址
-          });
-          player.play(); // 开始播放
         })
         .catch((error) => {
           console.log(error);
@@ -330,4 +328,52 @@ export default {
 .el-dialog__body {
   padding: 30px 0 !important;
 }
+
+.player-dialog .el-dialog__body {
+  padding: 0 !important;
+  max-height: 90vh;
+  width: 100%;
+}
+
+.player-dialog .el-dialog__header {
+  display: none;
+}
+
+.player-dialog {
+  margin: 5vh auto !important;
+  max-width: min(90vw, calc(16/9 * 90vh)) !important; /* 取视口宽度90%和16:9比例计算值的较小值 */
+  width: auto !important;
+}
+
+.player-container {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9宽高比 */
+  background-color: #000;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 100;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  padding: 5px;
+}
+
+.responsive-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 </style>
