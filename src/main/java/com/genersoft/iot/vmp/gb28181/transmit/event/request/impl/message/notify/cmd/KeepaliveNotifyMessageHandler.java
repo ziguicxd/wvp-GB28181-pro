@@ -90,6 +90,7 @@ public class KeepaliveNotifyMessageHandler extends SIPRequestProcessorParent
         if (handlerCatchDataList.isEmpty()) {
             return;
         }
+        List<Device> deviceListForUpdate = new ArrayList<>();
         for (SipMsgInfo sipMsgInfo : handlerCatchDataList) {
             if (sipMsgInfo == null) {
                 continue;
@@ -122,7 +123,7 @@ public class KeepaliveNotifyMessageHandler extends SIPRequestProcessorParent
             device.setKeepaliveTime(DateUtil.getNow());
 
             if (device.isOnLine()) {
-                deviceService.updateDevice(device);
+                deviceListForUpdate.add(device);
                 long expiresTime = Math.min(device.getExpires(),
                         device.getHeartBeatInterval() * device.getHeartBeatCount()) * 1000L;
                 if (statusTaskRunner.containsKey(device.getDeviceId())) {
@@ -135,6 +136,9 @@ public class KeepaliveNotifyMessageHandler extends SIPRequestProcessorParent
                 }
             }
 
+        }
+        if (!deviceListForUpdate.isEmpty()) {
+            deviceService.updateDeviceList(deviceListForUpdate);
         }
     }
 

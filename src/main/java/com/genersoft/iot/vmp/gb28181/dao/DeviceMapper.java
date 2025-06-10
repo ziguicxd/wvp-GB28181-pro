@@ -2,6 +2,8 @@ package com.genersoft.iot.vmp.gb28181.dao;
 
 import com.genersoft.iot.vmp.gb28181.bean.Device;
 import com.genersoft.iot.vmp.gb28181.bean.DeviceChannel;
+
+import org.apache.commons.math3.analysis.function.Add;
 import org.apache.ibatis.annotations.*;
 import org.springframework.stereotype.Repository;
 
@@ -433,4 +435,37 @@ public interface DeviceMapper {
                         +
                         " </script>" })
         void offlineByList(List<Device> offlineDevices);
+
+Add commentMore actions
+
+    @Update({"<script>" +
+            "<foreach collection='devices' item='item' separator=';'>" +
+            " UPDATE" +
+            " wvp_device" +
+            " SET update_time=#{item.updateTime}" +
+            ", name=#{item.name}" +
+            ", manufacturer=#{item.manufacturer}" +
+            ", model=#{item.model}" +
+            ", firmware=#{item.firmware}" +
+            ", transport=#{item.transport}" +
+            ", ip=#{item.ip}" +
+            ", local_ip=#{item.localIp}" +
+            ", port=#{item.port}" +
+            ", host_address=#{item.hostAddress}" +
+            ", on_line=#{item.onLine}" +
+            ", register_time=#{item.registerTime}" +
+            ", keepalive_time=#{item.keepaliveTime}" +
+            ", heart_beat_interval=#{item.heartBeatInterval}" +
+            ", position_capability=#{item.positionCapability}" +
+            ", heart_beat_count=#{item.heartBeatCount}" +
+            ", subscribe_cycle_for_catalog=#{item.subscribeCycleForCatalog}" +
+            ", subscribe_cycle_for_mobile_position=#{item.subscribeCycleForMobilePosition}" +
+            ", mobile_position_submission_interval=#{item.mobilePositionSubmissionInterval}" +
+            ", subscribe_cycle_for_alarm=#{item.subscribeCycleForAlarm}" +
+            ", expires=#{item.expires}" +
+            ", server_id=#{item.serverId}" +
+            " WHERE device_id=#{item.deviceId}"+
+            "</foreach>" +
+            "</script>"})
+    void batchUpdate(List<Device> devices);        
 }
