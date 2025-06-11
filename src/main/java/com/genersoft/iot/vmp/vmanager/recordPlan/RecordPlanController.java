@@ -34,7 +34,6 @@ public class RecordPlanController {
     @Autowired
     private IDeviceChannelService deviceChannelService;
 
-
     @ResponseBody
     @PostMapping("/add")
     @Operation(summary = "添加录制计划", security = @SecurityRequirement(name = JwtUtils.HEADER))
@@ -54,7 +53,7 @@ public class RecordPlanController {
         if (param.getAllLink() != null) {
             if (param.getAllLink()) {
                 recordPlanService.linkAll(param.getPlanId());
-            }else {
+            } else {
                 recordPlanService.cleanAll(param.getPlanId());
             }
             return;
@@ -67,7 +66,7 @@ public class RecordPlanController {
         List<Integer> channelIds = new ArrayList<>();
         if (param.getChannelIds() != null) {
             channelIds.addAll(param.getChannelIds());
-        }else {
+        } else {
             List<Integer> chanelIdList = deviceChannelService.queryChaneIdListByDeviceDbIds(param.getDeviceDbIds());
             if (chanelIdList != null && !chanelIdList.isEmpty()) {
                 channelIds = chanelIdList;
@@ -93,14 +92,15 @@ public class RecordPlanController {
     @Parameter(name = "query", description = "检索内容", required = false)
     @Parameter(name = "page", description = "当前页", required = true)
     @Parameter(name = "count", description = "每页查询数量", required = true)
-    public PageInfo<RecordPlan> query(@RequestParam(required = false) String query, @RequestParam Integer page, @RequestParam Integer count) {
+    public PageInfo<RecordPlan> query(@RequestParam(required = false) String query, @RequestParam Integer page,
+            @RequestParam Integer count) {
         if (query != null && ObjectUtils.isEmpty(query.trim())) {
             query = null;
         }
         return recordPlanService.query(page, count, query);
     }
 
-    @Operation(summary = "分页查询级联平台的所有所有通道", security = @SecurityRequirement(name = JwtUtils.HEADER))
+    @Operation(summary = "分页查询录制计划关联的所有通道", security = @SecurityRequirement(name = JwtUtils.HEADER))
     @Parameter(name = "page", description = "当前页", required = true)
     @Parameter(name = "count", description = "每页条数", required = true)
     @Parameter(name = "planId", description = "录制计划ID")
@@ -111,18 +111,18 @@ public class RecordPlanController {
     @GetMapping("/channel/list")
     @ResponseBody
     public PageInfo<CommonGBChannel> queryChannelList(int page, int count,
-                                                      @RequestParam(required = false) Integer planId,
-                                                      @RequestParam(required = false) String query,
-                                                      @RequestParam(required = false) Integer channelType,
-                                                      @RequestParam(required = false) Boolean online,
-                                                      @RequestParam(required = false) Boolean hasLink) {
+            @RequestParam(required = false) Integer planId,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Integer channelType,
+            @RequestParam(required = false) Boolean online,
+            @RequestParam(required = false) Boolean hasLink) {
 
         Assert.notNull(planId, "录制计划ID不可为NULL");
         if (org.springframework.util.ObjectUtils.isEmpty(query)) {
             query = null;
         }
 
-        return recordPlanService.queryChannelList(page, count, query, channelType,  online, planId, hasLink);
+        return recordPlanService.queryChannelList(page, count, query, channelType, online, planId, hasLink);
     }
 
     @ResponseBody

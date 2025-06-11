@@ -552,11 +552,11 @@ export default {
 
             if (location.protocol === 'https:') {
               let url = data.httpsPath
-              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             } else {
               let url = data.httpPath
-              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             }
 
@@ -818,11 +818,11 @@ export default {
 
             if (location.protocol === 'https:') {
               let url = data.httpsPath
-              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             } else {
               let url = data.httpPath
-              url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
+              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             }
 
