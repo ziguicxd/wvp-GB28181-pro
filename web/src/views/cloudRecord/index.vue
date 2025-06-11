@@ -122,6 +122,7 @@
       :visible.sync="showPlayer"
       width="auto"
       custom-class="player-dialog"
+      @open="handleDialogOpen"
     >
       <div class="player-container">
         <i class="el-icon-close close-btn" @click="showPlayer = false"></i>
@@ -158,8 +159,8 @@ export default {
       currentPage: 1,
       count: 15,
       total: 0,
-      loading: false
-
+      loading: false,
+      resizeTimeout: null // 用于防抖处理
     }
   },
   computed: {
@@ -173,9 +174,15 @@ export default {
   mounted() {
     this.initData()
     this.getMediaServerList()
+    
+    // 添加窗口大小变化监听
+    window.addEventListener('resize', this.handleResize)
   },
   destroyed() {
     // this.$destroy('recordVideoPlayer')
+    
+    // 移除窗口大小变化监听
+    window.removeEventListener('resize', this.handleResize)
   },
   methods: {
     initData: function() {
@@ -319,6 +326,37 @@ export default {
     },
     formatTimeStamp(time) {
       return moment.unix(time / 1000).format('yyyy-MM-DD HH:mm:ss')
+    },
+    
+    // 处理对话框打开事件
+    handleDialogOpen() {
+      // 延迟执行以确保DOM已完全渲染
+      setTimeout(() => {
+        // 查找播放器控制栏并应用样式
+        const controlBars = document.querySelectorAll('.easy-player-control-bar');
+        if (controlBars && controlBars.length > 0) {
+          controlBars.forEach(bar => {
+            bar.style.whiteSpace = 'nowrap';
+            bar.style.minWidth = '600px';
+            bar.style.overflowX = 'auto';
+            bar.style.overflowY = 'hidden';
+          });
+        }
+      }, 300);
+    },
+    
+    // 处理窗口大小变化（带防抖）
+    handleResize() {
+      if (this.resizeTimeout) {
+        clearTimeout(this.resizeTimeout);
+      }
+      
+      this.resizeTimeout = setTimeout(() => {
+        // 如果播放器对话框打开，重新应用控制栏样式
+        if (this.showPlayer) {
+          this.handleDialogOpen();
+        }
+      }, 200);
     }
   }
 }
@@ -343,6 +381,7 @@ export default {
   margin: 5vh auto !important;
   max-width: min(90vw, calc(16/9 * 90vh)) !important; /* 取视口宽度90%和16:9比例计算值的较小值 */
   width: auto !important;
+  min-width: 640px !important; /* 确保对话框有最小宽度 */
 }
 
 .player-container {
@@ -376,4 +415,35 @@ export default {
   height: 100%;
 }
 
+/* 确保播放器控制栏不换行 */
+.player-container .easy-player-control-bar {
+  white-space: nowrap;
+  min-width: 600px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/* 时间标签适配 */
+#easyplayer .padding {
+    flex: 0 0 auto !important; /* 防止挤压时间标签 */
+}
+
+#easyplayer .padding > label {
+    /* 文本处理 */
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    
+    /* 尺寸控制 */
+    min-width: 180px !important; /* 足够显示 00:00:00/00:00:00 */
+    max-width: 200px !important;
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    
+    /* 间距优化 */
+    margin: 0 10px !important; /* 减少左右边距 */
+    padding: 0 5px !important;
+    
+    /* 文本对齐 */
+    text-align: center !important;
+}
 </style>
