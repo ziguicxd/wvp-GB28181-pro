@@ -816,13 +816,13 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
     @Transactional
     @Override
     public void updateDeviceList(List<Device> deviceList) {
-        if (deviceList.isEmpty()){
+        if (deviceList.isEmpty()) {
             log.info("[批量更新设备] 列表为空，更细失败");
             return;
         }
         if (deviceList.size() == 1) {
             updateDevice(deviceList.get(0));
-        }else {
+        } else {
             for (Device device : deviceList) {
                 device.setCharset(device.getCharset() == null ? "" : device.getCharset().toUpperCase());
                 device.setUpdateTime(DateUtil.getNow());
@@ -837,10 +837,10 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
                         }
                         deviceMapper.batchUpdate(deviceList.subList(i, toIndex));
                     }
-                }else {
+                } else {
                     deviceMapper.batchUpdate(deviceList);
                 }
-                for (Device device : deviceList) {Add commentMore actions
+                for (Device device : deviceList) {
                     redisCatchStorage.updateDevice(device);
                 }
             }
