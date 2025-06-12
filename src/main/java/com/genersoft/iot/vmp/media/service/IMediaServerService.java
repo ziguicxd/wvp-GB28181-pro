@@ -32,10 +32,11 @@ public interface IMediaServerService {
 
     MediaServer getMediaServerForMinimumLoad(Boolean hasAssist);
 
-    void updateVmServer(List<MediaServer>  mediaServerItemList);
+    void updateVmServer(List<MediaServer> mediaServerItemList);
 
     SSRCInfo openRTPServer(MediaServer mediaServerItem, String streamId, String presetSsrc, boolean ssrcCheck,
-                           boolean isPlayback, Integer port, Boolean onlyAuto, Boolean disableAudio, Boolean reUsePort, Integer tcpMode);
+            boolean isPlayback, Integer port, Boolean onlyAuto, Boolean disableAudio, Boolean reUsePort,
+            Integer tcpMode);
 
     void closeRTPServer(MediaServer mediaServerItem, String streamId);
 
@@ -85,7 +86,8 @@ public interface IMediaServerService {
 
     Boolean connectRtpServer(MediaServer mediaServerItem, String address, int port, String stream);
 
-    void getSnap(MediaServer mediaServerItemInuse, String streamUrl, int timeoutSec, int expireSec, String path, String fileName);
+    void getSnap(MediaServer mediaServerItemInuse, String streamUrl, int timeoutSec, int expireSec, String path,
+            String fileName);
 
     MediaInfo getMediaInfo(MediaServer mediaServerItem, String app, String stream);
 
@@ -97,9 +99,11 @@ public interface IMediaServerService {
 
     void closeStreams(MediaServer mediaServerItem, String app, String stream);
 
-    WVPResult<String> addFFmpegSource(MediaServer mediaServerItem, String srcUrl, String dstUrl, int timeoutMs, boolean enableAudio, boolean enableMp4, String ffmpegCmdKey);
+    WVPResult<String> addFFmpegSource(MediaServer mediaServerItem, String srcUrl, String dstUrl, int timeoutMs,
+            boolean enableAudio, boolean enableMp4, String ffmpegCmdKey);
 
-    WVPResult<String> addStreamProxy(MediaServer mediaServerItem, String app, String stream, String url, boolean enableAudio, boolean enableMp4, String rtpType, Integer timeout);
+    WVPResult<String> addStreamProxy(MediaServer mediaServerItem, String app, String stream, String url,
+            boolean enableAudio, boolean enableMp4, String rtpType, Integer timeout);
 
     Boolean delFFmpegSource(MediaServer mediaServerItem, String streamKey);
 
@@ -109,15 +113,17 @@ public interface IMediaServerService {
 
     /**
      * 根据应用名和流ID获取播放地址, 通过zlm接口检查是否存在
+     * 
      * @param app
      * @param stream
      * @return
      */
-    StreamInfo getStreamInfoByAppAndStreamWithCheck(String app, String stream, String mediaServerId,String addr, boolean authority);
-
+    StreamInfo getStreamInfoByAppAndStreamWithCheck(String app, String stream, String mediaServerId, String addr,
+            boolean authority);
 
     /**
      * 根据应用名和流ID获取播放地址, 通过zlm接口检查是否存在, 返回的ip使用远程访问ip，适用与zlm与wvp在一台主机的情况
+     * 
      * @param app
      * @param stream
      * @return
@@ -126,19 +132,23 @@ public interface IMediaServerService {
 
     /**
      * 根据应用名和流ID获取播放地址, 只是地址拼接
+     * 
      * @param app
      * @param stream
      * @return
      */
-    StreamInfo getStreamInfoByAppAndStream(MediaServer mediaServerItem, String app, String stream, MediaInfo mediaInfo, String callId);
+    StreamInfo getStreamInfoByAppAndStream(MediaServer mediaServerItem, String app, String stream, MediaInfo mediaInfo,
+            String callId);
 
     /**
      * 根据应用名和流ID获取播放地址, 只是地址拼接，返回的ip使用远程访问ip，适用与zlm与wvp在一台主机的情况
+     * 
      * @param app
      * @param stream
      * @return
      */
-    StreamInfo getStreamInfoByAppAndStream(MediaServer mediaServer, String app, String stream, MediaInfo mediaInfo, String addr, String callId, boolean isPlay);
+    StreamInfo getStreamInfoByAppAndStream(MediaServer mediaServer, String app, String stream, MediaInfo mediaInfo,
+            String addr, String callId, boolean isPlay);
 
     Boolean isStreamReady(MediaServer mediaServer, String rtp, String streamId);
 
@@ -156,7 +166,8 @@ public interface IMediaServerService {
 
     StreamInfo getMediaByAppAndStream(String app, String stream);
 
-    int createRTPServer(MediaServer mediaServerItem, String streamId, long ssrc, Integer port, boolean onlyAuto, boolean disableAudio, boolean reUsePort, Integer tcpMode);
+    int createRTPServer(MediaServer mediaServerItem, String streamId, long ssrc, Integer port, boolean onlyAuto,
+            boolean disableAudio, boolean reUsePort, Integer tcpMode);
 
     List<String> listRtpServer(MediaServer mediaServer);
 

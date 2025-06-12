@@ -31,8 +31,7 @@ public class RedisRpcCloudRecordController extends RpcController {
     @Autowired
     private ICloudRecordService cloudRecordService;
 
-
-    private void sendResponse(RedisRpcResponse response){
+    private void sendResponse(RedisRpcResponse response) {
         log.info("[redis-rpc] >> {}", response);
         response.setToId(userSetting.getServerId());
         RedisRpcMessage message = new RedisRpcMessage();

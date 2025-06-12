@@ -12,7 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 public interface IMediaNodeServerService {
-    int createRTPServer(MediaServer mediaServer, String streamId, long ssrc, Integer port, Boolean onlyAuto, Boolean disableAudio, Boolean reUsePort, Integer tcpMode);
+    int createRTPServer(MediaServer mediaServer, String streamId, long ssrc, Integer port, Boolean onlyAuto,
+            Boolean disableAudio, Boolean reUsePort, Integer tcpMode);
 
     void closeRtpServer(MediaServer mediaServer, String streamId);
 
@@ -38,7 +39,8 @@ public interface IMediaNodeServerService {
 
     Boolean connectRtpServer(MediaServer mediaServer, String address, int port, String stream);
 
-    void getSnap(MediaServer mediaServer, String streamUrl, int timeoutSec, int expireSec, String path, String fileName);
+    void getSnap(MediaServer mediaServer, String streamUrl, int timeoutSec, int expireSec, String path,
+            String fileName);
 
     MediaInfo getMediaInfo(MediaServer mediaServer, String app, String stream);
 
@@ -48,9 +50,11 @@ public interface IMediaNodeServerService {
 
     String getFfmpegCmd(MediaServer mediaServer, String cmdKey);
 
-    WVPResult<String> addFFmpegSource(MediaServer mediaServer, String srcUrl, String dstUrl, int timeoutMs, boolean enableAudio, boolean enableMp4, String ffmpegCmdKey);
+    WVPResult<String> addFFmpegSource(MediaServer mediaServer, String srcUrl, String dstUrl, int timeoutMs,
+            boolean enableAudio, boolean enableMp4, String ffmpegCmdKey);
 
-    WVPResult<String> addStreamProxy(MediaServer mediaServer, String app, String stream, String url, boolean enableAudio, boolean enableMp4, String rtpType, Integer timeout);
+    WVPResult<String> addStreamProxy(MediaServer mediaServer, String app, String stream, String url,
+            boolean enableAudio, boolean enableMp4, String rtpType, Integer timeout);
 
     Boolean delFFmpegSource(MediaServer mediaServer, String streamKey);
 
