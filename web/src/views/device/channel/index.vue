@@ -1,6 +1,6 @@
 <template>
   <div id="channelList" style="height: calc(100vh - 124px);">
-    <div v-if="!editId" style="height: 100%">
+    <div v-if="!editId" style="height: 100%; display: flex; flex-direction: column;">
       <el-form :inline="true" size="mini">
         <el-form-item style="margin-right: 2rem">
           <el-page-header content="通道列表" @back="showDevice" />
@@ -63,14 +63,15 @@
           <el-button icon="el-icon-refresh-right" circle @click="refresh()" />
         </el-form-item>
       </el-form>
-      <el-table
-        ref="channelListTable"
-        size="small"
-        :data="deviceChannelList"
-        height="calc(100% - 64px)"
-        style="width: 100%; font-size: 12px;"
-        header-row-class-name="table-header"
-      >
+      <div style="flex: 1; overflow: auto; min-height: 0; margin-bottom: 0;">
+        <el-table
+          ref="channelListTable"
+          size="small"
+          :data="deviceChannelList"
+          height="100%"
+          style="width: 100%; font-size: 12px;"
+          header-row-class-name="table-header"
+        >
         <el-table-column prop="name" label="名称" min-width="180" />
         <el-table-column prop="deviceId" label="编号" min-width="180" />
         <el-table-column label="快照" min-width="100">
@@ -195,8 +196,10 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
       <el-pagination
-        style="text-align: right"
+        size="mini"
+        style="text-align: right; height: 15px; line-height: 22px;"
         :current-page="currentPage"
         :page-size="count"
         :page-sizes="[15, 25, 35, 50]"
@@ -556,3 +559,20 @@ export default {
   }
 }
 </script>
+
+<style>
+/* 分页栏样式优化 */
+.el-pagination {
+  margin: 0 !important;
+}
+.el-pagination.el-pagination--small {
+  height: 28px;
+}
+.el-pagination .btn-prev,
+.el-pagination .btn-next,
+.el-pagination .el-pager li {
+  min-width: 24px !important;
+  height: 22px !important;
+  line-height: 22px !important;
+}
+</style>

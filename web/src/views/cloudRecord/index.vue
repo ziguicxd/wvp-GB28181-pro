@@ -1,6 +1,6 @@
 <template>
   <div id="app" class="app-container">
-    <div style="height: calc(100vh - 124px);">
+    <div style="height: calc(100vh - 124px); display: flex; flex-direction: column;">
       <el-form :inline="true" size="mini">
         <el-form-item label="搜索">
           <el-input
@@ -62,7 +62,8 @@
         </el-form-item>
       </el-form>
       <!--设备列表-->
-      <el-table :data="recordList" style="width: 100%" size="small" :loading="loading" height="calc(100% - 64px)" @selection-change="handleSelectionChange">
+      <div class="table-container" style="flex: 1; overflow: auto; min-height: 0; margin-bottom: 0;">
+        <el-table :data="recordList" style="width: 100%" size="small" :loading="loading" height="100%" @selection-change="handleSelectionChange">
         <el-table-column
           type="selection"
           width="55"
@@ -106,8 +107,10 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
       <el-pagination
-        style="text-align: right"
+        size="mini"
+        style="text-align: right; height: 15px; line-height: 22px;"
         :current-page="currentPage"
         :page-size="count"
         :page-sizes="[15, 25, 35, 50]"
@@ -383,7 +386,7 @@ export default {
 
 .player-dialog {
   margin: 5vh auto !important;
-  max-width: min(90vw, calc(16/9 * 90vh)) !important; /* 取视口宽度90%和16:9比例计算值的较小值 */
+  max-width: min(80vw, calc(16/9 * 80vh)) !important; /* 减小最大宽度 */
   width: auto !important;
   min-width: 640px !important; /* 确保对话框有最小宽度 */
 }
@@ -418,6 +421,13 @@ export default {
   width: 100%;
   height: 100%;
 }
+
+/* 表格容器样式 */
+.table-container {
+  overflow: auto;
+  position: relative;
+}
+
 
 /* 确保播放器控制栏不换行 */
 .player-container .easy-player-control-bar {
