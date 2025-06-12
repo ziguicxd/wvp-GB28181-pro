@@ -16,8 +16,10 @@ export default {
     props: ['videoUrl', 'error', 'hasaudio', 'height'],
     computed: {
         playerStyle() {
+            // 这里如果height是字符串（如'calc(100vh - 250px)'），会导致容器高度固定，无法自适应
+            // 建议只允许数值型height，或直接让容器100%高，由外部容器控制高度
             return {
-                height: this.height ? this.height : '100%',
+                height: this.height && typeof this.height === 'number' ? `${this.height}px` : '100%',
                 width: '100%'
             }
         }
@@ -42,12 +44,6 @@ export default {
         videoUrl(newData, oldData){
             this.play(newData)
         },
-        height(newHeight, oldHeight) {
-            this.$nextTick(() => {
-                this.handleResize()
-            })
-        },
-        immediate:true
     },
     methods: {
         play: function (url) {
@@ -69,6 +65,11 @@ export default {
             if (url) {
                 this.easyPlayer.play(url, 1)
             }
+
+            // 播放器初始化后立即自适应一次
+            this.$nextTick(() => {
+                this.handleResize()
+            })
         },
         pause: function () {
             if (this.easyPlayer) {

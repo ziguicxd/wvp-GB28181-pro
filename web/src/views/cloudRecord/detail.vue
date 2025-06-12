@@ -54,8 +54,8 @@
           <easyPlayer
             ref="recordVideoPlayer"
             :videoUrl="videoUrl"
-            :height="playerHeight"
             :show-button="false"
+            :style="playerDynamicStyle"
             @dblclick="fullScreen"
             @timeupdate="showPlayTimeChange"
             @playing="playingChange"
@@ -181,7 +181,13 @@ export default {
       timeUpdateInterval: null, // 时间更新监控定时器
       pausedPosition: null, // 暂停时的播放位置（毫秒）
       pausedPlayTime: null, // 暂停时的播放时间
-      controlBarMonitorInterval: null // 控制栏监控定时器
+      controlBarMonitorInterval: null, // 控制栏监控定时器
+      playerDynamicStyle: {
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        margin: '0 auto'
+      }
     }
   },
   computed: {
@@ -216,6 +222,27 @@ export default {
     }
   },
   mounted() {
+    // 只刷新当前 vue 组件（路由），不刷新整个浏览器标签页
+    if (
+      this.$route.query.forceReload === '1' &&
+      !window.__cloud_record_detail_refreshed
+    ) {
+      window.__cloud_record_detail_refreshed = true
+      // 移除 forceReload 参数后，使用 vue-router 的 replace 重新加载当前路由
+      const { forceReload, ...rest } = this.$route.query
+      this.$router.replace({
+        path: this.$route.path,
+        query: rest
+      })
+      // 数据加载后刷新
+      this.getDateInYear(() => {
+        setTimeout(() => {
+          this.$forceUpdate()
+        }, 0)
+      })
+      return
+    }
+
     // 查询当年有视频的日期
     this.getDateInYear(() => {
       if (Object.values(this.dateFilesObj).length > 0) {
@@ -223,13 +250,25 @@ export default {
         this.dateChange()
       }
     })
-    
+
     // 添加窗口大小变化监听器
     window.addEventListener('resize', this.handleResize)
-    
-    // 初始化窗口尺寸
-    this.handleResize()
-    
+
+    // 监听 document.body 的高度变化（适配上下拉伸）
+    if (typeof ResizeObserver !== 'undefined') {
+      this._bodyResizeObserver = new ResizeObserver(() => {
+        this.handleResize()
+      })
+      this._bodyResizeObserver.observe(document.body)
+    }
+
+    // 延迟初始化播放器，确保父容器尺寸已确定
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.handleResize()
+      }, 100)
+    })
+
     // easyPlayer不需要手动监听事件，通过props传递
 
     // 截图功能已移除
@@ -239,6 +278,12 @@ export default {
 
     // 移除窗口大小变化监听器
     window.removeEventListener('resize', this.handleResize)
+
+    // 移除 body ResizeObserver
+    if (this._bodyResizeObserver) {
+      this._bodyResizeObserver.disconnect()
+      this._bodyResizeObserver = null
+    }
 
     // 清理监控
     this.stopTimeUpdateMonitor()
@@ -529,7 +574,7 @@ export default {
 
       // 设置加载状态
       if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
-        this.playLoading = true;
+        this.playLoading = true
       }
 
       if (this.chooseFileIndex !== null && this.detailFiles.length > 0 && this.chooseFileIndex < this.detailFiles.length) {
@@ -552,32 +597,31 @@ export default {
 
             if (location.protocol === 'https:') {
               let url = data.httpsPath
-              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             } else {
               let url = data.httpPath
-              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             }
 
-            this.playTime = Number.parseInt(currentFile.startTime);
-            this.initTime = this.playTime;
+            this.playTime = Number.parseInt(currentFile.startTime)
+            this.initTime = this.playTime
 
             setTimeout(() => {
               if (this.$refs.Timeline) {
-                this.$refs.Timeline.setTime(this.playTime);
+                this.$refs.Timeline.setTime(this.playTime)
               }
-              // 确保视频开始播放
+              // 确保视频开始播放并调整播放器大小
               if (this.$refs.recordVideoPlayer) {
-                this.$refs.recordVideoPlayer.play(this.videoUrl);
-                this.playing = true;
+                this.$refs.recordVideoPlayer.play(this.videoUrl)
+                this.playing = true
+
+                // 调整播放器尺寸
+                this.adjustPlayerSize()
 
                 // 启动时间更新监控
-                this.startTimeUpdateMonitor();
-
-
+                this.startTimeUpdateMonitor()
               }
-            }, 100);
+            }, 100)
           })
           .catch((error) => {
             console.log('加载录像错误:', error)
@@ -718,10 +762,10 @@ export default {
 
       // 启动时间更新监控
       this.startTimeUpdateMonitor()
-      
+
       // 调整播放器大小以适应当前窗口
       this.$nextTick(() => {
-        this.handleResize()
+        this.adjustPlayerSize()
       })
     },
     onPlayerError(error) {
@@ -818,11 +862,9 @@ export default {
 
             if (location.protocol === 'https:') {
               let url = data.httpsPath
-              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             } else {
               let url = data.httpPath
-              // url += (url.indexOf('?') > -1 ? '&' : '?') + 'time=' + new Date().getTime()
               this.videoUrl = url
             }
 
@@ -916,13 +958,52 @@ export default {
     handleResize() {
       this.windowWidth = window.innerWidth
       this.windowHeight = window.innerHeight
-      
-      // 如果播放器已加载，尝试调整大小
+
+      // 调整播放器大小
+      this.adjustPlayerSize()
+    },
+    adjustPlayerSize() {
       if (this.$refs.recordVideoPlayer && typeof this.$refs.recordVideoPlayer.resize === 'function') {
-        // 根据当前窗口大小计算合适的播放器尺寸
-        const playerWidth = this.isFullScreen ? window.innerWidth : document.getElementById('playerBox').clientWidth
-        const playerHeight = this.isFullScreen ? window.innerHeight : parseInt(this.playerHeight)
-        
+        const playBox = this.$el.querySelector('.playBox')
+        if (!playBox) return
+
+        // 获取时间轴和控制栏的高度
+        const playerOptionBox = this.$el.querySelector('.player-option-box')
+        // 取40px的底部控制栏
+        const controlBarRow = playBox.parentNode.querySelector('div[style*="height: 40px"]')
+        let availableHeight = playBox.clientHeight
+
+        if (playerOptionBox) {
+          availableHeight -= playerOptionBox.clientHeight
+        }
+        if (controlBarRow) {
+          availableHeight -= controlBarRow.clientHeight
+        }
+
+        // 最小高度保护
+        if (availableHeight < 100) availableHeight = 100
+
+        // 按16:9比例计算宽度
+        const videoAspectRatio = 16 / 9
+        let playerHeight = availableHeight
+        let playerWidth = playerHeight * videoAspectRatio
+
+        // 如果宽度超出playBox最大宽度，则缩放
+        const maxWidth = playBox.clientWidth
+        if (playerWidth > maxWidth) {
+          playerWidth = maxWidth
+          playerHeight = playerWidth / videoAspectRatio
+        }
+
+        // 设置播放器样式
+        this.playerDynamicStyle = {
+          width: playerWidth + 'px',
+          height: playerHeight + 'px',
+          display: 'block',
+          margin: '0 auto'
+        }
+
+        // 调整播放器内容
         this.$refs.recordVideoPlayer.resize(playerWidth, playerHeight)
       }
     }

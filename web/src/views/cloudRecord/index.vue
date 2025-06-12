@@ -271,7 +271,11 @@ export default {
         })
     },
     showDetail(row) {
-      this.$router.push(`/cloudRecord/detail/${row.app}/${row.stream}`)
+      // 跳转到详情页时带上 forceReload=1，避免 detail.vue 死循环刷新
+      this.$router.push({
+        path: `/cloudRecord/detail/${row.app}/${row.stream}`,
+        query: { forceReload: '1' }
+      })
     },
     deleteRecord() {
       this.$confirm(`确定删除选中的${this.multipleSelection.length}个文件?`, '提示', {
