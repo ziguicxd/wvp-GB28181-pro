@@ -30,7 +30,7 @@
         </div>      
         <!-- 标题 -->
         <div class="title-container">
-          <h3 class="title">WVP视频平台</h3>
+          <h3 class="title">视频汇聚平台</h3>
         </div>
 
         <!-- 用户名 -->
