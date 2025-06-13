@@ -1,6 +1,6 @@
 <template>
   <div id="app" class="app-container">
-    <div style="height: calc(100vh - 124px);">
+    <div style="height: calc(100vh - 124px); display: flex; flex-direction: column;">
       <el-form :inline="true" size="mini">
         <el-form-item label="搜索">
           <el-input
@@ -62,7 +62,8 @@
         </el-form-item>
       </el-form>
       <!--设备列表-->
-      <el-table :data="recordList" style="width: 100%" size="small" :loading="loading" height="calc(100% - 64px)" @selection-change="handleSelectionChange">
+      <div class="table-container" style="flex: 1; overflow: auto; min-height: 0; margin-bottom: 0;">
+        <el-table :data="recordList" style="width: 100%" size="small" :loading="loading" height="100%" @selection-change="handleSelectionChange">
         <el-table-column
           type="selection"
           width="55"
@@ -106,8 +107,10 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
       <el-pagination
-        style="text-align: right"
+        size="mini"
+        style="text-align: right; height: 15px; line-height: 22px;"
         :current-page="currentPage"
         :page-size="count"
         :page-sizes="[15, 25, 35, 50]"
@@ -118,25 +121,29 @@
       />
     </div>
     <el-dialog
-      :title="playerTitle"
+      title=" "
       :visible.sync="showPlayer"
-      top="2rem"
-      width="1200px"
-      height="560px"
+      width="auto"
+      custom-class="player-dialog"
+      @open="handleDialogOpen"
     >
-      <h265web ref="recordVideoPlayer" :video-url="videoUrl" :height="false" :show-button="true" />
+      <div class="player-container">
+        <i class="el-icon-close close-btn" @click="showPlayer = false"></i>
+        <easyPlayer ref="recordVideoPlayer" :videoUrl="videoUrl" :height="true" class="responsive-player"></easyPlayer>
+      </div>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import h265web from '../common/h265web.vue'
+// import WasmPlayer from '/static/js/EasyWasmPlayer.js';
+import easyPlayer from '../common/easyPlayer.vue'
 import moment from 'moment'
 import Vue from 'vue'
 
 export default {
   name: 'CloudRecord',
-  components: { h265web },
+  components: { easyPlayer },
   data() {
     return {
       search: '',
@@ -155,8 +162,8 @@ export default {
       currentPage: 1,
       count: 15,
       total: 0,
-      loading: false
-
+      loading: false,
+      resizeTimeout: null // 用于防抖处理
     }
   },
   computed: {
@@ -170,9 +177,15 @@ export default {
   mounted() {
     this.initData()
     this.getMediaServerList()
+    
+    // 添加窗口大小变化监听
+    window.addEventListener('resize', this.handleResize)
   },
   destroyed() {
     // this.$destroy('recordVideoPlayer')
+    
+    // 移除窗口大小变化监听
+    window.removeEventListener('resize', this.handleResize)
   },
   methods: {
     initData: function() {
@@ -216,20 +229,33 @@ export default {
         })
     },
     play(row) {
-      console.log(row)
-      this.chooseRecord = row
+      console.log(row);
+      this.chooseRecord = row;
+      // 不显示文件名称
+      this.showPlayer = true; // 显示播放器对话框
       this.$store.dispatch('cloudRecord/getPlayPath', row.id)
         .then((data) => {
-          if (location.protocol === 'https:') {
-            this.videoUrl = data.httpsPath
-          } else {
-            this.videoUrl = data.httpPath
+          // 检查返回的 URL 是否有效
+          if (!data || (!data.httpPath && !data.httpsPath)) {
+            console.error('Invalid video URL');
+            this.$message.error('无法加载视频，播放地址无效');
+            return;
           }
-          this.showPlayer = true
+
+          // 根据协议选择正确的 URL
+          this.videoUrl = location.protocol === 'https:' ? data.httpsPath : data.httpPath;
+
+          // 检查 URL 是否为支持的格式
+          if (!this.videoUrl.endsWith('.mp4') && !this.videoUrl.endsWith('.m3u8')) {
+            console.error('Unsupported video format:', this.videoUrl);
+            this.$message.error('不支持的视频格式');
+            return;
+          }
         })
         .catch((error) => {
-          console.log(error)
-        })
+          console.log(error);
+          this.$message.error('加载视频失败');
+        });
     },
     downloadFile(row) {
       this.$store.dispatch('cloudRecord/getPlayPath', row.id)
@@ -248,7 +274,11 @@ export default {
         })
     },
     showDetail(row) {
-      this.$router.push(`/cloudRecord/detail/${row.app}/${row.stream}`)
+      // 跳转到详情页时带上 forceReload=1，避免 detail.vue 死循环刷新
+      this.$router.push({
+        path: `/cloudRecord/detail/${row.app}/${row.stream}`,
+        query: { forceReload: '1' }
+      })
     },
     deleteRecord() {
       this.$confirm(`确定删除选中的${this.multipleSelection.length}个文件?`, '提示', {
@@ -303,6 +333,37 @@ export default {
     },
     formatTimeStamp(time) {
       return moment.unix(time / 1000).format('yyyy-MM-DD HH:mm:ss')
+    },
+    
+    // 处理对话框打开事件
+    handleDialogOpen() {
+      // 延迟执行以确保DOM已完全渲染
+      setTimeout(() => {
+        // 查找播放器控制栏并应用样式
+        const controlBars = document.querySelectorAll('.easy-player-control-bar');
+        if (controlBars && controlBars.length > 0) {
+          controlBars.forEach(bar => {
+            bar.style.whiteSpace = 'nowrap';
+            bar.style.minWidth = '600px';
+            bar.style.overflowX = 'auto';
+            bar.style.overflowY = 'hidden';
+          });
+        }
+      }, 300);
+    },
+    
+    // 处理窗口大小变化（带防抖）
+    handleResize() {
+      if (this.resizeTimeout) {
+        clearTimeout(this.resizeTimeout);
+      }
+      
+      this.resizeTimeout = setTimeout(() => {
+        // 如果播放器对话框打开，重新应用控制栏样式
+        if (this.showPlayer) {
+          this.handleDialogOpen();
+        }
+      }, 200);
     }
   }
 }
@@ -311,5 +372,92 @@ export default {
 <style>
 .el-dialog__body {
   padding: 30px 0 !important;
+}
+
+.player-dialog .el-dialog__body {
+  padding: 0 !important;
+  max-height: 90vh;
+  width: 100%;
+}
+
+.player-dialog .el-dialog__header {
+  display: none;
+}
+
+.player-dialog {
+  margin: 5vh auto !important;
+  max-width: min(80vw, calc(16/9 * 80vh)) !important; /* 减小最大宽度 */
+  width: auto !important;
+  min-width: 640px !important; /* 确保对话框有最小宽度 */
+}
+
+.player-container {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9宽高比 */
+  background-color: #000;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 100;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  padding: 5px;
+}
+
+.responsive-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 表格容器样式 */
+.table-container {
+  overflow: auto;
+  position: relative;
+}
+
+
+/* 确保播放器控制栏不换行 */
+.player-container .easy-player-control-bar {
+  white-space: nowrap;
+  min-width: 600px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/* 时间标签适配 */
+#easyplayer .padding {
+    flex: 0 0 auto !important; /* 防止挤压时间标签 */
+}
+
+#easyplayer .padding > label {
+    /* 文本处理 */
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    
+    /* 尺寸控制 */
+    min-width: 180px !important; /* 足够显示 00:00:00/00:00:00 */
+    max-width: 200px !important;
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    
+    /* 间距优化 */
+    margin: 0 10px !important; /* 减少左右边距 */
+    padding: 0 5px !important;
+    
+    /* 文本对齐 */
+    text-align: center !important;
 }
 </style>
