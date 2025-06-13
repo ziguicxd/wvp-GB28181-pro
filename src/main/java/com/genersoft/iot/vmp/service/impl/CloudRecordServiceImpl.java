@@ -65,19 +65,20 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
     private HookSubscribe subscribe;
 
     @Override
-    public PageInfo<CloudRecordItem> getList(int page, int count, String query, String app, String stream, String startTime,
-                                             String endTime, List<MediaServer> mediaServerItems, String callId, Boolean ascOrder) {
+    public PageInfo<CloudRecordItem> getList(int page, int count, String query, String app, String stream,
+            String startTime,
+            String endTime, List<MediaServer> mediaServerItems, String callId, Boolean ascOrder) {
         // 开始时间和结束时间在数据库中都是以秒为单位的
         Long startTimeStamp = null;
         Long endTimeStamp = null;
-        if (startTime != null ) {
+        if (startTime != null) {
             if (!DateUtil.verification(startTime, DateUtil.formatter)) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "开始时间格式错误，正确格式为： " + DateUtil.formatter);
             }
             startTimeStamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestampMs(startTime);
 
         }
-        if (endTime != null ) {
+        if (endTime != null) {
             if (!DateUtil.verification(endTime, DateUtil.formatter)) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "结束时间格式错误，正确格式为： " + DateUtil.formatter);
             }
@@ -96,12 +97,13 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
     }
 
     @Override
-    public List<String> getDateList(String app, String stream, int year, int month, List<MediaServer> mediaServerItems) {
+    public List<String> getDateList(String app, String stream, int year, int month,
+            List<MediaServer> mediaServerItems) {
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate;
         if (month == 12) {
             endDate = LocalDate.of(year + 1, 1, 1);
-        }else {
+        } else {
             endDate = LocalDate.of(year, month + 1, 1);
         }
         long startTimeStamp = startDate.atStartOfDay().toInstant(ZoneOffset.ofHours(8)).toEpochMilli();
@@ -125,21 +127,23 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
         CloudRecordItem cloudRecordItem = CloudRecordItem.getInstance(event);
         cloudRecordItem.setServerId(userSetting.getServerId());
         if (ObjectUtils.isEmpty(cloudRecordItem.getCallId())) {
-            StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(event.getApp(), event.getStream());
+            StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(event.getApp(),
+                    event.getStream());
             if (streamAuthorityInfo != null) {
                 cloudRecordItem.setCallId(streamAuthorityInfo.getCallId());
             }
         }
-        log.info("[添加录像记录] {}/{}, callId: {}, 内容：{}", event.getApp(), event.getStream(), cloudRecordItem.getCallId(), event.getRecordInfo());
+        log.info("[添加录像记录] {}/{}, callId: {}, 内容：{}", event.getApp(), event.getStream(), cloudRecordItem.getCallId(),
+                event.getRecordInfo());
         cloudRecordServiceMapper.add(cloudRecordItem);
     }
 
     @Override
     public String addTask(String app, String stream, MediaServer mediaServerItem, String startTime, String endTime,
-                          String callId, String remoteHost, boolean filterMediaServer) {
+            String callId, String remoteHost, boolean filterMediaServer) {
         // 参数校验
-        Assert.notNull(app,"应用名为NULL");
-        Assert.notNull(stream,"流ID为NULL");
+        Assert.notNull(app, "应用名为NULL");
+        Assert.notNull(stream, "流ID为NULL");
         if (mediaServerItem.getRecordAssistPort() == 0) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "为配置Assist服务");
         }
@@ -160,7 +164,8 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
         if (filePathList == null || filePathList.isEmpty()) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "未检索到视频文件");
         }
-        JSONObject result =  assistRESTfulUtils.addTask(mediaServerItem, app, stream, startTime, endTime, callId, filePathList, remoteHost);
+        JSONObject result = assistRESTfulUtils.addTask(mediaServerItem, app, stream, startTime, endTime, callId,
+                filePathList, remoteHost);
         if (result.getInteger("code") != 0) {
             throw new ControllerException(result.getInteger("code"), result.getString("msg"));
         }
@@ -169,37 +174,40 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
 
     @Override
     public JSONArray queryTask(String app, String stream, String callId, String taskId, String mediaServerId,
-                               Boolean isEnd, String scheme) {
+            Boolean isEnd, String scheme) {
         MediaServer mediaServerItem = null;
         if (mediaServerId == null) {
             mediaServerItem = mediaServerService.getDefaultMediaServer();
-        }else {
+        } else {
             mediaServerItem = mediaServerService.getOne(mediaServerId);
         }
         if (mediaServerItem == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "未找到可用的流媒体");
         }
 
-        JSONObject result =  assistRESTfulUtils.queryTaskList(mediaServerItem, app, stream, callId, taskId, isEnd, scheme);
+        JSONObject result = assistRESTfulUtils.queryTaskList(mediaServerItem, app, stream, callId, taskId, isEnd,
+                scheme);
         if (result == null || result.getInteger("code") != 0) {
-            throw new ControllerException(ErrorCode.ERROR100.getCode(), result == null ? "查询任务列表失败" : result.getString("msg"));
+            throw new ControllerException(ErrorCode.ERROR100.getCode(),
+                    result == null ? "查询任务列表失败" : result.getString("msg"));
         }
         return result.getJSONArray("data");
     }
 
     @Override
-    public int changeCollect(boolean result, String app, String stream, String mediaServerId, String startTime, String endTime, String callId) {
+    public int changeCollect(boolean result, String app, String stream, String mediaServerId, String startTime,
+            String endTime, String callId) {
         // 开始时间和结束时间在数据库中都是以秒为单位的
         Long startTimeStamp = null;
         Long endTimeStamp = null;
-        if (startTime != null ) {
+        if (startTime != null) {
             if (!DateUtil.verification(startTime, DateUtil.formatter)) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "开始时间格式错误，正确格式为： " + DateUtil.formatter);
             }
             startTimeStamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestamp(startTime);
 
         }
-        if (endTime != null ) {
+        if (endTime != null) {
             if (!DateUtil.verification(endTime, DateUtil.formatter)) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "结束时间格式错误，正确格式为： " + DateUtil.formatter);
             }
@@ -235,7 +243,7 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
                 resultCount += cloudRecordServiceMapper.updateCollectList(result, all.subList(i, toIndex));
 
             }
-        }else {
+        } else {
             resultCount = cloudRecordServiceMapper.updateCollectList(result, all);
         }
         return resultCount;
@@ -243,7 +251,7 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
 
     @Override
     public int changeCollectById(Integer recordId, boolean result) {
-       return cloudRecordServiceMapper.changeCollectById(result, recordId);
+        return cloudRecordServiceMapper.changeCollectById(result, recordId);
     }
 
     @Override
@@ -261,18 +269,19 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
     }
 
     @Override
-    public List<CloudRecordItem> getAllList(String query, String app, String stream, String startTime, String endTime, List<MediaServer> mediaServerItems, String callId, List<Integer> ids) {
+    public List<CloudRecordItem> getAllList(String query, String app, String stream, String startTime, String endTime,
+            List<MediaServer> mediaServerItems, String callId, List<Integer> ids) {
         // 开始时间和结束时间在数据库中都是以秒为单位的
         Long startTimeStamp = null;
         Long endTimeStamp = null;
-        if (startTime != null ) {
+        if (startTime != null) {
             if (!DateUtil.verification(startTime, DateUtil.formatter)) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "开始时间格式错误，正确格式为： " + DateUtil.formatter);
             }
             startTimeStamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestampMs(startTime);
 
         }
-        if (endTime != null ) {
+        if (endTime != null) {
             if (!DateUtil.verification(endTime, DateUtil.formatter)) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "结束时间格式错误，正确格式为： " + DateUtil.formatter);
             }
@@ -285,56 +294,152 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
 
     @Override
     public void loadRecord(String app, String stream, String date, ErrorCallback<StreamInfo> callback) {
+        log.info("[云录像加载] 开始加载录像文件 - app: {}, stream: {}, date: {}", app, stream, date);
+
         long startTimestamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestampMs(date + " 00:00:00");
         long endTimestamp = startTimestamp + 24 * 60 * 60 * 1000;
+        log.debug("[云录像加载] 查询时间范围 - startTimestamp: {}, endTimestamp: {}", startTimestamp, endTimestamp);
 
-        List<CloudRecordItem> recordItemList = cloudRecordServiceMapper.getList(null, app, stream, startTimestamp, endTimestamp, null, null, null, false);
+        List<CloudRecordItem> recordItemList = cloudRecordServiceMapper.getList(null, app, stream, startTimestamp,
+                endTimestamp, null, null, null, false);
+        log.info("[云录像加载] 查询到录像文件数量: {}", recordItemList.size());
+
         if (recordItemList.isEmpty()) {
+            log.warn("[云录像加载] 未找到录像文件 - app: {}, stream: {}, date: {}", app, stream, date);
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "此时间无录像");
         }
+
+        // 记录找到的录像文件信息
+        for (int i = 0; i < recordItemList.size(); i++) {
+            CloudRecordItem item = recordItemList.get(i);
+            log.debug("[云录像加载] 录像文件[{}] - fileName: {}, filePath: {}, startTime: {}, endTime: {}, timeLen: {}ms",
+                    i, item.getFileName(), item.getFilePath(),
+                    DateUtil.timestampMsTo_yyyy_MM_dd_HH_mm_ss(item.getStartTime()),
+                    DateUtil.timestampMsTo_yyyy_MM_dd_HH_mm_ss(item.getEndTime()),
+                    item.getTimeLen());
+        }
+
         String mediaServerId = recordItemList.get(0).getMediaServerId();
+        log.info("[云录像加载] 使用媒体服务器: {}", mediaServerId);
+
         MediaServer mediaServer = mediaServerService.getOne(mediaServerId);
         if (mediaServer == null) {
+            log.error("[云录像加载] 媒体节点不存在 - mediaServerId: {}", mediaServerId);
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "媒体节点不存在： " + mediaServerId);
         }
+        log.info("[云录像加载] 媒体服务器信息 - ip: {}, httpPort: {}, id: {}",
+                mediaServer.getIp(), mediaServer.getHttpPort(), mediaServer.getId());
+
         String buildApp = "mp4_record";
         String buildStream = app + "_" + stream + "_" + date;
-        MediaInfo mediaInfo = mediaServerService.getMediaInfo(mediaServer, buildApp, buildStream);
-         if (mediaInfo != null) {
-             if (callback != null) {
-                 StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(mediaServer, buildApp, buildStream, mediaInfo, null);
-                 callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
-             }
-             return;
-         }
+        log.info("[云录像加载] 构建播放流标识 - buildApp: {}, buildStream: {}", buildApp, buildStream);
 
-        Hook hook = Hook.getInstance(HookType.on_media_arrival, buildApp, buildStream, mediaServerId);
-        subscribe.addSubscribe(hook, (hookData) -> {
-            StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(mediaServer, buildApp, buildStream, hookData.getMediaInfo(), null);
+        MediaInfo mediaInfo = mediaServerService.getMediaInfo(mediaServer, buildApp, buildStream);
+        if (mediaInfo != null) {
+            log.info("[云录像加载] 录像流已存在，直接返回流信息 - buildApp: {}, buildStream: {}", buildApp, buildStream);
             if (callback != null) {
+                StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(mediaServer, buildApp,
+                        buildStream, mediaInfo, null);
+                log.info("[云录像加载] 返回已存在的流信息 - fmp4: {}, ts: {}",
+                        streamInfo.getFmp4(), streamInfo.getTs());
                 callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
             }
+            return;
+        }
+
+        log.info("[云录像加载] 录像流不存在，开始创建新的播放流 - buildApp: {}, buildStream: {}", buildApp, buildStream);
+        Hook hook = Hook.getInstance(HookType.on_media_arrival, buildApp, buildStream, mediaServerId);
+        log.info("[云录像加载] 注册Hook事件监听 - hookType: {}, buildApp: {}, buildStream: {}, mediaServerId: {}",
+                HookType.on_media_arrival, buildApp, buildStream, mediaServerId);
+
+        subscribe.addSubscribe(hook, (hookData) -> {
+            log.info("[云录像加载] 收到媒体流到达事件 - buildApp: {}, buildStream: {}", buildApp, buildStream);
+
+            try {
+                StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(mediaServer, buildApp,
+                        buildStream, hookData.getMediaInfo(), null);
+                if (streamInfo != null) {
+                    log.info("[云录像加载] 成功创建流信息 - fmp4: {}, ts: {}",
+                            streamInfo.getFmp4(), streamInfo.getTs());
+                } else {
+                    log.error("[云录像加载] 创建流信息失败 - streamInfo为null");
+                }
+
+                if (callback != null) {
+                    callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
+                } else {
+                    log.warn("[云录像加载] 回调函数为null，无法返回结果");
+                }
+            } catch (Exception e) {
+                log.error("[云录像加载] Hook事件处理异常 - buildApp: {}, buildStream: {}, error: {}",
+                        buildApp, buildStream, e.getMessage(), e);
+                if (callback != null) {
+                    callback.run(ErrorCode.ERROR100.getCode(), "Hook事件处理异常: " + e.getMessage(), null);
+                }
+            }
         });
-        String dateDir = recordItemList.get(0).getFilePath().substring(0, recordItemList.get(0).getFilePath().lastIndexOf("/"));
-        mediaServerService.loadMP4File(mediaServer, buildApp, buildStream, dateDir);
+
+        // 使用第一个录像文件的路径进行加载
+        CloudRecordItem firstRecord = recordItemList.get(0);
+        String firstFilePath = firstRecord.getFilePath();
+        log.info("[云录像加载] 开始加载MP4文件 - fileName: {}, filePath: {}",
+                firstRecord.getFileName(), firstFilePath);
+
+        try {
+            mediaServerService.loadMP4File(mediaServer, buildApp, buildStream, firstFilePath);
+            log.info("[云录像加载] MP4文件加载请求已发送");
+        } catch (Exception e) {
+            log.error("[云录像加载] MP4文件加载失败 - filePath: {}, error: {}",
+                    firstFilePath, e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
-    public void seekRecord(String mediaServerId,String app, String stream, Double seek, String schema) {
+    public void seekRecord(String mediaServerId, String app, String stream, Double seek, String schema) {
+        log.info("[云录像定位] 开始定位播放位置 - seek: {}ms", seek);
+
         MediaServer mediaServer = mediaServerService.getOne(mediaServerId);
         if (mediaServer == null) {
+            log.error("[云录像定位] 媒体节点不存在 - mediaServerId: {}", mediaServerId);
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "媒体节点不存在： " + mediaServerId);
         }
-        mediaServerService.seekRecordStamp(mediaServer, app, stream, seek, schema);
+
+        try {
+            mediaServerService.seekRecordStamp(mediaServer, app, stream, seek, schema);
+            log.info("[云录像定位] 定位操作成功");
+        } catch (Exception e) {
+            // 如果是"can not find the stream"错误，静默忽略此错误（流可能还在准备中）
+            if (e.getMessage() != null && e.getMessage().contains("can not find the stream")) {
+                return; // 不抛出异常，允许播放继续
+            }
+            log.error("[云录像定位] 定位失败 - error: {}", e.getMessage());
+            throw e;
+        }
     }
 
     @Override
     public void setRecordSpeed(String mediaServerId, String app, String stream, Integer speed, String schema) {
+        log.info("[云录像倍速] 开始设置播放倍速 - mediaServerId: {}, app: {}, stream: {}, speed: {}x, schema: {}",
+                mediaServerId, app, stream, speed, schema);
+
         MediaServer mediaServer = mediaServerService.getOne(mediaServerId);
         if (mediaServer == null) {
+            log.error("[云录像倍速] 媒体节点不存在 - mediaServerId: {}", mediaServerId);
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "媒体节点不存在： " + mediaServerId);
         }
-        mediaServerService.setRecordSpeed(mediaServer, app, stream, speed, schema);
+
+        log.info("[云录像倍速] 媒体服务器信息 - ip: {}, httpPort: {}, id: {}",
+                mediaServer.getIp(), mediaServer.getHttpPort(), mediaServer.getId());
+
+        try {
+            mediaServerService.setRecordSpeed(mediaServer, app, stream, speed, schema);
+            log.info("[云录像倍速] 倍速设置请求已发送 - speed: {}x", speed);
+        } catch (Exception e) {
+            log.error("[云录像倍速] 倍速设置失败 - mediaServerId: {}, app: {}, stream: {}, speed: {}x, error: {}",
+                    mediaServerId, app, stream, speed, e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
@@ -356,7 +461,7 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
                     log.warn("[录像文件] 删除磁盘文件成功： {}", cloudRecordItem.getFilePath());
                     cloudRecordItemIdListForDelete.add(cloudRecordItem);
                 }
-            }catch (ControllerException e) {
+            } catch (ControllerException e) {
                 if (stringBuilder.length() > 0) {
                     stringBuilder.append(", ");
                 }
