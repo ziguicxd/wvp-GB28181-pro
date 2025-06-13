@@ -109,9 +109,9 @@ media:
     # [必须修改] zlm服务器唯一id，用于触发hook时区别是哪台服务器,general.mediaServerId
     id: zlmediakit-local
     # [必须修改] zlm服务器的内网IP
-    ip: 192.168.148.129
+    ip: 192.168.148.1
     # [可选] 返回流地址时的ip，置空使用 media.ip      
-    stream-ip: 192.168.148.129
+    stream-ip: 192.168.148.1
     # [可选] wvp在国标信令中使用的ip，此ip为摄像机可以访问到的ip， 置空使用 media.ip      
     sdp-ip: 192.168.148.1
       # [可选] zlm服务器访问WVP所使用的IP, 默认使用127.0.0.1，zlm和wvp没有部署在同一台服务器时必须配置      
