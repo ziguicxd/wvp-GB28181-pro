@@ -17,13 +17,21 @@
           <el-descriptions-item label="IP">{{ configInfoData.sip.showIp }}</el-descriptions-item>
           <el-descriptions-item label="端口">{{ configInfoData.sip.port }}</el-descriptions-item>
           <el-descriptions-item label="密码">
-            <el-tag size="small">{{ configInfoData.sip.password }}</el-tag>
+            <span 
+              class="password-text" 
+              @click="passwordVisible = !passwordVisible">
+              {{ passwordVisible ? configInfoData.sip.password : '•••••••••••' }}
+            </span>
           </el-descriptions-item>
         </el-descriptions>
         <el-descriptions v-if="key === 'jt1078Config' && configInfoData.jt1078Config" title="部标服务信息" :span="2">
           <el-descriptions-item label="端口">{{ configInfoData.jt1078Config.port }}</el-descriptions-item>
           <el-descriptions-item label="密码">
-            <el-tag size="small">{{ configInfoData.jt1078Config.password }}</el-tag>
+            <span 
+              class="password-text" 
+              @click="jt1078PasswordVisible = !jt1078PasswordVisible">
+              {{ jt1078PasswordVisible ? configInfoData.jt1078Config.password : '•••••••••••' }}
+            </span>
           </el-descriptions-item>
         </el-descriptions>
       </div>
@@ -43,6 +51,8 @@ export default {
     return {
       showDialog: false,
       key: null,
+      passwordVisible: false, 
+      jt1078PasswordVisible: false,
       configInfoData: {
         sip: {}
 
@@ -57,6 +67,9 @@ export default {
       this.showDialog = true
       this.key = key
       this.configInfoData = data
+      // 重置密码可见性
+      this.passwordVisible = false
+      this.jt1078PasswordVisible = false      
     },
     close: function() {
       this.showDialog = false
@@ -64,3 +77,16 @@ export default {
   }
 }
 </script>
+<style>
+.password-text {
+  cursor: pointer;
+  color: #409EFF;
+  user-select: none;
+  background-color: #f0f5ff;
+  padding: 2px 15px;
+  border-radius: 3px;
+  display: inline-block;
+  min-width: 120px;
+}
+
+</style>
