@@ -301,7 +301,7 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
         log.debug("[云录像加载] 查询时间范围 - startTimestamp: {}, endTimestamp: {}", startTimestamp, endTimestamp);
 
         List<CloudRecordItem> recordItemList = cloudRecordServiceMapper.getList(null, app, stream, startTimestamp,
-                endTimestamp, null, null, null, false);
+                endTimestamp, null, null, null, true);
         log.info("[云录像加载] 查询到录像文件数量: {}", recordItemList.size());
 
         if (recordItemList.isEmpty()) {
@@ -379,10 +379,10 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
             }
         });
 
-        // 使用第一个录像文件的路径进行加载
+        // 使用时间最早的录像文件的路径进行加载
         CloudRecordItem firstRecord = recordItemList.get(0);
         String firstFilePath = firstRecord.getFilePath();
-        log.info("[云录像加载] 开始加载MP4文件 - fileName: {}, filePath: {}",
+        log.info("[云录像加载] 开始加载MP4文件（时间最早） - fileName: {}, filePath: {}",
                 firstRecord.getFileName(), firstFilePath);
 
         try {
