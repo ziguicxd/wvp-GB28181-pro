@@ -210,7 +210,7 @@ export default {
       this.chooseFile(this.chooseFileIndex - 1)
     },
     playNext() {
-      // 播放上一个
+      // 播放下一个
       if (this.chooseFileIndex === this.detailFiles.length - 1) {
         return
       }
@@ -330,14 +330,8 @@ export default {
     },
     chooseFile(index) {
       this.chooseFileIndex = index
-      let timeLength = 0
-      for (let i = 0; i < this.detailFiles.length; i++) {
-        if (i < index) {
-          timeLength += this.detailFiles[i].timeLen
-        }
-      }
-      this.playSeekValue = timeLength
-      this.playRecord()
+      this.playSeekValue = 0 // 重置seek值，因为要加载新文件
+      this.playRecordByFileIndex(index)
     },
     playRecord() {
       if (!this.$refs.recordVideoPlayer.playing) {
@@ -359,6 +353,35 @@ export default {
         })
         .catch((error) => {
           console.log(error)
+        })
+        .finally(() => {
+          this.playLoading = false
+        })
+    },
+    playRecordByFileIndex(fileIndex) {
+      console.log('播放指定文件索引:', fileIndex)
+      if (!this.$refs.recordVideoPlayer.playing) {
+        this.$refs.recordVideoPlayer.destroy()
+      }
+      this.playLoading = true
+      this.$store.dispatch('cloudRecord/loadRecordByFileIndex', {
+        app: this.app,
+        stream: this.stream,
+        date: this.chooseDate,
+        fileIndex: fileIndex
+      })
+        .then(data => {
+          console.log('加载文件成功:', data)
+          this.streamInfo = data
+          if (location.protocol === 'https:') {
+            this.videoUrl = data['https_fmp4'] + '&time=' + new Date().getTime()
+          } else {
+            this.videoUrl = data['fmp4'] + '&time=' + new Date().getTime()
+          }
+          // 不需要seek，直接播放新文件
+        })
+        .catch((error) => {
+          console.log('加载文件失败:', error)
         })
         .finally(() => {
           this.playLoading = false

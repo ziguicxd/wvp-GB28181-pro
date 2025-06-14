@@ -13,6 +13,7 @@ import java.util.Set;
 
 /**
  * 云端录像管理
+ * 
  * @author lin
  */
 public interface ICloudRecordService {
@@ -20,7 +21,8 @@ public interface ICloudRecordService {
     /**
      * 分页回去云端录像列表
      */
-    PageInfo<CloudRecordItem> getList(int page, int count, String query,  String app, String stream, String startTime, String endTime, List<MediaServer> mediaServerItems, String callId, Boolean ascOrder);
+    PageInfo<CloudRecordItem> getList(int page, int count, String query, String app, String stream, String startTime,
+            String endTime, List<MediaServer> mediaServerItems, String callId, Boolean ascOrder);
 
     /**
      * 获取所有的日期
@@ -31,18 +33,19 @@ public interface ICloudRecordService {
      * 添加合并任务
      */
     String addTask(String app, String stream, MediaServer mediaServerItem, String startTime,
-                   String endTime, String callId, String remoteHost, boolean filterMediaServer);
-
+            String endTime, String callId, String remoteHost, boolean filterMediaServer);
 
     /**
      * 查询合并任务列表
      */
-    JSONArray queryTask(String app, String stream, String callId, String taskId, String mediaServerId, Boolean isEnd, String scheme);
+    JSONArray queryTask(String app, String stream, String callId, String taskId, String mediaServerId, Boolean isEnd,
+            String scheme);
 
     /**
      * 收藏视频，收藏的视频过期不会删除
      */
-    int changeCollect(boolean result, String app, String stream, String mediaServerId, String startTime, String endTime, String callId);
+    int changeCollect(boolean result, String app, String stream, String mediaServerId, String startTime, String endTime,
+            String callId);
 
     /**
      * 添加指定录像收藏
@@ -54,14 +57,21 @@ public interface ICloudRecordService {
      */
     DownloadFileInfo getPlayUrlPath(Integer recordId);
 
-    List<CloudRecordItem> getAllList(String query, String app, String stream, String startTime, String endTime, List<MediaServer> mediaServerItems, String callId, List<Integer> ids);
+    List<CloudRecordItem> getAllList(String query, String app, String stream, String startTime, String endTime,
+            List<MediaServer> mediaServerItems, String callId, List<Integer> ids);
 
     /**
      * 加载录像文件，形成录像流
      */
     void loadRecord(String app, String stream, String date, ErrorCallback<StreamInfo> callback);
 
-    void seekRecord(String mediaServerId,String app, String stream, Double seek, String schema);
+    /**
+     * 根据文件索引加载指定的录像文件
+     */
+    void loadRecordByFileIndex(String app, String stream, String date, Integer fileIndex,
+            ErrorCallback<StreamInfo> callback);
+
+    void seekRecord(String mediaServerId, String app, String stream, Double seek, String schema);
 
     void setRecordSpeed(String mediaServerId, String app, String stream, Integer speed, String schema);
 

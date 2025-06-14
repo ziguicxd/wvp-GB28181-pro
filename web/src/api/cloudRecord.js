@@ -40,6 +40,20 @@ export function loadRecord(params) {
   })
 }
 
+export function loadRecordByFileIndex(params) {
+  const { app, stream, date, fileIndex } = params
+  return request({
+    method: 'get',
+    url: `/api/cloud/record/loadRecordByFileIndex`,
+    params: {
+      app: app,
+      stream: stream,
+      date: date,
+      fileIndex: fileIndex
+    }
+  })
+}
+
 export function seek(params) {
   const { mediaServerId, app, stream, seek, schema } = params
   return request({

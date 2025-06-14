@@ -351,6 +351,67 @@ public class CloudRecordController {
     }
 
     @ResponseBody
+    @GetMapping("/loadRecordByFileIndex")
+    @Operation(summary = "根据文件索引加载录像")
+    @Parameter(name = "app", description = "应用名", required = true)
+    @Parameter(name = "stream", description = "流ID", required = true)
+    @Parameter(name = "date", description = "日期", required = true)
+    @Parameter(name = "fileIndex", description = "文件索引", required = true)
+    public DeferredResult<WVPResult<StreamContent>> loadRecordByFileIndex(@RequestParam String app,
+            @RequestParam String stream,
+            @RequestParam String date,
+            @RequestParam Integer fileIndex) {
+        log.info("[控制器-云录像加载] 收到根据文件索引加载录像请求 - app: {}, stream: {}, date: {}, fileIndex: {}",
+                app, stream, date, fileIndex);
+
+        DeferredResult<WVPResult<StreamContent>> result = new DeferredResult<>();
+
+        result.onTimeout(() -> {
+            log.warn("[控制器-云录像加载] 加载录像文件超时 - app: {}, stream: {}, date: {}, fileIndex: {}",
+                    app, stream, date, fileIndex);
+            WVPResult<StreamContent> wvpResult = new WVPResult<>();
+            wvpResult.setCode(ErrorCode.ERROR100.getCode());
+            wvpResult.setMsg("加载录像文件超时");
+            result.setResult(wvpResult);
+        });
+
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            log.info("[控制器-云录像加载] 收到回调 - app: {}, stream: {}, date: {}, fileIndex: {}, code: {}, msg: {}",
+                    app, stream, date, fileIndex, code, msg);
+
+            WVPResult<StreamContent> wvpResult = new WVPResult<>();
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                wvpResult.setCode(ErrorCode.SUCCESS.getCode());
+                wvpResult.setMsg(ErrorCode.SUCCESS.getMsg());
+                if (streamInfo != null) {
+                    wvpResult.setData(new StreamContent(streamInfo));
+                    log.info("[控制器-云录像加载] 成功返回流信息 - fmp4: {}, ts: {}",
+                            streamInfo.getFmp4(), streamInfo.getTs());
+                } else {
+                    log.warn("[控制器-云录像加载] 流信息为null");
+                }
+            } else {
+                wvpResult.setCode(code);
+                wvpResult.setMsg(msg);
+                log.error("[控制器-云录像加载] 加载失败 - code: {}, msg: {}", code, msg);
+            }
+            result.setResult(wvpResult);
+        };
+
+        try {
+            cloudRecordService.loadRecordByFileIndex(app, stream, date, fileIndex, callback);
+            log.info("[控制器-云录像加载] 已调用服务层加载指定文件 - app: {}, stream: {}, date: {}, fileIndex: {}",
+                    app, stream, date, fileIndex);
+        } catch (Exception e) {
+            log.error("[控制器-云录像加载] 调用服务层失败 - app: {}, stream: {}, date: {}, fileIndex: {}, error: {}",
+                    app, stream, date, fileIndex, e.getMessage(), e);
+            throw e;
+        }
+
+        return result;
+    }
+
+    @ResponseBody
     @GetMapping("/seek")
     @Operation(summary = "定位录像播放到制定位置")
     @Parameter(name = "mediaServerId", description = "使用的节点Id", required = true)

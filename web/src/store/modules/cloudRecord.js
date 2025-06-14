@@ -2,6 +2,7 @@ import {
   addTask, deleteRecord,
   getPlayPath,
   loadRecord,
+  loadRecordByFileIndex,
   queryList,
   queryListByData,
   queryTaskList,
@@ -23,6 +24,16 @@ const actions = {
   loadRecord({ commit }, params) {
     return new Promise((resolve, reject) => {
       loadRecord(params).then(response => {
+        const { data } = response
+        resolve(data)
+      }).catch(error => {
+        reject(error)
+      })
+    })
+  },
+  loadRecordByFileIndex({ commit }, params) {
+    return new Promise((resolve, reject) => {
+      loadRecordByFileIndex(params).then(response => {
         const { data } = response
         resolve(data)
       }).catch(error => {

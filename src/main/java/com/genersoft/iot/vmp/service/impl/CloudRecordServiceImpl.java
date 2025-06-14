@@ -294,7 +294,15 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
 
     @Override
     public void loadRecord(String app, String stream, String date, ErrorCallback<StreamInfo> callback) {
-        log.info("[云录像加载] 开始加载录像文件 - app: {}, stream: {}, date: {}", app, stream, date);
+        loadRecordByFileIndex(app, stream, date, 0, callback);
+    }
+
+    /**
+     * 根据文件索引加载指定的录像文件
+     */
+    public void loadRecordByFileIndex(String app, String stream, String date, Integer fileIndex,
+            ErrorCallback<StreamInfo> callback) {
+        log.info("[云录像加载] 开始加载录像文件 - app: {}, stream: {}, date: {}, fileIndex: {}", app, stream, date, fileIndex);
 
         long startTimestamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestampMs(date + " 00:00:00");
         long endTimestamp = startTimestamp + 24 * 60 * 60 * 1000;
@@ -309,17 +317,19 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "此时间无录像");
         }
 
-        // 记录找到的录像文件信息
-        for (int i = 0; i < recordItemList.size(); i++) {
-            CloudRecordItem item = recordItemList.get(i);
-            log.debug("[云录像加载] 录像文件[{}] - fileName: {}, filePath: {}, startTime: {}, endTime: {}, timeLen: {}ms",
-                    i, item.getFileName(), item.getFilePath(),
-                    DateUtil.timestampMsTo_yyyy_MM_dd_HH_mm_ss(item.getStartTime()),
-                    DateUtil.timestampMsTo_yyyy_MM_dd_HH_mm_ss(item.getEndTime()),
-                    item.getTimeLen());
+        // 验证文件索引
+        if (fileIndex == null || fileIndex < 0 || fileIndex >= recordItemList.size()) {
+            log.warn("[云录像加载] 文件索引无效，使用第一个文件 - fileIndex: {}, totalFiles: {}", fileIndex, recordItemList.size());
+            fileIndex = 0;
         }
 
-        String mediaServerId = recordItemList.get(0).getMediaServerId();
+        CloudRecordItem targetRecord = recordItemList.get(fileIndex);
+        log.info("[云录像加载] 选择文件[{}] - fileName: {}, filePath: {}, startTime: {}, endTime: {}",
+                fileIndex, targetRecord.getFileName(), targetRecord.getFilePath(),
+                DateUtil.timestampMsTo_yyyy_MM_dd_HH_mm_ss(targetRecord.getStartTime()),
+                DateUtil.timestampMsTo_yyyy_MM_dd_HH_mm_ss(targetRecord.getEndTime()));
+
+        String mediaServerId = targetRecord.getMediaServerId();
         log.info("[云录像加载] 使用媒体服务器: {}", mediaServerId);
 
         MediaServer mediaServer = mediaServerService.getOne(mediaServerId);
@@ -331,8 +341,16 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
                 mediaServer.getIp(), mediaServer.getHttpPort(), mediaServer.getId());
 
         String buildApp = "mp4_record";
-        String buildStream = app + "_" + stream + "_" + date;
+        String buildStream = app + "_" + stream + "_" + date + "_" + fileIndex;
         log.info("[云录像加载] 构建播放流标识 - buildApp: {}, buildStream: {}", buildApp, buildStream);
+
+        // 先停止可能存在的旧流
+        try {
+            mediaServerService.closeStreams(mediaServer, buildApp, buildStream);
+            log.info("[云录像加载] 已停止可能存在的旧流");
+        } catch (Exception e) {
+            log.debug("[云录像加载] 停止旧流时出现异常（可忽略）: {}", e.getMessage());
+        }
 
         MediaInfo mediaInfo = mediaServerService.getMediaInfo(mediaServer, buildApp, buildStream);
         if (mediaInfo != null) {
@@ -379,18 +397,17 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
             }
         });
 
-        // 使用时间最早的录像文件的路径进行加载
-        CloudRecordItem firstRecord = recordItemList.get(0);
-        String firstFilePath = firstRecord.getFilePath();
-        log.info("[云录像加载] 开始加载MP4文件（时间最早） - fileName: {}, filePath: {}",
-                firstRecord.getFileName(), firstFilePath);
+        // 使用指定索引的录像文件进行加载
+        String targetFilePath = targetRecord.getFilePath();
+        log.info("[云录像加载] 开始加载MP4文件 - fileName: {}, filePath: {}",
+                targetRecord.getFileName(), targetFilePath);
 
         try {
-            mediaServerService.loadMP4File(mediaServer, buildApp, buildStream, firstFilePath);
+            mediaServerService.loadMP4File(mediaServer, buildApp, buildStream, targetFilePath);
             log.info("[云录像加载] MP4文件加载请求已发送");
         } catch (Exception e) {
             log.error("[云录像加载] MP4文件加载失败 - filePath: {}, error: {}",
-                    firstFilePath, e.getMessage(), e);
+                    targetFilePath, e.getMessage(), e);
             throw e;
         }
     }
