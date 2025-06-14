@@ -190,12 +190,20 @@ export default {
       this.play(this.videoUrl)
     },
     play: function(url) {
+      // 确保完全清理旧的播放器
       if (h265webPlayer[this._uid]) {
         this.destroy()
+        // 给一点时间让销毁操作完成
+        setTimeout(() => {
+          this.play(url)
+        }, 100)
+        return
       }
+
       if (!url) {
         return
       }
+
       if (this.playerWidth === 0 || this.playerHeight === 0) {
         this.updatePlayerDomSize()
         setTimeout(() => {
@@ -203,19 +211,30 @@ export default {
         }, 300)
         return
       }
+
       this.create(url)
     },
     unPause: function() {
-      if (h265webPlayer[this._uid]) {
-        h265webPlayer[this._uid].play()
-        this.playing = h265webPlayer[this._uid].isPlaying()
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].play) {
+          h265webPlayer[this._uid].play()
+          this.playing = h265webPlayer[this._uid].isPlaying()
+        }
+      } catch (error) {
+        console.warn('恢复播放时出现错误:', error)
+        this.playing = false
       }
       this.err = ''
     },
     pause: function() {
-      if (h265webPlayer[this._uid]) {
-        h265webPlayer[this._uid].pause()
-        this.playing = h265webPlayer[this._uid].isPlaying()
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].pause) {
+          h265webPlayer[this._uid].pause()
+          this.playing = h265webPlayer[this._uid].isPlaying()
+        }
+      } catch (error) {
+        console.warn('暂停播放时出现错误:', error)
+        this.playing = false
       }
       this.err = ''
     },
@@ -232,12 +251,56 @@ export default {
       }
     },
     destroy: function() {
-      if (h265webPlayer[this._uid]) {
-        h265webPlayer[this._uid].release()
-      }
-      h265webPlayer[this._uid] = null
+      // 立即重置状态，避免其他方法继续调用播放器
       this.playing = false
+      this.loaded = false
+      this.playerLoading = false
       this.err = ''
+
+      if (h265webPlayer[this._uid]) {
+        try {
+          // 先暂停播放，避免事件监听器继续触发
+          if (h265webPlayer[this._uid].pause) {
+            h265webPlayer[this._uid].pause()
+          }
+
+          // 等待一小段时间让暂停操作完成
+          setTimeout(() => {
+            try {
+              if (h265webPlayer[this._uid] && h265webPlayer[this._uid].release) {
+                h265webPlayer[this._uid].release()
+              }
+            } catch (error) {
+              console.warn('释放播放器资源时出现错误:', error)
+            } finally {
+              h265webPlayer[this._uid] = null
+              // 清理DOM容器
+              this.clearPlayerDOM()
+            }
+          }, 100)
+
+        } catch (error) {
+          console.warn('销毁播放器时出现错误:', error)
+          h265webPlayer[this._uid] = null
+          this.clearPlayerDOM()
+        }
+      } else {
+        this.clearPlayerDOM()
+      }
+    },
+
+    clearPlayerDOM: function() {
+      // 清理DOM容器，移除所有子元素和事件监听器
+      try {
+        if (this.$refs.playerBox) {
+          // 移除所有子元素
+          while (this.$refs.playerBox.firstChild) {
+            this.$refs.playerBox.removeChild(this.$refs.playerBox.firstChild)
+          }
+        }
+      } catch (error) {
+        console.warn('清理DOM容器时出现错误:', error)
+      }
     },
     fullscreenSwich: function() {
       const isFull = this.isFullscreen()
@@ -255,7 +318,13 @@ export default {
         document.webkitFullscreenElement || false
     },
     setPlaybackRate: function(speed) {
-      h265webPlayer[this._uid].setPlaybackRate(speed)
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].setPlaybackRate) {
+          h265webPlayer[this._uid].setPlaybackRate(speed)
+        }
+      } catch (error) {
+        console.warn('设置播放倍速时出现错误:', error)
+      }
     }
   }
 }
