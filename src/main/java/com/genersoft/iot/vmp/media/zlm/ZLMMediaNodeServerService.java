@@ -611,6 +611,11 @@ public class ZLMMediaNodeServerService implements IMediaNodeServerService {
         String msg = jsonObject.getString("msg");
 
         if (code != null && code != 0) {
+            // 对于seek failed错误，不记录错误日志，静默处理
+            if (code == -1 && "seek failed".equals(msg)) {
+                log.debug("[ZLM-Seek定位] seek操作超出范围，忽略此错误 - stamp: {}ms", stamp);
+                return; // 静默忽略seek failed错误
+            }
             log.error("[ZLM-Seek定位] 定位失败 - code: {}, msg: {}", code, msg);
             throw new ControllerException(code, msg != null ? msg : "ZLMediaKit返回错误代码: " + code);
         }

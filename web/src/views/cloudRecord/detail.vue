@@ -152,6 +152,7 @@ export default {
       timelineControl: false,
       showOtherSpeed: true,
       timeSegments: [],
+      seekTimer: null, // seek防抖定时器
       pickerOptions: {
         cellClassName: (date) => {
           // 通过显示一个点标识这一天有录像
@@ -194,6 +195,11 @@ export default {
   },
   destroyed() {
     this.$destroy('recordVideoPlayer')
+    // 清理定时器
+    if (this.seekTimer) {
+      clearTimeout(this.seekTimer)
+      this.seekTimer = null
+    }
   },
   methods: {
     sidebarControl() {
@@ -491,6 +497,31 @@ export default {
         })
     },
     seekRecord() {
+      // 检查播放器和流信息是否准备好
+      if (!this.$refs.recordVideoPlayer || !this.streamInfo) {
+        console.warn('播放器或流信息未准备好，跳过seek操作')
+        return
+      }
+
+      // 防抖处理：清除之前的定时器
+      if (this.seekTimer) {
+        clearTimeout(this.seekTimer)
+      }
+
+      // 延迟执行seek，避免频繁操作
+      this.seekTimer = setTimeout(() => {
+        this.doSeekRecord()
+      }, 300) // 300ms防抖
+    },
+    doSeekRecord() {
+      // 再次检查状态
+      if (!this.$refs.recordVideoPlayer || !this.streamInfo) {
+        console.warn('播放器或流信息未准备好，取消seek操作')
+        return
+      }
+
+      console.log('执行seek定位到:', this.playSeekValue, 'ms')
+
       this.$store.dispatch('cloudRecord/seek', {
         mediaServerId: this.streamInfo.mediaServerId,
         app: this.streamInfo.app,
@@ -498,8 +529,12 @@ export default {
         seek: this.playSeekValue,
         schema: 'fmp4'
       })
+        .then(() => {
+          console.log('seek操作成功')
+        })
         .catch((error) => {
-          console.log(error)
+          // 静默处理seek错误，不影响用户体验
+          console.warn('seek操作失败:', error)
         })
     },
     downloadFile(file) {
@@ -553,22 +588,47 @@ export default {
       }
       this.timelineControl = false
 
+      console.log('时间轴拖动结束，当前时间:', this.playTime, '，文件列表长度:', this.detailFiles.length)
+
       // 查找拖动时间点对应的文件
       let targetFileIndex = -1
       let timeOffsetInFile = 0 // 在文件内的时间偏移（毫秒）
 
       for (let i = 0; i < this.detailFiles.length; i++) {
         const item = this.detailFiles[i]
+        console.log(`检查文件${i}: ${item.startTime} - ${item.endTime}, 当前时间: ${this.playTime}`)
         if (this.playTime >= item.startTime && this.playTime <= item.endTime) {
           targetFileIndex = i
           timeOffsetInFile = this.playTime - item.startTime
+          console.log(`找到目标文件${i}，文件内偏移：${timeOffsetInFile}ms`)
           break
         }
       }
 
       if (targetFileIndex === -1) {
-        console.warn('拖动时间点不在任何文件范围内')
-        return
+        console.warn('拖动时间点不在任何文件范围内，查找最近的文件')
+        // 如果没有找到精确匹配，查找最近的文件
+        let minDistance = Infinity
+        for (let i = 0; i < this.detailFiles.length; i++) {
+          const item = this.detailFiles[i]
+          const distanceToStart = Math.abs(this.playTime - item.startTime)
+          const distanceToEnd = Math.abs(this.playTime - item.endTime)
+          const minFileDistance = Math.min(distanceToStart, distanceToEnd)
+
+          if (minFileDistance < minDistance) {
+            minDistance = minFileDistance
+            targetFileIndex = i
+            // 如果更接近开始时间，偏移为0；如果更接近结束时间，偏移为文件时长
+            timeOffsetInFile = distanceToStart < distanceToEnd ? 0 : item.timeLen
+          }
+        }
+
+        if (targetFileIndex === -1) {
+          console.error('无法找到任何可播放的文件')
+          return
+        }
+
+        console.log(`使用最近的文件${targetFileIndex}，偏移：${timeOffsetInFile}ms`)
       }
 
       console.log(`拖动到文件${targetFileIndex}，时间偏移：${timeOffsetInFile}ms`)
@@ -584,9 +644,11 @@ export default {
         for (let i = 0; i < targetFileIndex; i++) {
           seekValue += this.detailFiles[i].timeLen
         }
-        // 加上文件内的偏移时间（转换为毫秒）
+        // 加上文件内的偏移时间
         seekValue += timeOffsetInFile
         this.playSeekValue = seekValue
+
+        console.log(`计算的seek值：${seekValue}ms`)
 
         // 加载目标文件并seek到指定位置
         this.playRecordByFileIndex(targetFileIndex)
@@ -601,8 +663,15 @@ export default {
         // 加上文件内的偏移时间
         this.playSeekValue = baseSeekValue + timeOffsetInFile
 
-        // 直接seek到指定位置
-        this.seekRecord()
+        console.log(`文件内seek值：${this.playSeekValue}ms`)
+
+        // 优化：如果流信息存在，直接seek；否则重新加载
+        if (this.streamInfo && this.streamInfo.app && this.streamInfo.stream) {
+          this.seekRecord()
+        } else {
+          console.log('流信息不存在，重新加载文件')
+          this.playRecordByFileIndex(targetFileIndex)
+        }
       }
     },
     getTimeForFile(file) {
