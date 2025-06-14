@@ -342,6 +342,11 @@ export default {
           this.detailFiles = this.detailFiles.concat(data.list)
           const temp = new Set()
           this.initTime = Number.parseInt(this.detailFiles[0].startTime)
+          // 初始化播放时间为第一个文件的开始时间
+          if (this.playTime === null) {
+            this.playTime = this.detailFiles[0].startTime
+            this.playerTime = 0
+          }
           for (let i = 0; i < this.detailFiles.length; i++) {
             temp.add(this.detailFiles[i].mediaServerId)
             this.timeSegments.push({
@@ -368,7 +373,17 @@ export default {
     },
     chooseFile(index) {
       this.chooseFileIndex = index
+      // 设置播放时间为选中文件的开始时间
+      const selectedFile = this.detailFiles[index]
+      this.playTime = selectedFile.startTime
+      this.playerTime = 0 // 重置播放器时间
       this.playSeekValue = 0 // 重置seek值，因为要加载新文件
+
+      // 同步更新时间轴显示到文件开始时间
+      if (this.$refs.Timeline) {
+        this.$refs.Timeline.setTime(this.playTime)
+      }
+
       this.playRecordByFileIndex(index)
     },
     playRecord() {
@@ -474,8 +489,18 @@ export default {
     },
 
     showPlayTimeChange(val) {
-      this.playTime += (val * 1000 - this.playerTime)
-      this.playerTime = val * 1000
+      // val是播放器的当前播放时间（秒），需要转换为绝对时间戳
+      if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+        const selectedFile = this.detailFiles[this.chooseFileIndex]
+        // 计算当前播放的绝对时间：文件开始时间 + 播放器当前时间
+        this.playTime = selectedFile.startTime + (val * 1000)
+        this.playerTime = val * 1000
+
+        // 同步更新时间轴显示
+        if (this.$refs.Timeline) {
+          this.$refs.Timeline.setTime(this.playTime)
+        }
+      }
     },
     playingChange(val) {
       this.playing = val
@@ -489,7 +514,7 @@ export default {
     timelineMouseDown() {
       this.timelineControl = true
     },
-    mouseupTimeline(event) {
+    mouseupTimeline() {
       if (!this.timelineControl) {
         this.timelineControl = false
         return
