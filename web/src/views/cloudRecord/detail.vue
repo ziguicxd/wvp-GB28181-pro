@@ -260,6 +260,19 @@ export default {
       this.playing = false
       this.videoUrl = null
       this.playLoading = false
+
+      // 重置到第一个文件和初始时间
+      this.chooseFileIndex = 0
+      this.playSeekValue = 0
+      this.playerTime = 0
+      if (this.detailFiles && this.detailFiles.length > 0) {
+        this.playTime = this.detailFiles[0].startTime
+        // 同步更新时间轴显示到第一个文件的开始时间
+        if (this.$refs.Timeline) {
+          this.$refs.Timeline.setTime(this.playTime)
+        }
+      }
+
       // 停止时重置倍速为1X
       if (this.playSpeed !== 1) {
         this.changePlaySpeed(1)
@@ -377,7 +390,13 @@ export default {
       const selectedFile = this.detailFiles[index]
       this.playTime = selectedFile.startTime
       this.playerTime = 0 // 重置播放器时间
-      this.playSeekValue = 0 // 重置seek值，因为要加载新文件
+
+      // 计算到选中文件的seek值（累计前面所有文件的时长）
+      let seekValue = 0
+      for (let i = 0; i < index; i++) {
+        seekValue += this.detailFiles[i].timeLen
+      }
+      this.playSeekValue = seekValue
 
       // 同步更新时间轴显示到文件开始时间
       if (this.$refs.Timeline) {
@@ -419,7 +438,7 @@ export default {
         })
     },
     playRecordByFileIndex(fileIndex) {
-      console.log('播放指定文件索引:', fileIndex)
+      console.log('播放指定文件索引:', fileIndex, '，seek值:', this.playSeekValue)
       // 确保播放器状态正确，如果没有在播放则销毁重建
       try {
         if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
@@ -444,7 +463,25 @@ export default {
           } else {
             this.videoUrl = data['fmp4'] + '&time=' + new Date().getTime()
           }
-          // 不需要seek，直接播放新文件
+
+          // 更新播放时间状态
+          if (this.detailFiles[fileIndex]) {
+            const selectedFile = this.detailFiles[fileIndex]
+            // 计算文件内的偏移时间
+            let baseSeekValue = 0
+            for (let i = 0; i < fileIndex; i++) {
+              baseSeekValue += this.detailFiles[i].timeLen
+            }
+            const offsetInFile = this.playSeekValue - baseSeekValue
+            this.playTime = selectedFile.startTime + offsetInFile
+            this.playerTime = offsetInFile
+          }
+
+          // 如果有seek值，则进行seek定位
+          if (this.playSeekValue > 0) {
+            console.log('执行seek定位到:', this.playSeekValue)
+            this.seekRecord()
+          }
         })
         .catch((error) => {
           console.log('加载文件失败:', error)
@@ -495,11 +532,6 @@ export default {
         // 计算当前播放的绝对时间：文件开始时间 + 播放器当前时间
         this.playTime = selectedFile.startTime + (val * 1000)
         this.playerTime = val * 1000
-
-        // 同步更新时间轴显示
-        if (this.$refs.Timeline) {
-          this.$refs.Timeline.setTime(this.playTime)
-        }
       }
     },
     playingChange(val) {
@@ -520,23 +552,58 @@ export default {
         return
       }
       this.timelineControl = false
-      let timeLength = 0
+
+      // 查找拖动时间点对应的文件
+      let targetFileIndex = -1
+      let timeOffsetInFile = 0 // 在文件内的时间偏移（毫秒）
+
       for (let i = 0; i < this.detailFiles.length; i++) {
         const item = this.detailFiles[i]
-        if (this.playTime > item.endTime) {
-          timeLength += item.timeLen
-        } else if (this.playTime === item.endTime) {
-          timeLength += item.timeLen
-          this.chooseFileIndex = i
-          break
-        } else if (this.playTime > item.startTime && this.playTime < item.endTime) {
-          timeLength += (this.playTime - item.startTime)
-          this.chooseFileIndex = i
+        if (this.playTime >= item.startTime && this.playTime <= item.endTime) {
+          targetFileIndex = i
+          timeOffsetInFile = this.playTime - item.startTime
           break
         }
       }
-      this.playSeekValue = timeLength
-      this.playRecord()
+
+      if (targetFileIndex === -1) {
+        console.warn('拖动时间点不在任何文件范围内')
+        return
+      }
+
+      console.log(`拖动到文件${targetFileIndex}，时间偏移：${timeOffsetInFile}ms`)
+
+      // 检查是否需要切换文件
+      if (this.chooseFileIndex !== targetFileIndex) {
+        console.log(`切换文件：从${this.chooseFileIndex}到${targetFileIndex}`)
+        // 切换到目标文件
+        this.chooseFileIndex = targetFileIndex
+
+        // 计算到目标文件的seek值（累计前面所有文件的时长）
+        let seekValue = 0
+        for (let i = 0; i < targetFileIndex; i++) {
+          seekValue += this.detailFiles[i].timeLen
+        }
+        // 加上文件内的偏移时间（转换为毫秒）
+        seekValue += timeOffsetInFile
+        this.playSeekValue = seekValue
+
+        // 加载目标文件并seek到指定位置
+        this.playRecordByFileIndex(targetFileIndex)
+      } else {
+        console.log(`在当前文件${targetFileIndex}内seek到偏移：${timeOffsetInFile}ms`)
+        // 在当前文件内seek
+        // 计算当前文件的基础seek值
+        let baseSeekValue = 0
+        for (let i = 0; i < targetFileIndex; i++) {
+          baseSeekValue += this.detailFiles[i].timeLen
+        }
+        // 加上文件内的偏移时间
+        this.playSeekValue = baseSeekValue + timeOffsetInFile
+
+        // 直接seek到指定位置
+        this.seekRecord()
+      }
     },
     getTimeForFile(file) {
       const starTime = new Date(file.startTime * 1000)
