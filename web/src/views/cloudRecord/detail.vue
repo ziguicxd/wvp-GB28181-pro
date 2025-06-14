@@ -163,7 +163,7 @@ export default {
           }
         }
       },
-      playSpeedRange: [1, 2, 4, 6, 8, 16, 20]
+      playSpeedRange: [1, 2, 4, 6, 8, 16]
     }
   },
   computed: {
