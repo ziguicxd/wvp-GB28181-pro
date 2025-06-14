@@ -365,6 +365,10 @@ export default {
     stopPLay() {
       // 停止
       this.$refs.recordVideoPlayer.destroy()
+      // 停止时重置倍速为1X
+      if (this.playSpeed !== 1) {
+        this.changePlaySpeed(1)
+      }
     },
     pausePlay() {
       // 暂停
