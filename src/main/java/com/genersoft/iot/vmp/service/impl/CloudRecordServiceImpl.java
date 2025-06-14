@@ -344,25 +344,37 @@ public class CloudRecordServiceImpl implements ICloudRecordService {
         String buildStream = app + "_" + stream + "_" + date + "_" + fileIndex;
         log.info("[云录像加载] 构建播放流标识 - buildApp: {}, buildStream: {}", buildApp, buildStream);
 
-        // 先停止可能存在的旧流
-        try {
-            mediaServerService.closeStreams(mediaServer, buildApp, buildStream);
-            log.info("[云录像加载] 已停止可能存在的旧流");
-        } catch (Exception e) {
-            log.debug("[云录像加载] 停止旧流时出现异常（可忽略）: {}", e.getMessage());
-        }
-
-        MediaInfo mediaInfo = mediaServerService.getMediaInfo(mediaServer, buildApp, buildStream);
-        if (mediaInfo != null) {
-            log.info("[云录像加载] 录像流已存在，直接返回流信息 - buildApp: {}, buildStream: {}", buildApp, buildStream);
+        // 先检查是否已存在流，如果存在则直接返回
+        MediaInfo existingMediaInfo = mediaServerService.getMediaInfo(mediaServer, buildApp, buildStream);
+        if (existingMediaInfo != null) {
+            log.info("[云录像加载] 发现已存在的录像流，直接返回流信息 - buildApp: {}, buildStream: {}", buildApp, buildStream);
             if (callback != null) {
                 StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(mediaServer, buildApp,
-                        buildStream, mediaInfo, null);
+                        buildStream, existingMediaInfo, null);
                 log.info("[云录像加载] 返回已存在的流信息 - fmp4: {}, ts: {}",
                         streamInfo.getFmp4(), streamInfo.getTs());
                 callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
             }
             return;
+        }
+
+        // 强制停止可能存在的旧流（确保彻底清理）
+        try {
+            mediaServerService.closeStreams(mediaServer, buildApp, buildStream);
+            log.info("[云录像加载] 已强制停止可能存在的旧流");
+
+            // 等待一小段时间确保流完全停止
+            Thread.sleep(100);
+
+            // 再次检查确保流已完全停止
+            MediaInfo checkMediaInfo = mediaServerService.getMediaInfo(mediaServer, buildApp, buildStream);
+            if (checkMediaInfo != null) {
+                log.warn("[云录像加载] 流停止后仍然存在，强制再次停止 - buildApp: {}, buildStream: {}", buildApp, buildStream);
+                mediaServerService.closeStreams(mediaServer, buildApp, buildStream);
+                Thread.sleep(200);
+            }
+        } catch (Exception e) {
+            log.debug("[云录像加载] 停止旧流时出现异常（可忽略）: {}", e.getMessage());
         }
 
         log.info("[云录像加载] 录像流不存在，开始创建新的播放流 - buildApp: {}, buildStream: {}", buildApp, buildStream);

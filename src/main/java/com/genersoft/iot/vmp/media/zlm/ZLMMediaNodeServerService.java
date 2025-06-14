@@ -584,6 +584,11 @@ public class ZLMMediaNodeServerService implements IMediaNodeServerService {
         String msg = jsonObject.getString("msg");
 
         if (code != null && code != 0) {
+            // 特殊处理：如果媒体源已存在，不抛出异常，直接返回
+            if (code == -400 && msg != null && msg.contains("media source already existed")) {
+                log.info("[ZLM-MP4加载] 媒体源已存在，直接使用现有流 - app: {}, stream: {}, msg: {}", app, stream, msg);
+                return;
+            }
             log.error("[ZLM-MP4加载] 加载失败 - code: {}, msg: {}", code, msg);
             throw new ControllerException(code, msg != null ? msg : "ZLMediaKit返回错误代码: " + code);
         }
