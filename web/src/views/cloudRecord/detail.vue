@@ -220,14 +220,22 @@ export default {
       console.log(speed)
       // 倍速播放
       this.playSpeed = speed
-      this.$store.dispatch('cloudRecord/speed', {
-        mediaServerId: this.streamInfo.mediaServerId,
-        app: this.streamInfo.app,
-        stream: this.streamInfo.stream,
-        speed: this.playSpeed,
-        schema: 'ts'
-      })
-      this.$refs.recordVideoPlayer.setPlaybackRate(this.playSpeed)
+      if (this.streamInfo) {
+        this.$store.dispatch('cloudRecord/speed', {
+          mediaServerId: this.streamInfo.mediaServerId,
+          app: this.streamInfo.app,
+          stream: this.streamInfo.stream,
+          speed: this.playSpeed,
+          schema: 'ts'
+        })
+      }
+      try {
+        if (this.$refs.recordVideoPlayer) {
+          this.$refs.recordVideoPlayer.setPlaybackRate(this.playSpeed)
+        }
+      } catch (error) {
+        console.warn('设置播放倍速时出现错误:', error)
+      }
     },
     seekBackward() {
       // 快退五秒
@@ -241,7 +249,17 @@ export default {
     },
     stopPLay() {
       // 停止
-      this.$refs.recordVideoPlayer.destroy()
+      try {
+        if (this.$refs.recordVideoPlayer) {
+          this.$refs.recordVideoPlayer.destroy()
+        }
+      } catch (error) {
+        console.warn('停止播放时出现错误:', error)
+      }
+      // 重置播放状态和视频URL，确保下次播放时重新加载
+      this.playing = false
+      this.videoUrl = null
+      this.playLoading = false
       // 停止时重置倍速为1X
       if (this.playSpeed !== 1) {
         this.changePlaySpeed(1)
@@ -249,12 +267,28 @@ export default {
     },
     pausePlay() {
       // 暂停
-      this.$refs.recordVideoPlayer.pause()
+      try {
+        if (this.$refs.recordVideoPlayer) {
+          this.$refs.recordVideoPlayer.pause()
+        }
+      } catch (error) {
+        console.warn('暂停播放时出现错误:', error)
+      }
     },
     play() {
-      if (this.$refs.recordVideoPlayer.loaded) {
-        this.$refs.recordVideoPlayer.unPause()
+      // 检查播放器是否存在且已加载
+      if (this.$refs.recordVideoPlayer &&
+          this.$refs.recordVideoPlayer.loaded &&
+          !this.playLoading) {
+        // 尝试恢复播放
+        try {
+          this.$refs.recordVideoPlayer.unPause()
+        } catch (error) {
+          console.warn('恢复播放失败，重新加载视频:', error)
+          this.playRecord()
+        }
       } else {
+        // 播放器未加载或已被销毁，重新加载视频
         this.playRecord()
       }
     },
@@ -338,9 +372,16 @@ export default {
       this.playRecordByFileIndex(index)
     },
     playRecord() {
-      if (!this.$refs.recordVideoPlayer.playing) {
-        this.$refs.recordVideoPlayer.destroy()
+      // 确保播放器状态正确，如果没有在播放则销毁重建
+      try {
+        if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+          this.$refs.recordVideoPlayer.destroy()
+        }
+      } catch (error) {
+        console.warn('销毁播放器时出现错误:', error)
       }
+
+      this.playLoading = true
       this.$store.dispatch('cloudRecord/loadRecord', {
         app: this.app,
         stream: this.stream,
@@ -364,9 +405,15 @@ export default {
     },
     playRecordByFileIndex(fileIndex) {
       console.log('播放指定文件索引:', fileIndex)
-      if (!this.$refs.recordVideoPlayer.playing) {
-        this.$refs.recordVideoPlayer.destroy()
+      // 确保播放器状态正确，如果没有在播放则销毁重建
+      try {
+        if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+          this.$refs.recordVideoPlayer.destroy()
+        }
+      } catch (error) {
+        console.warn('销毁播放器时出现错误:', error)
       }
+
       this.playLoading = true
       this.$store.dispatch('cloudRecord/loadRecordByFileIndex', {
         app: this.app,
