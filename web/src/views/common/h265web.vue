@@ -169,6 +169,10 @@ export default {
       h265web.onPlayTime = (videoPTS) => {
         this.$emit('playTimeChange', videoPTS)
       }
+      h265web.onSeekFinish = () => {
+        console.log('播放器seek完成')
+        this.$emit('seekFinish')
+      }
       h265web.do()
     },
     screenshot: function() {
@@ -324,6 +328,21 @@ export default {
         }
       } catch (error) {
         console.warn('设置播放倍速时出现错误:', error)
+      }
+    },
+    seek: function(pts) {
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].seek) {
+          console.log('播放器seek到:', pts, '秒')
+          h265webPlayer[this._uid].seek(pts)
+          return true
+        } else {
+          console.warn('播放器未准备好或不支持seek操作')
+          return false
+        }
+      } catch (error) {
+        console.warn('播放器seek时出现错误:', error)
+        return false
       }
     }
   }

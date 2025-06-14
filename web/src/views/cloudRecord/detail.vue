@@ -51,7 +51,7 @@
             <div class="el-icon-loading" />
             <div style="width: 100%; line-height: 2rem">正在加载</div>
           </div>
-          <h265web ref="recordVideoPlayer" :video-url="videoUrl" :height="'calc(100vh - 250px)'" :show-button="false" @playTimeChange="showPlayTimeChange" @playStatusChange="playingChange"/>
+          <h265web ref="recordVideoPlayer" :video-url="videoUrl" :height="'calc(100vh - 250px)'" :show-button="false" @playTimeChange="showPlayTimeChange" @playStatusChange="playingChange" @seekFinish="onSeekFinish"/>
         </div>
         <div class="player-option-box">
           <VideoTimeline
@@ -522,6 +522,14 @@ export default {
 
       console.log('执行seek定位到:', this.playSeekValue, 'ms')
 
+      // 记录播放状态，用于seek后恢复
+      const wasPlaying = this.$refs.recordVideoPlayer.playing
+
+      // 暂停播放器，避免seek时的状态冲突
+      if (wasPlaying && this.$refs.recordVideoPlayer.pause) {
+        this.$refs.recordVideoPlayer.pause()
+      }
+
       this.$store.dispatch('cloudRecord/seek', {
         mediaServerId: this.streamInfo.mediaServerId,
         app: this.streamInfo.app,
@@ -530,12 +538,67 @@ export default {
         schema: 'fmp4'
       })
         .then(() => {
-          console.log('seek操作成功')
+          console.log('后端seek操作成功')
+
+          // 后端seek成功后，同步前端播放器
+          this.syncPlayerSeek(wasPlaying)
         })
         .catch((error) => {
           // 静默处理seek错误，不影响用户体验
           console.warn('seek操作失败:', error)
+
+          // 即使后端seek失败，也尝试前端seek
+          this.syncPlayerSeek(wasPlaying)
         })
+    },
+    syncPlayerSeek(wasPlaying) {
+      // 计算播放器需要seek到的时间（秒）
+      // playSeekValue是从录像开始的毫秒数，需要转换为当前文件内的秒数
+      if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+        let baseSeekValue = 0
+        for (let i = 0; i < this.chooseFileIndex; i++) {
+          baseSeekValue += this.detailFiles[i].timeLen
+        }
+
+        // 计算在当前文件内的偏移时间（毫秒）
+        const offsetInFile = this.playSeekValue - baseSeekValue
+        // 转换为秒
+        const seekTimeInSeconds = offsetInFile / 1000
+
+        console.log('前端播放器seek到:', seekTimeInSeconds, '秒（文件内偏移）')
+
+        // 延迟一点时间，确保后端seek操作完成
+        setTimeout(() => {
+          if (this.$refs.recordVideoPlayer && this.$refs.recordVideoPlayer.seek) {
+            const seekSuccess = this.$refs.recordVideoPlayer.seek(seekTimeInSeconds)
+
+            // 恢复播放状态
+            if (wasPlaying) {
+              setTimeout(() => {
+                if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+                  this.$refs.recordVideoPlayer.unPause()
+                }
+              }, 200)
+            }
+
+            if (seekSuccess) {
+              console.log('前端播放器seek成功')
+            } else {
+              console.warn('前端播放器seek失败')
+            }
+          } else {
+            console.warn('播放器不支持seek操作')
+            // 如果不支持seek，至少恢复播放状态
+            if (wasPlaying) {
+              setTimeout(() => {
+                if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+                  this.$refs.recordVideoPlayer.unPause()
+                }
+              }, 200)
+            }
+          }
+        }, 500) // 给后端seek操作一些时间
+      }
     },
     downloadFile(file) {
       this.$store.dispatch('cloudRecord/getPlayPath', file.id)
@@ -580,6 +643,9 @@ export default {
     },
     timelineMouseDown() {
       this.timelineControl = true
+    },
+    onSeekFinish() {
+      console.log('播放器seek完成回调')
     },
     mouseupTimeline() {
       if (!this.timelineControl) {
