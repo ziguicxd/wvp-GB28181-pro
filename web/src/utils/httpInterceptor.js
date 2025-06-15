@@ -44,43 +44,61 @@ function isH265webStatsRequest(url) {
  * @returns {boolean} - 是否为需要屏蔽的日志
  */
 function isH265webLog(logString) {
+  // 只拦截非常特定的h265web启动和版权信息日志，避免误拦截正常日志
   return (
-    logString.includes('h265web.js') ||
-    logString.includes('missile.js') ||
-    logString.includes('H265webjs') ||
-    logString.includes('265webjs') ||
-    logString.includes('wasm') ||
-    logString.includes('WebAssembly') ||
-    (logString.includes('39.106.146.94') && logString.includes('10001')) ||
-    logString.includes('anchor?type=info') ||
-    logString.includes('app=h265web') ||
-    // 屏蔽h265web播放器的启动横幅和版权信息
-    logString.includes('h265web.js loaded!') ||
-    logString.includes('_     ___   __ _____') ||
-    logString.includes('| |   |__ \\') ||
-    logString.includes('| |__    )') ||
-    logString.includes('| \'_ \\  /') ||
-    logString.includes('| | | |/') ||
-    logString.includes('|_| |_|____') ||
-    logString.includes('h265web.js is permanent free') ||
-    logString.includes('本播放内核完全免费') ||
-    logString.includes('可商业化!') ||
-    logString.includes('Author & 作者: Numberwolf') ||
-    logString.includes('ChangYanlong') ||
-    logString.includes('QQ Group & 技术支持群') ||
-    logString.includes('925466059') ||
+    // 启动信息
+    logString === 'h265web.js loaded!' ||
+
+    // 构建日期和版本信息
+    logString.includes('build date:') ||
+    logString.includes('version: 1.0.1') ||
+    /^version:\s*\d+\.\d+\.\d+/.test(logString) ||
+
+    // ASCII艺术字横幅（完整匹配所有行）
+    logString.includes('/*********************************************************') ||
+    logString.includes('**********************************************************/') ||
+    // 完整的ASCII艺术字行匹配
+    logString.includes('_     ___   __ _____             _      _') ||
+    logString.includes('| |   |__ \\ / /| ____|           | |    (_)') ||
+    logString.includes('| |__    ) / /_| |____      _____| |__   _ ___') ||
+    logString.includes('| \'_ \\  / / \'_ \\___ \\ \\ /\\ / / _ \\ \'_ \\ | / __|') ||
+    logString.includes('| | | |/ /| (_) |__) \\ V  V /  __/ |_) || \\__ \\') ||
+    logString.includes('|_| |_|____\\___/____/ \\_/\\_/ \\___|_.__(_) |___/') ||
+    logString.includes('                                        _/ |') ||
+    logString.includes('                                       |__/') ||
+    // 通用ASCII字符模式匹配
+    /^\s*_\s+___\s+__\s+_____/.test(logString) ||
+    /^\s*\|\s+\|\s+\|__\s+\\/.test(logString) ||
+    /^\s*\|\s+\|__\s+\)/.test(logString) ||
+    /^\s*\|\s+'_\s+\\/.test(logString) ||
+    /^\s*\|\s+\|\s+\|\s+\//.test(logString) ||
+    /^\s*\|_\|\s+\|____/.test(logString) ||
+    /^\s*_\/\s+\|/.test(logString) ||
+    /^\s*\|__\//.test(logString) ||
+    // 匹配包含多个管道符和下划线的ASCII艺术
+    (/\|.*\|.*\|/.test(logString) && /_/.test(logString) && logString.length > 30) ||
+
+    // 版权和作者信息（精确匹配）
+    logString.includes('h265web.js is permanent free & 本播放内核完全免费 可商业化!') ||
+    logString.includes('Author & 作者: Numberwolf - ChangYanlong') ||
+    logString.includes('QQ Group & 技术支持群: 925466059') ||
     logString.includes('WeChat & 微信: numberwolf11') ||
     logString.includes('Discord: numberwolf#8694') ||
-    logString.includes('porschegt23@foxmail.com') ||
-    logString.includes('https://www.jianshu.com/u/9c09c1e00fd1') ||
-    logString.includes('https://github.com/numberwolf') ||
-    logString.includes('[v] all ok now') ||
-    // 屏蔽包含ASCII艺术字的日志
-    (logString.includes('*') && logString.includes('h265web.js')) ||
-    (logString.includes('|') && logString.includes('_')) ||
-    // 屏蔽其他h265web相关的输出
-    logString.includes('Numberwolf') ||
-    logString.includes('numberwolf')
+    logString.includes('Email & 邮箱: porschegt23@foxmail.com') ||
+    logString.includes('Blog & 博客: https://www.jianshu.com/u/9c09c1e00fd1') ||
+    logString.includes('Github: https://github.com/numberwolf') ||
+    logString.includes('h265web.js: https://github.com/numberwolf/h265web.js') ||
+
+    // 结束信息
+    logString === '[v] all ok now' ||
+
+    // 带有特定格式的h265web标识
+    (logString.includes('*') && logString.includes('[h265web.js]')) ||
+
+    // 网络请求相关（保留这些，因为它们是统计请求相关的）
+    (logString.includes('39.106.146.94') && logString.includes('10001')) ||
+    logString.includes('anchor?type=info') ||
+    logString.includes('app=h265web')
   )
 }
 
@@ -188,40 +206,18 @@ function interceptConsole() {
     originalMethods.console.debug = console.debug
   }
 
-  // 创建日志过滤函数
+  // 创建日志过滤函数（温和的拦截策略）
   const createLogFilter = (originalMethod, methodName) => {
     return function(...args) {
-      // 检查调用栈是否来自h265web相关文件
-      if (isFromH265webFiles()) {
-        // 如果来自h265web相关文件，直接屏蔽
-        return
-      }
-
-      // 检查日志内容是否包含h265web相关的关键词
+      // 检查日志内容是否包含h265web特定的启动日志
       const logString = args.join(' ')
 
-      // 特殊处理：检查是否是h265web的ASCII艺术字横幅
-      const isAsciiArt = (
-        logString.includes('/*********************************************************') ||
-        logString.includes('**********************************************************/') ||
-        (logString.includes('*') && logString.includes('[h265web.js]')) ||
-        (logString.includes('|') && logString.includes('_') && logString.includes('\\')) ||
-        (logString.includes('missile.js:') && (
-          logString.includes('_     ___') ||
-          logString.includes('| |   |__') ||
-          logString.includes('| |__    )') ||
-          logString.includes('| \'_ \\') ||
-          logString.includes('| | | |') ||
-          logString.includes('|_| |_|')
-        ))
-      )
-
-      if (isH265webLog(logString) || isAsciiArt) {
-        // 屏蔽这些日志，不输出
+      if (isH265webLog(logString)) {
+        // 静默屏蔽特定的h265web日志，不输出拦截提示
         return
       }
 
-      // 其他日志正常输出
+      // 所有其他日志（包括正常的调试日志）都正常输出
       return originalMethod.apply(console, args)
     }
   }
@@ -239,117 +235,25 @@ function interceptConsole() {
  */
 function startGlobalInterceptor() {
   if (interceptorActive) {
-    console.log('[全局拦截器] 拦截器已经启动，跳过重复启动')
+    // console.log('[全局拦截器] 拦截器已经启动，跳过重复启动')
     return
   }
 
-  console.log('[全局拦截器] 启动h265web请求和日志拦截器')
+  // console.log('[全局拦截器] 启动h265web请求和日志拦截器')
 
   try {
     interceptFetch()
     interceptXMLHttpRequest()
     interceptConsole()
 
-    // 额外的强制日志拦截
-    interceptH265webLogs()
-
     interceptorActive = true
-    console.log('[全局拦截器] 拦截器启动成功')
+    // console.log('[全局拦截器] 拦截器启动成功')
   } catch (error) {
-    console.error('[全局拦截器] 拦截器启动失败:', error)
+    // console.error('[全局拦截器] 拦截器启动失败:', error)
   }
 }
 
-/**
- * 强制拦截h265web相关的日志输出
- * 这是一个更激进的方法，直接监控所有console调用
- */
-function interceptH265webLogs() {
-  // 保存原始console方法（如果还没有保存的话）
-  if (!window._h265webOriginalConsole) {
-    window._h265webOriginalConsole = {
-      log: console.log,
-      warn: console.warn,
-      error: console.error,
-      info: console.info,
-      debug: console.debug
-    }
-  }
 
-  // 重写所有console方法
-  const createStrongFilter = (originalMethod, methodName) => {
-    return function(...args) {
-      // 检查参数内容 - 这是最重要的检查
-      const logContent = args.join(' ')
-
-      // 详细的内容检查
-      if (
-        // 基础检查
-        logContent.includes('h265web.js loaded!') ||
-        logContent.includes('missile.js:') ||
-        logContent.includes('[v] all ok now') ||
-
-        // ASCII艺术字检查
-        logContent.includes('_     ___   __ _____') ||
-        logContent.includes('| |   |__ \\') ||
-        logContent.includes('| |__    )') ||
-        logContent.includes('| \'_ \\  /') ||
-        logContent.includes('| | | |/') ||
-        logContent.includes('|_| |_|____') ||
-
-        // 版权信息检查
-        logContent.includes('h265web.js is permanent free') ||
-        logContent.includes('本播放内核完全免费') ||
-        logContent.includes('可商业化!') ||
-        logContent.includes('Author & 作者: Numberwolf') ||
-        logContent.includes('ChangYanlong') ||
-        logContent.includes('QQ Group & 技术支持群') ||
-        logContent.includes('925466059') ||
-        logContent.includes('WeChat & 微信: numberwolf11') ||
-        logContent.includes('Discord: numberwolf#8694') ||
-        logContent.includes('porschegt23@foxmail.com') ||
-        logContent.includes('https://www.jianshu.com/u/9c09c1e00fd1') ||
-        logContent.includes('https://github.com/numberwolf') ||
-
-        // 通用检查
-        logContent.includes('Numberwolf') ||
-        logContent.includes('numberwolf') ||
-        (logContent.includes('*') && logContent.includes('[h265web.js]')) ||
-        (logContent.includes('/*********************************************************')) ||
-        (logContent.includes('**********************************************************/'))
-      ) {
-        // 屏蔽这些日志，输出调试信息
-        console.log(`[全局拦截器] 已屏蔽h265web日志: ${logContent.substring(0, 50)}...`)
-        return
-      }
-
-      // 获取调用栈信息进行二次检查
-      try {
-        const stack = new Error().stack || ''
-        if (stack.includes('missile.js') ||
-            stack.includes('h265web.js') ||
-            stack.includes('265web')) {
-          console.log(`[全局拦截器] 通过调用栈检测屏蔽h265web日志`)
-          return
-        }
-      } catch (e) {
-        // 忽略调用栈检查错误
-      }
-
-      // 其他日志正常输出
-      return originalMethod.apply(console, args)
-    }
-  }
-
-  // 应用强力过滤器到所有console方法
-  console.log = createStrongFilter(window._h265webOriginalConsole.log, 'log')
-  console.warn = createStrongFilter(window._h265webOriginalConsole.warn, 'warn')
-  console.error = createStrongFilter(window._h265webOriginalConsole.error, 'error')
-  console.info = createStrongFilter(window._h265webOriginalConsole.info, 'info')
-  console.debug = createStrongFilter(window._h265webOriginalConsole.debug, 'debug')
-
-  console.log('[全局拦截器] 强力日志拦截器已启动')
-}
 
 /**
  * 停止全局拦截器
@@ -359,7 +263,7 @@ function stopGlobalInterceptor() {
     return
   }
 
-  console.log('[全局拦截器] 停止h265web请求和日志拦截器')
+  // console.log('[全局拦截器] 停止h265web请求和日志拦截器')
   
   try {
     // 恢复原始的fetch
@@ -382,9 +286,9 @@ function stopGlobalInterceptor() {
     }
     
     interceptorActive = false
-    console.log('[全局拦截器] 拦截器停止成功')
+    // console.log('[全局拦截器] 拦截器停止成功')
   } catch (error) {
-    console.error('[全局拦截器] 拦截器停止失败:', error)
+    // console.error('[全局拦截器] 拦截器停止失败:', error)
   }
 }
 
@@ -398,35 +302,8 @@ function getInterceptorStatus() {
   }
 }
 
-// 立即启动拦截器 - 在模块加载时就启动
-console.log('[全局拦截器] 模块加载，立即启动拦截器')
+// 自动启动拦截器
 startGlobalInterceptor()
-
-// 额外的早期拦截 - 直接在这里就开始拦截console
-if (typeof window !== 'undefined' && window.console) {
-  console.log('[全局拦截器] 执行早期console拦截')
-
-  // 立即执行强力拦截
-  const originalLog = console.log
-  console.log = function(...args) {
-    const logContent = args.join(' ')
-    if (logContent.includes('h265web.js loaded!') ||
-        logContent.includes('missile.js:') ||
-        logContent.includes('_     ___   __ _____') ||
-        logContent.includes('| |   |__ \\') ||
-        logContent.includes('h265web.js is permanent free') ||
-        logContent.includes('本播放内核完全免费') ||
-        logContent.includes('Numberwolf') ||
-        logContent.includes('[v] all ok now') ||
-        (logContent.includes('*') && logContent.includes('[h265web.js]'))) {
-      // 直接屏蔽，不输出
-      return
-    }
-    return originalLog.apply(console, args)
-  }
-
-  interceptH265webLogs()
-}
 
 // 导出控制函数
 export {
