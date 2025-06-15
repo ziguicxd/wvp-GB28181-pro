@@ -94,7 +94,7 @@ export default {
     this.playerLoading = false
 
     // 全局拦截器会持续工作，不需要在组件销毁时恢复
-    console.log('[h265web] 组件销毁，全局拦截器继续工作')
+    // console.log('[h265web] 组件销毁，全局拦截器继续工作')
   },
   methods: {
     updatePlayerDomSize() {
@@ -448,16 +448,16 @@ export default {
         if (window.h265webInterceptor) {
           const status = window.h265webInterceptor.status()
           if (status.active) {
-            console.log('[h265web] 全局拦截器正常工作')
+            // console.log('[h265web] 全局拦截器正常工作')
           } else {
-            console.warn('[h265web] 全局拦截器未激活，尝试重新启动')
+            // console.warn('[h265web] 全局拦截器未激活，尝试重新启动')
             window.h265webInterceptor.start()
           }
         } else {
-          console.warn('[h265web] 全局拦截器不存在，可能未正确加载')
+          // console.warn('[h265web] 全局拦截器不存在，可能未正确加载')
         }
       } catch (error) {
-        console.error('[h265web] 检查全局拦截器状态失败:', error)
+        // console.error('[h265web] 检查全局拦截器状态失败:', error)
       }
     },
 
