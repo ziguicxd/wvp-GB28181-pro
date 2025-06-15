@@ -8,12 +8,15 @@
     <title><%= webpackConfig.name %></title>
   </head>
   <body>
+  <!-- h265web日志拦截器 - 必须在所有其他脚本之前加载 -->
+  <script type="text/javascript" src="./static/js/h265web-interceptor.js"></script>
+
   <script type="text/javascript" src="./static/js/jessibuca/jessibuca.js"></script>
   <script type="text/javascript" src="./static/js/ZLMRTCClient.js"></script>
   <script type="text/javascript" src="./static/js/config.js"></script>
   <script type="text/javascript" src="./static/js/h265web/h265webjs-v20221106.js"></script>
   <script type="text/javascript" src="./static/js/h265web/missile.js"></script>
-  <script type="text/javascript" src="./static/js/EasyWasmPlayer.js"></script>  
+  <script type="text/javascript" src="./static/js/EasyWasmPlayer.js"></script>
     <noscript>
       <strong>We're sorry but <%= webpackConfig.name %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
     </noscript>
