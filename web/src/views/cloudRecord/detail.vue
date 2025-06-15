@@ -437,7 +437,42 @@ export default {
           } else {
             this.videoUrl = data['fmp4'] + '&time=' + new Date().getTime()
           }
+<<<<<<< HEAD
           // 不需要seek，直接播放新文件
+=======
+
+          // 更新播放时间状态
+          if (this.detailFiles[fileIndex]) {
+            const selectedFile = this.detailFiles[fileIndex]
+            // 计算文件内的偏移时间
+            let baseSeekValue = 0
+            for (let i = 0; i < fileIndex; i++) {
+              baseSeekValue += this.detailFiles[i].timeLen
+            }
+            const offsetInFile = this.playSeekValue - baseSeekValue
+            this.playTime = selectedFile.startTime + offsetInFile
+            this.playerTime = offsetInFile
+          }
+
+          // 如果有seek值，则进行seek定位
+          if (this.playSeekValue > 0) {
+            // 计算当前文件内的相对seek值
+            let baseSeekValue = 0
+            for (let i = 0; i < fileIndex; i++) {
+              baseSeekValue += this.detailFiles[i].timeLen
+            }
+            const fileSeekValue = this.playSeekValue - baseSeekValue
+
+            console.log('执行seek定位 - 全局seek值:', this.playSeekValue, '，文件内seek值:', fileSeekValue)
+
+            // 检查seek值是否在当前文件范围内
+            if (fileSeekValue >= 0 && fileSeekValue <= this.detailFiles[fileIndex].timeLen) {
+              this.seekRecord()
+            } else {
+              console.warn('seek值超出当前文件范围，跳过seek操作 - fileSeekValue:', fileSeekValue, '，文件时长:', this.detailFiles[fileIndex].timeLen)
+            }
+          }
+>>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
         })
         .catch((error) => {
           console.log('加载文件失败:', error)
@@ -448,17 +483,211 @@ export default {
     },
 >>>>>>> 5d981ee5c (优化h265webjs播放器的销毁和事件处理)
     seekRecord() {
+<<<<<<< HEAD
+=======
+      // 检查播放器和流信息是否准备好
+      if (!this.$refs.recordVideoPlayer || !this.streamInfo) {
+        console.warn('播放器或流信息未准备好，跳过seek操作')
+        return
+      }
+
+      // 防抖处理：清除之前的定时器
+      if (this.seekTimer) {
+        clearTimeout(this.seekTimer)
+      }
+
+      // 延迟执行seek，避免频繁操作
+      this.seekTimer = setTimeout(() => {
+        this.doSeekRecord()
+      }, 300) // 300ms防抖
+    },
+    doSeekRecord() {
+      // 再次检查状态
+      if (!this.$refs.recordVideoPlayer || !this.streamInfo) {
+        console.warn('播放器或流信息未准备好，取消seek操作')
+        return
+      }
+
+      // 计算当前文件内的相对seek值
+      let baseSeekValue = 0
+      if (this.chooseFileIndex !== null) {
+        for (let i = 0; i < this.chooseFileIndex; i++) {
+          baseSeekValue += this.detailFiles[i].timeLen
+        }
+      }
+
+      // 当前文件内的seek值（毫秒）
+      const fileSeekValue = this.playSeekValue - baseSeekValue
+
+      console.log('执行seek定位 - 全局seek值:', this.playSeekValue, 'ms，文件内seek值:', fileSeekValue, 'ms')
+
+      // 验证seek值是否在合理范围内
+      if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+        const currentFile = this.detailFiles[this.chooseFileIndex]
+        if (fileSeekValue < 0 || fileSeekValue > currentFile.timeLen) {
+          console.warn('seek值超出当前文件范围，调整到文件边界 - fileSeekValue:', fileSeekValue, '，文件时长:', currentFile.timeLen)
+          // 调整到文件边界
+          const adjustedSeekValue = Math.max(0, Math.min(fileSeekValue, currentFile.timeLen))
+          this.playSeekValue = baseSeekValue + adjustedSeekValue
+          console.log('调整后的seek值:', this.playSeekValue)
+        }
+      }
+
+      // 记录播放状态，用于seek后恢复
+      const wasPlaying = this.$refs.recordVideoPlayer.playing
+
+      // 暂停播放器，避免seek时的状态冲突
+      if (wasPlaying && this.$refs.recordVideoPlayer.pause) {
+        this.$refs.recordVideoPlayer.pause()
+      }
+
+      // 重新计算最终的文件内seek值（可能已经被调整过）
+      const finalFileSeekValue = this.playSeekValue - baseSeekValue
+
+      // 关键修复：对于按文件索引加载的流，ZLMediaKit期望的是文件内的相对时间
+      // 但是对于第一个文件（索引0），如果是通过loadRecord加载的，可能期望全局时间
+      let seekValueToSend = finalFileSeekValue
+
+      // 检查流名称是否包含文件索引（_0, _1, _2等）
+      if (this.streamInfo.stream && this.streamInfo.stream.includes('_' + this.chooseFileIndex)) {
+        // 这是按文件索引加载的流，使用文件内相对时间
+        seekValueToSend = finalFileSeekValue
+        console.log('检测到按文件索引加载的流，使用文件内seek值:', seekValueToSend, 'ms')
+      } else {
+        // 这可能是整体录像流，使用全局时间
+        seekValueToSend = this.playSeekValue
+        console.log('检测到整体录像流，使用全局seek值:', seekValueToSend, 'ms')
+      }
+
+>>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
       this.$store.dispatch('cloudRecord/seek', {
         mediaServerId: this.streamInfo.mediaServerId,
         app: this.streamInfo.app,
         stream: this.streamInfo.stream,
-        seek: this.playSeekValue,
+        seek: seekValueToSend,
         schema: 'fmp4'
       })
+<<<<<<< HEAD
+=======
+        .then(() => {
+          console.log('后端seek操作成功 - 发送的seek值:', seekValueToSend, 'ms')
+
+          // 后端seek成功后，同步前端播放器
+          this.syncPlayerSeek(wasPlaying)
+        })
+>>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
         .catch((error) => {
           console.log(error)
         })
     },
+<<<<<<< HEAD
+=======
+    syncPlayerSeek(wasPlaying) {
+      // 计算播放器需要seek到的时间（秒）
+      // playSeekValue是从录像开始的毫秒数，需要转换为当前文件内的秒数
+      if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+        let baseSeekValue = 0
+        for (let i = 0; i < this.chooseFileIndex; i++) {
+          baseSeekValue += this.detailFiles[i].timeLen
+        }
+
+        // 计算在当前文件内的偏移时间（毫秒）
+        const offsetInFile = this.playSeekValue - baseSeekValue
+        // 转换为秒
+        const seekTimeInSeconds = offsetInFile / 1000
+
+        console.log('前端播放器seek到:', seekTimeInSeconds, '秒（文件内偏移）')
+
+        // 立即更新显示时间，不等待播放器回调
+        this.updateDisplayTime()
+
+        // 延迟一点时间，确保后端seek操作完成
+        setTimeout(() => {
+          console.log('开始前端播放器seek操作')
+          console.log('播放器状态检查:', {
+            playerExists: !!this.$refs.recordVideoPlayer,
+            seekMethodExists: !!(this.$refs.recordVideoPlayer && this.$refs.recordVideoPlayer.seek),
+            playerLoaded: !!(this.$refs.recordVideoPlayer && this.$refs.recordVideoPlayer.loaded),
+            playing: !!(this.$refs.recordVideoPlayer && this.$refs.recordVideoPlayer.playing)
+          })
+
+          if (this.$refs.recordVideoPlayer && this.$refs.recordVideoPlayer.seek) {
+            console.log('调用播放器seek方法，目标时间:', seekTimeInSeconds, '秒')
+            const seekSuccess = this.$refs.recordVideoPlayer.seek(seekTimeInSeconds)
+            console.log('播放器seek方法返回值:', seekSuccess)
+
+            // seek成功后再次更新显示时间
+            if (seekSuccess) {
+              console.log('前端播放器seek成功')
+              // 延迟一点时间再更新，确保播放器内部状态已更新
+              setTimeout(() => {
+                this.updateDisplayTime()
+              }, 100)
+            } else {
+              console.warn('前端播放器seek失败，尝试重新加载播放器')
+              // 如果seek失败，尝试重新加载播放器到目标位置
+              if (this.chooseFileIndex !== null) {
+                this.playRecordByFileIndex(this.chooseFileIndex)
+              }
+            }
+
+            // 恢复播放状态
+            if (wasPlaying) {
+              setTimeout(() => {
+                if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+                  console.log('恢复播放状态')
+                  this.$refs.recordVideoPlayer.unPause()
+                }
+              }, 300) // 增加延迟时间
+            }
+          } else {
+            console.warn('播放器不支持seek操作，尝试重新加载播放器')
+            // 如果不支持seek，重新加载播放器到目标位置
+            if (this.chooseFileIndex !== null) {
+              this.playRecordByFileIndex(this.chooseFileIndex)
+            }
+
+            // 如果不支持seek，至少恢复播放状态
+            if (wasPlaying) {
+              setTimeout(() => {
+                if (this.$refs.recordVideoPlayer && !this.$refs.recordVideoPlayer.playing) {
+                  this.$refs.recordVideoPlayer.unPause()
+                }
+              }, 300)
+            }
+          }
+        }, 800) // 增加延迟时间，给后端seek操作更多时间
+      }
+    },
+    updateDisplayTime() {
+      // 手动更新显示时间，确保seek后时间显示正确
+      if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+        const selectedFile = this.detailFiles[this.chooseFileIndex]
+
+        // 计算当前文件的基础seek值
+        let baseSeekValue = 0
+        for (let i = 0; i < this.chooseFileIndex; i++) {
+          baseSeekValue += this.detailFiles[i].timeLen
+        }
+
+        // 计算在当前文件内的偏移时间（毫秒）
+        const offsetInFile = this.playSeekValue - baseSeekValue
+
+        // 更新playTime为目标时间
+        this.playTime = selectedFile.startTime + offsetInFile
+
+        // 同时更新playerTime
+        this.playerTime = offsetInFile
+
+        console.log('手动更新显示时间:', {
+          playTime: this.playTime,
+          playerTime: this.playerTime,
+          offsetInFile: offsetInFile,
+          selectedFileStartTime: selectedFile.startTime
+        })
+      }
+    },
+>>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
     downloadFile(file) {
       this.$store.dispatch('cloudRecord/getPlayPath', file.id)
         .then(data => {
@@ -483,8 +712,35 @@ export default {
     },
 
     showPlayTimeChange(val) {
+<<<<<<< HEAD
       this.playTime += (val * 1000 - this.playerTime)
       this.playerTime = val * 1000
+=======
+      // val是播放器的当前播放时间（秒），需要转换为绝对时间戳
+      if (this.chooseFileIndex !== null && this.detailFiles[this.chooseFileIndex]) {
+        const selectedFile = this.detailFiles[this.chooseFileIndex]
+
+        // 计算当前播放的绝对时间：文件开始时间 + 播放器当前时间
+        const newPlayTime = selectedFile.startTime + (val * 1000)
+        const newPlayerTime = val * 1000
+
+        // 如果正在拖动时间轴，忽略播放器的时间回调，避免冲突
+        if (this.timelineControl) {
+          console.log('正在拖动时间轴，忽略播放器时间回调')
+          return
+        }
+
+        // 更新时间
+        this.playTime = newPlayTime
+        this.playerTime = newPlayerTime
+
+        // console.log('播放器时间更新:', {
+        //   playerSeconds: val,
+        //   playTime: this.playTime,
+        //   playerTime: this.playerTime
+        // })
+      }
+>>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
     },
     playingChange(val) {
       this.playing = val
@@ -498,7 +754,16 @@ export default {
     timelineMouseDown() {
       this.timelineControl = true
     },
+<<<<<<< HEAD
     mouseupTimeline(event) {
+=======
+    onSeekFinish() {
+      console.log('播放器seek完成回调')
+      // 播放器seek完成后，确保显示时间正确
+      this.updateDisplayTime()
+    },
+    mouseupTimeline() {
+>>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
       if (!this.timelineControl) {
         this.timelineControl = false
         return
