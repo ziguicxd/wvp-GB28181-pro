@@ -211,7 +211,7 @@ $input-bg: rgba(0, 0, 0, 0.1);
     align-items: center;
     width: 100%;
     height: 100vh;
-    background-image: url(/static/images/bg19.png);
+    background-image: url(/static/images/bg19.webp);
     background-position: center center;
     background-repeat: no-repeat;
     background-size: cover;
