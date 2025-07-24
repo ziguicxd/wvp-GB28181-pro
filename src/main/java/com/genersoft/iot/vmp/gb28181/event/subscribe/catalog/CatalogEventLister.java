@@ -71,8 +71,10 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
                     for (CommonGBChannel deviceChannel : event.getChannels()) {
                         List<Platform> parentPlatformsForGB = platformChannelService.queryPlatFormListByChannelDeviceId(
                                 deviceChannel.getGbId(), platforms);
-                        platformMap.put(deviceChannel.getGbDeviceId(), parentPlatformsForGB);
-                        channelMap.put(deviceChannel.getGbDeviceId(), deviceChannel);
+                        // 统一使用gbId作为key，避免字段混用
+                        String gbIdKey = String.valueOf(deviceChannel.getGbId());
+                        platformMap.put(gbIdKey, parentPlatformsForGB);
+                        channelMap.put(gbIdKey, deviceChannel);
                     }
                 }else {
                     log.info("[Catalog事件: {}] 未订阅目录事件", event.getType());
@@ -101,18 +103,19 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
                         }
                     }
                 }else if (!platformMap.keySet().isEmpty()) {
-                    for (String serverGbId : platformMap.keySet()) {
-                        List<Platform> platformList = platformMap.get(serverGbId);
+                    for (String gbIdKey : platformMap.keySet()) {
+                        List<Platform> platformList = platformMap.get(gbIdKey);
                         if (platformList != null && !platformList.isEmpty()) {
+                            CommonGBChannel originalChannel = channelMap.get(gbIdKey);
                             for (Platform platform : platformList) {
                                 SubscribeInfo subscribeInfo = subscribeHolder.getCatalogSubscribe(platform.getServerGBId());
                                 if (subscribeInfo == null) {
                                     continue;
                                 }
-                                log.info("[Catalog事件: {}]平台：{}，影响通道{}", event.getType(), platform.getServerGBId(), serverGbId);
+                                log.info("[Catalog事件: {}]平台：{}，影响通道{}", event.getType(), platform.getServerGBId(), originalChannel.getGbDeviceId());
                                 List<CommonGBChannel> deviceChannelList = new ArrayList<>();
                                 CommonGBChannel deviceChannel = new CommonGBChannel();
-                                deviceChannel.setGbDeviceId(serverGbId);
+                                deviceChannel.setGbDeviceId(originalChannel.getGbDeviceId());
                                 deviceChannelList.add(deviceChannel);
                                 try {
                                     sipCommanderFroPlatform.sendNotifyForCatalogOther(event.getType(), platform, deviceChannelList, subscribeInfo, null);
@@ -122,7 +125,9 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
                                 }
                             }
                         }else {
-                            log.info("[Catalog事件: {}] 未找到上级平台： {}", event.getType(), serverGbId);
+                            CommonGBChannel originalChannel = channelMap.get(gbIdKey);
+                            String channelDeviceId = originalChannel != null ? originalChannel.getGbDeviceId() : gbIdKey;
+                            log.info("[Catalog事件: {}] 未找到上级平台： {}", event.getType(), channelDeviceId);
                         }
                     }
                 }
@@ -148,18 +153,18 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
                         }
                     }
                 }else if (!platformMap.keySet().isEmpty()) {
-                    for (String gbId : platformMap.keySet()) {
-                        List<Platform> parentPlatforms = platformMap.get(gbId);
+                    for (String gbIdKey : platformMap.keySet()) {
+                        List<Platform> parentPlatforms = platformMap.get(gbIdKey);
                         if (parentPlatforms != null && !parentPlatforms.isEmpty()) {
+                            CommonGBChannel originalChannel = channelMap.get(gbIdKey);
                             for (Platform platform : parentPlatforms) {
                                 SubscribeInfo subscribeInfo = subscribeHolder.getCatalogSubscribe(platform.getServerGBId());
                                 if (subscribeInfo == null) {
                                     continue;
                                 }
-                                log.info("[Catalog事件: {}]平台：{}，影响通道{}", event.getType(), platform.getServerGBId(), gbId);
+                                log.info("[Catalog事件: {}]平台：{}，影响通道{}", event.getType(), platform.getServerGBId(), originalChannel.getGbDeviceId());
                                 List<CommonGBChannel> channelList = new ArrayList<>();
-                                CommonGBChannel deviceChannel = channelMap.get(gbId);
-                                channelList.add(deviceChannel);
+                                channelList.add(originalChannel);
                                 try {
                                     sipCommanderFroPlatform.sendNotifyForCatalogAddOrUpdate(event.getType(), platform, channelList, subscribeInfo, null);
                                 } catch (InvalidArgumentException | ParseException | NoSuchFieldException |
