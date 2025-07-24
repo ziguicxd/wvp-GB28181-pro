@@ -1,6 +1,5 @@
 <template>
   <div class="login-container">
-<<<<<<< HEAD
     <div
       style="justify-content: center;
       align-items: center;
@@ -12,9 +11,6 @@
       background-repeat: no-repeat;
       background-size: cover;"
     >
-=======
-    <div class="background">
->>>>>>> 56c82d60b (增加验证码图标)
       <el-form
         ref="loginForm"
         :model="loginForm"
@@ -109,11 +105,7 @@
 </template>
 
 <script>
-<<<<<<< HEAD
 import {validUsername} from '@/utils/validate'
-=======
-import { validUsername } from '@/utils/validate';
->>>>>>> 22bc05998 (增加登录验证码)
 
 export default {
   name: 'Login',

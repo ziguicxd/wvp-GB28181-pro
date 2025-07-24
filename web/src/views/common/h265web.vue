@@ -203,17 +203,6 @@ export default {
           console.warn('播放器时间回调出现错误:', error)
         }
       }
-<<<<<<< HEAD
-=======
-      h265web.onSeekFinish = () => {
-        try {
-          console.log('播放器seek完成')
-          this.$emit('seekFinish')
-        } catch (error) {
-          console.warn('播放器seek完成回调出现错误:', error)
-        }
-      }
->>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
       h265web.do()
     },
     screenshot: function() {
@@ -370,77 +359,7 @@ export default {
       } catch (error) {
         console.warn('设置播放倍速时出现错误:', error)
       }
-<<<<<<< HEAD
-    }
-=======
     },
-    seek: function(pts) {
-      try {
-        console.log('h265web播放器seek方法被调用，目标时间:', pts, '秒')
-        console.log('播放器状态:', {
-          playerExists: !!h265webPlayer[this._uid],
-          seekMethodExists: !!(h265webPlayer[this._uid] && h265webPlayer[this._uid].seek),
-          playerUid: this._uid,
-          loaded: this.loaded,
-          playing: this.playing
-        })
-
-        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].seek) {
-          console.log('执行播放器seek操作到:', pts, '秒')
-
-          // 检查pts值是否合理
-          if (pts < 0) {
-            console.warn('seek时间小于0，调整为0')
-            pts = 0
-          }
-
-          // 执行seek操作
-          h265webPlayer[this._uid].seek(pts)
-          console.log('播放器seek操作已执行')
-
-          // 验证seek是否成功（尝试不同的时间获取方法）
-          setTimeout(() => {
-            try {
-              let currentTime = null
-
-              // 尝试不同的时间获取方法
-              if (h265webPlayer[this._uid]) {
-                if (h265webPlayer[this._uid].getCurrentTime) {
-                  currentTime = h265webPlayer[this._uid].getCurrentTime()
-                } else if (h265webPlayer[this._uid].getTime) {
-                  currentTime = h265webPlayer[this._uid].getTime()
-                } else if (h265webPlayer[this._uid].currentTime !== undefined) {
-                  currentTime = h265webPlayer[this._uid].currentTime
-                }
-
-                if (currentTime !== null) {
-                  console.log('seek后播放器当前时间:', currentTime, '秒，目标时间:', pts, '秒')
-                  if (Math.abs(currentTime - pts) > 2) {
-                    console.warn('seek可能未成功，时间差异较大')
-                  }
-                } else {
-                  console.log('播放器不支持获取当前时间，无法验证seek结果')
-                }
-              }
-            } catch (error) {
-              console.warn('验证seek结果时出现错误:', error)
-            }
-          }, 100)
-
-          return true
-        } else {
-          console.warn('播放器未准备好或不支持seek操作', {
-            playerExists: !!h265webPlayer[this._uid],
-            seekMethodExists: !!(h265webPlayer[this._uid] && h265webPlayer[this._uid].seek)
-          })
-          return false
-        }
-      } catch (error) {
-        console.error('播放器seek时出现错误:', error)
-        return false
-      }
-    },
-
     // 确保全局拦截器正常工作
     ensureGlobalInterceptorActive() {
       try {
@@ -462,7 +381,6 @@ export default {
     },
 
 
->>>>>>> 1eb0c96c5 (屏蔽H265播放器原始日志)
   }
 }
 </script>
