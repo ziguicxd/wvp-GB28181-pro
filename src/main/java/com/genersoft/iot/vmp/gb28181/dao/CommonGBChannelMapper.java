@@ -150,14 +150,14 @@ public interface CommonGBChannelMapper {
 
     @Update(value = {" <script>" +
             " UPDATE wvp_device_channel " +
-            " SET gb_status = #{status}" +
+            " SET gb_status = #{status}, status = #{status}" +
             " WHERE id = #{gbId}"+
             " </script>"})
     int updateStatusById(@Param("gbId") int gbId, @Param("status") String status);
 
     @Update("<script> " +
             "<foreach collection='commonGBChannels' index='index' item='item' separator=';'> " +
-            "UPDATE wvp_device_channel SET gb_status = #{status} WHERE id = #{item.gbId}" +
+            "UPDATE wvp_device_channel SET gb_status = #{status}, status = #{status} WHERE id = #{item.gbId}" +
             "</foreach> " +
             "</script>")
     int updateStatusForListById(List<CommonGBChannel> commonGBChannels, @Param("status") String status);
@@ -221,7 +221,7 @@ public interface CommonGBChannelMapper {
 
     @Update("<script> " +
             "<foreach collection='commonGBChannels' index='index' item='item' separator=';'> " +
-            "UPDATE wvp_device_channel SET gb_status = #{item.gbStatus} WHERE id = #{item.gbId}" +
+            "UPDATE wvp_device_channel SET gb_status = #{item.gbStatus}, status = #{item.gbStatus} WHERE id = #{item.gbId}" +
             "</foreach> " +
             "</script>")
     int updateStatus(List<CommonGBChannel> commonGBChannels);

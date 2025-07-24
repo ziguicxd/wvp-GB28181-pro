@@ -416,14 +416,14 @@ public class DeviceServiceImpl implements IDeviceService, CommandLineRunner {
     }
 
     private void channelOfflineByDevice(Device device) {
-        // 进行通道离线
+        // 先查询在线通道列表用于发送通知
         List<CommonGBChannel> channelList = commonGBChannelMapper.queryOnlineListsByGbDeviceId(device.getId());
-        if (channelList.isEmpty()) {
-            return;
-        }
+        // 直接执行通道离线操作，不管是否有在线通道
         deviceChannelMapper.offlineByDeviceId(device.getId());
-        // 发送通道离线通知
-        eventPublisher.catalogEventPublish(null, channelList, CatalogEvent.OFF);
+        // 如果有在线通道，发送通道离线通知
+        if (!channelList.isEmpty()) {
+            eventPublisher.catalogEventPublish(null, channelList, CatalogEvent.OFF);
+        }
     }
 
     private boolean isDevice(String deviceId) {
