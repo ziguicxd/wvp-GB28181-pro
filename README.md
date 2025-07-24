@@ -1,4 +1,4 @@
-![logo](doc/_media/logo.png)
+![logo](doc/_media/mediaserver-logo.png)
 # 开箱即用的28181协议视频平台
 
 [![Build Status](https://travis-ci.org/xia-chu/ZLMediaKit.svg?branch=master)](https://travis-ci.org/xia-chu/ZLMediaKit)

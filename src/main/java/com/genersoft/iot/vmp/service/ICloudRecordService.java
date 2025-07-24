@@ -13,47 +13,23 @@ import java.util.Set;
 
 /**
  * 云端录像管理
+ * 
  * @author lin
  */
 public interface ICloudRecordService {
 
-<<<<<<< HEAD
-    /**
-     * 分页回去云端录像列表
-     */
-    PageInfo<CloudRecordItem> getList(int page, int count, String query,  String app, String stream, String startTime, String endTime, List<MediaServer> mediaServerItems, String callId, Boolean ascOrder);
-=======
         /**
          * 分页回去云端录像列表
          */
         PageInfo<CloudRecordItem> getList(int page, int count, String query, String app, String stream,
-                        String startTime,
-                        String endTime, List<MediaServer> mediaServerItems, String callId, Boolean ascOrder);
->>>>>>> e1caa29e2 (取消20倍速播放)
+                        String startTime, String endTime, List<MediaServer> mediaServerItems, String callId,
+                        Boolean ascOrder);
 
         /**
          * 获取所有的日期
          */
         List<String> getDateList(String app, String stream, int year, int month, List<MediaServer> mediaServerItems);
 
-<<<<<<< HEAD
-    /**
-     * 添加合并任务
-     */
-    String addTask(String app, String stream, MediaServer mediaServerItem, String startTime,
-                   String endTime, String callId, String remoteHost, boolean filterMediaServer);
-
-
-    /**
-     * 查询合并任务列表
-     */
-    JSONArray queryTask(String app, String stream, String callId, String taskId, String mediaServerId, Boolean isEnd, String scheme);
-
-    /**
-     * 收藏视频，收藏的视频过期不会删除
-     */
-    int changeCollect(boolean result, String app, String stream, String mediaServerId, String startTime, String endTime, String callId);
-=======
         /**
          * 添加合并任务
          */
@@ -64,16 +40,13 @@ public interface ICloudRecordService {
          * 查询合并任务列表
          */
         JSONArray queryTask(String app, String stream, String callId, String taskId, String mediaServerId,
-                        Boolean isEnd,
-                        String scheme);
+                        Boolean isEnd, String scheme);
 
         /**
          * 收藏视频，收藏的视频过期不会删除
          */
         int changeCollect(boolean result, String app, String stream, String mediaServerId, String startTime,
-                        String endTime,
-                        String callId);
->>>>>>> e1caa29e2 (取消20倍速播放)
+                        String endTime, String callId);
 
         /**
          * 添加指定录像收藏
@@ -85,29 +58,15 @@ public interface ICloudRecordService {
          */
         DownloadFileInfo getPlayUrlPath(Integer recordId);
 
-<<<<<<< HEAD
-    List<CloudRecordItem> getAllList(String query, String app, String stream, String startTime, String endTime, List<MediaServer> mediaServerItems, String callId, List<Integer> ids);
-=======
         List<CloudRecordItem> getAllList(String query, String app, String stream, String startTime, String endTime,
                         List<MediaServer> mediaServerItems, String callId, List<Integer> ids);
->>>>>>> e1caa29e2 (取消20倍速播放)
 
         /**
          * 加载录像文件，形成录像流
          */
         void loadRecord(String app, String stream, String date, ErrorCallback<StreamInfo> callback);
 
-<<<<<<< HEAD
-    void seekRecord(String mediaServerId,String app, String stream, Double seek, String schema);
-=======
-        /**
-         * 根据文件索引加载指定的录像文件
-         */
-        void loadRecordByFileIndex(String app, String stream, String date, Integer fileIndex,
-                        ErrorCallback<StreamInfo> callback);
-
         void seekRecord(String mediaServerId, String app, String stream, Double seek, String schema);
->>>>>>> e1caa29e2 (取消20倍速播放)
 
         void setRecordSpeed(String mediaServerId, String app, String stream, Integer speed, String schema);
 

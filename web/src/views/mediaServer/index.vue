@@ -122,7 +122,7 @@ export default {
   }
   .card-img-zlm{
     width: 200px; height: 200px;
-    background: url('../../assets/zlm-logo.png') no-repeat center;
+    background: url('../../assets/mediaserver-logo.png') no-repeat center;
     background-position: center;
     background-size: contain;
     margin: 0 auto;
