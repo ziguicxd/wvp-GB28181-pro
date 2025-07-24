@@ -245,6 +245,7 @@ public interface DeviceChannelMapper {
             ", port=#{item.port}" +
             ", password=#{item.password}" +
             ", status=#{item.status}" +
+            ", gb_status=#{item.status}" +
             ", longitude=#{item.longitude}" +
             ", latitude=#{item.latitude}" +
             ", ptz_type=#{item.ptzType}" +
@@ -298,6 +299,7 @@ public interface DeviceChannelMapper {
             ", port=#{item.port}" +
             ", password=#{item.password}" +
             ", status=#{item.status}" +
+            ", gb_status=#{item.status}" +
             ", longitude=#{item.longitude}" +
             ", latitude=#{item.latitude}" +
             ", ptz_type=#{item.ptzType}" +
