@@ -65,9 +65,17 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
         } else {
             List<Platform> allPlatform = platformService.queryAll(userSetting.getServerId());
             log.debug("[Catalog事件: {}] 查询到所有平台数量: {}", event.getType(), allPlatform.size());
+            if (log.isDebugEnabled()) {
+                for (Platform p : allPlatform) {
+                    log.debug("[Catalog事件: {}] 平台信息: id={}, serverGBId={}, name={}", event.getType(), p.getId(), p.getServerGBId(), p.getName());
+                }
+            }
             // 获取所用订阅
             List<String> platforms = subscribeHolder.getAllCatalogSubscribePlatform(allPlatform);
             log.info("[Catalog事件: {}] 已订阅目录事件的平台数量: {}, 平台列表: {}", event.getType(), platforms.size(), platforms);
+            if (platforms.isEmpty() && !allPlatform.isEmpty()) {
+                log.warn("[Catalog事件: {}] 所有平台都未订阅目录事件，请检查Redis订阅信息", event.getType());
+            }
             if (event.getChannels() != null) {
                 if (!platforms.isEmpty()) {
                     for (CommonGBChannel deviceChannel : event.getChannels()) {
@@ -81,10 +89,10 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
                         channelMap.put(gbIdKey, deviceChannel);
                     }
                 } else {
-                    log.info("[Catalog事件: {}] 未订阅目录事件，跳过处理", event.getType());
+                    log.warn("[Catalog事件: {}] 未订阅目录事件，跳过处理。总平台数: {}", event.getType(), allPlatform.size());
                 }
             } else {
-                log.info("[Catalog事件: {}] 事件内通道数为0", event.getType());
+                log.warn("[Catalog事件: {}] 事件内通道数为0", event.getType());
             }
         }
         switch (event.getType()) {

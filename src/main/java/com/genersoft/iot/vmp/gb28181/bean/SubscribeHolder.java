@@ -92,15 +92,20 @@ public class SubscribeHolder {
 
     public List<String> getAllCatalogSubscribePlatform(List<Platform> platformList) {
         if (platformList == null || platformList.isEmpty()) {
+            log.debug("[订阅检查] 平台列表为空");
             return new ArrayList<>();
         }
         List<String> result = new ArrayList<>();
+        log.debug("[订阅检查] 开始检查{}个平台的目录订阅状态", platformList.size());
         for (Platform platform : platformList) {
             String key = String.format("%s_%s_%s_%s", prefix, userSetting.getServerId(), "catalog", platform.getServerGBId());
-            if (redisTemplate.hasKey(key)) {
+            boolean hasKey = redisTemplate.hasKey(key);
+            log.debug("[订阅检查] 平台: {}, Redis Key: {}, 是否存在: {}", platform.getServerGBId(), key, hasKey);
+            if (hasKey) {
                 result.add(platform.getServerGBId());
             }
         }
+        log.debug("[订阅检查] 检查完成，找到{}个已订阅平台: {}", result.size(), result);
         return result;
     }
 
