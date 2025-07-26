@@ -67,7 +67,8 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
             log.debug("[Catalog事件: {}] 查询到所有平台数量: {}", event.getType(), allPlatform.size());
             if (log.isDebugEnabled()) {
                 for (Platform p : allPlatform) {
-                    log.debug("[Catalog事件: {}] 平台信息: id={}, serverGBId={}, name={}", event.getType(), p.getId(), p.getServerGBId(), p.getName());
+                    log.debug("[Catalog事件: {}] 平台信息: id={}, serverGBId={}, name={}", event.getType(), p.getId(),
+                            p.getServerGBId(), p.getName());
                 }
             }
             // 获取所用订阅
@@ -79,6 +80,16 @@ public class CatalogEventLister implements ApplicationListener<CatalogEvent> {
             if (event.getChannels() != null) {
                 if (!platforms.isEmpty()) {
                     for (CommonGBChannel deviceChannel : event.getChannels()) {
+                        log.debug("[Catalog事件: {}] 处理通道: gbId={}, gbDeviceId={}, dataDeviceId={}",
+                                event.getType(), deviceChannel.getGbId(), deviceChannel.getGbDeviceId(),
+                                deviceChannel.getDataDeviceId());
+
+                        if (deviceChannel.getGbId() == null || deviceChannel.getGbId() == 0) {
+                            log.warn("[Catalog事件: {}] 通道gbId为空或为0，跳过处理: {}", event.getType(),
+                                    deviceChannel.getGbDeviceId());
+                            continue;
+                        }
+
                         List<Platform> parentPlatformsForGB = platformChannelService.queryPlatFormListByChannelDeviceId(
                                 deviceChannel.getGbId(), platforms);
                         log.debug("[Catalog事件: {}] 通道{}查询到上级平台数量: {}", event.getType(), deviceChannel.getGbDeviceId(),

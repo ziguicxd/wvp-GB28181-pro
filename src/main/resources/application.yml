@@ -146,8 +146,11 @@ media:
     record-assist-port: 18081
 
 # [可选] 日志配置, 如果不需要在jar外修改日志内容那么可以不配置此项
-#logging:
-#    config: classpath:logback-spring.xml
+logging:
+  config: classpath:logback-spring.xml  # 保留原有配置
+  level:
+    root: DEBUG
+    com.example: DEBUG
 
 # [根据业务需求配置]
 user-settings:
