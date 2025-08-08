@@ -57,7 +57,6 @@ import java.util.Map;
 @RequestMapping("/api/server")
 public class ServerController {
 
-
     @Autowired
     private IMediaServerService mediaServerService;
 
@@ -88,13 +87,11 @@ public class ServerController {
     @Value("${server.port}")
     private int serverPort;
 
-
     @Autowired
     private IRedisCatchStorage redisCatchStorage;
 
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
-
 
     @GetMapping(value = "/media_server/list")
     @ResponseBody
@@ -124,7 +121,8 @@ public class ServerController {
     @Parameter(name = "secret", description = "流媒体服务secret", required = true)
     @GetMapping(value = "/media_server/check")
     @ResponseBody
-    public MediaServer checkMediaServer(@RequestParam String ip, @RequestParam int port, @RequestParam String secret, @RequestParam String type) {
+    public MediaServer checkMediaServer(@RequestParam String ip, @RequestParam int port, @RequestParam String secret,
+            @RequestParam String type) {
         return mediaServerService.checkMediaServer(ip, port, secret, type);
     }
 
@@ -183,7 +181,6 @@ public class ServerController {
         }
         return mediaServerService.getMediaInfo(mediaServer, app, stream);
     }
-
 
     @Operation(summary = "关闭服务", security = @SecurityRequirement(name = JwtUtils.HEADER))
     @GetMapping(value = "/shutdown")
@@ -296,7 +293,8 @@ public class ServerController {
         hardwareMap.put("CPU", processorIdentifier.getName());
         // 获取内存
         GlobalMemory memory = hardware.getMemory();
-        hardwareMap.put("内存", formatByte(memory.getTotal() - memory.getAvailable()) + "/" + formatByte(memory.getTotal()));
+        hardwareMap.put("内存",
+                formatByte(memory.getTotal() - memory.getAvailable()) + "/" + formatByte(memory.getTotal()));
         hardwareMap.put("制造商", systemInfo.getHardware().getComputerSystem().getManufacturer());
         hardwareMap.put("产品名称", systemInfo.getHardware().getComputerSystem().getModel());
         // 网卡
@@ -326,17 +324,18 @@ public class ServerController {
         VersionPo version = versionInfo.getVersion();
         platformMap.put("版本", version.getVersion());
         platformMap.put("构建日期", version.getBUILD_DATE());
-        platformMap.put("GIT分支", version.getGIT_BRANCH());
-        platformMap.put("GIT地址", version.getGIT_URL());
-        platformMap.put("GIT日期", version.getGIT_DATE());
-        platformMap.put("GIT版本", version.getGIT_Revision_SHORT());
-        platformMap.put("DOCKER环境", new File("/.dockerenv").exists()?"是":"否");
+        // platformMap.put("GIT分支", version.getGIT_BRANCH());
+        // platformMap.put("GIT地址", version.getGIT_URL());
+        // platformMap.put("GIT日期", version.getGIT_DATE());
+        // platformMap.put("GIT版本", version.getGIT_Revision_SHORT());
+        platformMap.put("DOCKER环境", new File("/.dockerenv").exists() ? "是" : "否");
 
-        Map<String, String> docmap = new LinkedHashMap<>();
-        result.put("文档地址", docmap);
-        docmap.put("部署文档", "https://doc.wvp-pro.cn");
-        docmap.put("接口文档", String.format("%s://%s:%s/doc.html", request.getScheme(), request.getServerName(), request.getServerPort()));
-
+        // Map<String, String> docmap = new LinkedHashMap<>();
+        // result.put("文档地址", docmap);
+        // docmap.put("部署文档", "https://doc.wvp-pro.cn");
+        // docmap.put("接口文档", String.format("%s://%s:%s/doc.html", request.getScheme(),
+        // request.getServerName(),
+        // request.getServerPort()));
 
         return result;
     }
@@ -345,7 +344,7 @@ public class ServerController {
      * 单位转换
      */
     private static String formatByte(long byteNumber) {
-        //换算单位
+        // 换算单位
         double FORMAT = 1024.0;
         double kbNumber = byteNumber / FORMAT;
         if (kbNumber < FORMAT) {

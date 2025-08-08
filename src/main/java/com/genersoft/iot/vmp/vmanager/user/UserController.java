@@ -22,14 +22,16 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Tag(name  = "用户管理")
+@Tag(name = "用户管理")
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
@@ -46,51 +48,103 @@ public class UserController {
     @Autowired
     private UserSetting userSetting;
 
+    @Value("${system.fixedKey}")
+    private String fixedKey; // 从配置文件加载固定密钥
+
+    @Value("#{'${system.allowedIps}'.split(',')}")
+    private List<String> allowedIps; // 从配置文件加载允许访问的IP白名单
+
+    /**
+     * 用户登录
+     */
     @GetMapping("/login")
     @PostMapping("/login")
     @Operation(summary = "登录", description = "登录成功后返回AccessToken， 可以从返回值获取到也可以从响应头中获取到，" +
             "后续的请求需要添加请求头 'access-token'或者放在参数里")
-
     @Parameter(name = "username", description = "用户名", required = true)
     @Parameter(name = "password", description = "密码（32位md5加密）", required = true)
-    public LoginUser login(HttpServletRequest request, HttpServletResponse response, @RequestParam String username, @RequestParam String password){
+    @Parameter(name = "captcha", description = "验证码", required = false)
+    @Parameter(name = "fixedKey", description = "固定密钥，用于绕过验证码", required = false)
+    public LoginUser login(HttpServletRequest request, HttpServletResponse response, 
+                           @RequestParam String username, 
+                           @RequestParam String password, 
+                           @RequestParam(required = false) String captcha,
+                           @RequestParam(required = false) String fixedKey) {
+
+        // 如果传入 fixedKey，则验证其值是否与系统配置一致
+        if (fixedKey != null) {
+            if (!fixedKey.equals(this.fixedKey)) {
+                throw new ControllerException(ErrorCode.ERROR100.getCode(), "固定密钥错误");
+            }
+
+            // 获取客户端IP地址
+            String clientIp = request.getRemoteAddr();
+
+            // 验证IP白名单
+            if (!allowedIps.contains(clientIp)) {
+                throw new ControllerException(ErrorCode.ERROR100.getCode(), "IP地址不被允许访问: " + clientIp);
+            }
+
+            // 绕过验证码验证，直接登录
+            return processLogin(username, password, response);
+        }
+
+        // 如果没有提供 fixedKey 或者 fixedKey 不匹配，则进行验证码验证
+        HttpSession session = request.getSession();
+        String sessionCaptcha = (String) session.getAttribute("captcha");
+        if (sessionCaptcha == null || !captcha.equalsIgnoreCase(sessionCaptcha)) {
+            throw new ControllerException(ErrorCode.ERROR100.getCode(), "验证码错误");
+        }
+
+        // 处理登录逻辑
+        return processLogin(username, password, response);
+    }
+
+    /**
+     * 处理用户登录逻辑
+     */
+    private LoginUser processLogin(String username, String password, HttpServletResponse response) {
         LoginUser user;
         try {
             user = SecurityUtils.login(username, password, authenticationManager);
         } catch (AuthenticationException e) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), e.getMessage());
         }
+
         if (user == null) {
             throw new ControllerException(ErrorCode.ERROR100.getCode(), "用户名或密码错误");
-        }else {
+        } else {
+            // 生成JWT令牌
             String jwt = JwtUtils.createToken(username);
             response.setHeader(JwtUtils.getHeader(), jwt);
             user.setAccessToken(jwt);
             user.setServerId(userSetting.getServerId());
         }
+
         return user;
     }
 
-
+    /**
+     * 修改密码
+     */
     @PostMapping("/changePassword")
     @Operation(summary = "修改密码", security = @SecurityRequirement(name = JwtUtils.HEADER))
     @Parameter(name = "username", description = "用户名", required = true)
     @Parameter(name = "oldpassword", description = "旧密码（已md5加密的密码）", required = true)
     @Parameter(name = "password", description = "新密码（未md5加密的密码）", required = true)
-    public void changePassword(@RequestParam String oldPassword, @RequestParam String password){
-        // 获取当前登录用户id
+    public void changePassword(@RequestParam String oldPassword, @RequestParam String password) {
         LoginUser userInfo = SecurityUtils.getUserInfo();
-        if (userInfo== null) {
+        if (userInfo == null) {
             throw new ControllerException(ErrorCode.ERROR100);
         }
+
         String username = userInfo.getUsername();
-        LoginUser user = null;
+        LoginUser user;
         try {
             user = SecurityUtils.login(username, oldPassword, authenticationManager);
             if (user == null) {
                 throw new ControllerException(ErrorCode.ERROR100);
             }
-            //int userId = SecurityUtils.getUserId();
             boolean result = userService.changePassword(user.getId(), DigestUtils.md5DigestAsHex(password.getBytes()));
             if (!result) {
                 throw new ControllerException(ErrorCode.ERROR100);

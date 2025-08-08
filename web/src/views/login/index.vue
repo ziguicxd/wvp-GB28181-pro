@@ -1,22 +1,35 @@
 <template>
   <div class="login-container">
     <div
-
       style="justify-content: center;
       align-items: center;
       width: 100%;
       height: 100vh;
       display: flex;
-      background-image: url(/static/images/bg19.webp);
+      background-image: url(/static/images/background.webp);
       background-position: center center;
       background-repeat: no-repeat;
       background-size: cover;"
     >
-      <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" auto-complete="on" label-position="left">
+      <el-form
+        ref="loginForm"
+        :model="loginForm"
+        :rules="loginRules"
+        class="login-form"
+        auto-complete="on"
+        label-position="left"
+      >
+        <!-- 隐藏字段，用于欺骗浏览器自动填充 -->
+        <div style="display:none">
+          <input type="text" name="fakeusernameremembered" />
+          <input type="password" name="fakepasswordremembered" />
+        </div>      
+        <!-- 标题 -->
         <div class="title-container">
-          <h3 class="title">WVP视频平台</h3>
+          <h3 class="title">视频汇聚平台</h3>
         </div>
 
+        <!-- 用户名 -->
         <el-form-item prop="username">
           <span class="svg-container">
             <svg-icon icon-class="user" />
@@ -29,9 +42,11 @@
             type="text"
             tabindex="1"
             auto-complete="on"
+            @keyup.enter.native="handleLogin"
           />
         </el-form-item>
 
+        <!-- 密码 -->
         <el-form-item prop="password">
           <span class="svg-container">
             <svg-icon icon-class="password" />
@@ -47,16 +62,45 @@
             auto-complete="on"
             @keyup.enter.native="handleLogin"
           />
-          <span class="show-pwd" @click="showPwd">
+          <span class="show-pwd" @click="togglePasswordVisibility">
             <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
           </span>
         </el-form-item>
 
-        <el-button :loading="loading" type="primary" style="width:100%;margin-bottom:30px;" @click.native.prevent="handleLogin">登录</el-button>
+        <!-- 验证码 -->
+        <el-form-item prop="captcha">
+          <div class="captcha-container">
+            <span class="svg-container">
+              <svg-icon icon-class="captcha" />
+            </span>
+            <el-input
+              v-model="loginForm.captcha"
+              placeholder="验证码"
+              name="captcha"
+              tabindex="3"
+              auto-complete="off"
+              @keyup.enter.native="handleLogin"
+            />
+            <img
+              :src="captchaSrc"
+              @click="refreshCaptcha"
+              class="captcha-image"
+              alt="验证码"
+            />
+          </div>
+        </el-form-item>
 
+        <!-- 登录按钮 -->
+        <el-button
+          :loading="loading"
+          type="primary"
+          class="login-button"
+          @click.prevent="handleLogin"
+        >
+          登录
+        </el-button>
       </el-form>
     </div>
-
   </div>
 </template>
 
@@ -66,89 +110,176 @@ import {validUsername} from '@/utils/validate'
 export default {
   name: 'Login',
   data() {
+    // 定义验证规则
     const validateUsername = (rule, value, callback) => {
       if (!validUsername(value)) {
-        callback(new Error('请输入用户名'))
+        callback(new Error('请输入用户名'));
       } else {
-        callback()
+        callback();
       }
-    }
+    };
+
     const validatePassword = (rule, value, callback) => {
-      callback()
-    }
+      if (!value) {
+        callback(new Error('请输入密码'));
+      } else {
+        callback();
+      }
+    };
+
+    const validateCaptcha = (rule, value, callback) => {
+      if (!value) {
+        callback(new Error('请输入验证码'));
+      } else {
+        callback();
+      }
+    };
+
     return {
       loginForm: {
         username: '',
-        password: ''
+        password: '',
+        captcha: '',
       },
       loginRules: {
         username: [{ required: true, trigger: 'blur', validator: validateUsername }],
-        password: [{ required: true, trigger: 'blur', validator: validatePassword }]
+        password: [{ required: true, trigger: 'blur', validator: validatePassword }],
+        captcha: [{ required: true, trigger: 'blur', validator: validateCaptcha }],
       },
       loading: false,
-      passwordType: 'password',
-      redirect: undefined
-    }
+      passwordType: 'password', // 密码显示类型
+      captchaSrc: '/api/captcha?' + new Date().getTime(), // 验证码图片地址
+    };
   },
-  watch: {
-    $route: {
-      handler: function(route) {
-        this.redirect = route.query && route.query.redirect
-      },
-      immediate: true
-    }
+    mounted() {
+    // 清除自动填充
+    this.$nextTick(() => {
+      setTimeout(() => {
+        // 延迟清除输入框的值，防止浏览器自动填充
+        document.querySelectorAll('input[type="text"], input[type="password"]').forEach(input => {
+          input.value = '';
+        });
+        this.loginForm.username = '';
+        this.loginForm.password = '';
+        this.loginForm.captcha = '';
+      }, 100);
+    });
   },
   methods: {
-    showPwd() {
-      if (this.passwordType === 'password') {
-        this.passwordType = ''
-      } else {
-        this.passwordType = 'password'
-      }
+    // 切换密码可见性
+    togglePasswordVisibility() {
+      this.passwordType = this.passwordType === 'password' ? 'text' : 'password';
       this.$nextTick(() => {
-        this.$refs.password.focus()
-      })
+        this.$refs.password.focus();
+      });
     },
+    // 刷新验证码
+    refreshCaptcha() {
+      this.captchaSrc = '/api/captcha?' + new Date().getTime();
+    },
+    // 登录处理
     handleLogin() {
-      this.$refs.loginForm.validate(valid => {
+      this.$refs.loginForm.validate((valid) => {
         if (valid) {
-          this.loading = true
-          this.$store.dispatch('user/login', this.loginForm).then((re) => {
-            this.$router.push({ path: this.redirect || '/' })
-            this.loading = false
-          }).catch(() => {
-            this.loading = false
-          })
+          this.loading = true;
+          this.$store
+            .dispatch('user/login', this.loginForm)
+            .then(() => {
+              this.$router.push({ path: this.redirect || '/' });
+              this.loading = false;
+            })
+            .catch(() => {
+              this.loading = false;
+              this.refreshCaptcha(); // 登录失败时刷新验证码
+            });
         } else {
-          console.log('error submit!!')
-          return false
+          console.log('表单验证失败');
+          return false;
         }
-      })
-    }
-  }
-}
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss">
-/* 修复input 背景不协调 和光标变色 */
-/* Detail see https://github.com/PanJiaChen/vue-element-admin/pull/927 */
+/* 样式变量 */
+$bg-color: #162e46;
+$text-color-light: #eee;
+$text-color-dark: #454545;
+$input-bg: rgba(0, 0, 0, 0.1);
 
-$bg:#283443;
-$light_gray:#fff;
-$cursor: #fff;
-
-@supports (-webkit-mask: none) and (not (cater-color: $cursor)) {
-  .login-container .el-input input {
-    color: $cursor;
-  }
-}
-
-/* reset element-ui css */
 .login-container {
-  margin: 0;
+  min-height: 100%;
   width: 100%;
-  height: 100%;
-  user-select: none;
+  background-color: $bg-color;
+  overflow: hidden;
+
+  .background {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100vh;
+    background-image: url(/static/images/background.png);
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .login-form {
+    position: relative;
+    width: 448px;
+    max-width: 100%;
+    min-height: 420px;
+    max-height: 80vh;
+    padding: 40px 35px;
+    margin: 0 auto;
+    border-radius: 24px;
+    border: 1px solid rgba(160, 174, 192, 0.25);
+    -webkit-backdrop-filter: blur(30px);
+    backdrop-filter: blur(30px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    .title-container {
+      text-align: center;
+      margin-bottom: 30px;
+
+      .title {
+        font-size: 26px;
+        color: $text-color-light;
+        font-weight: bold;
+      }
+    }
+
+    .svg-container {
+      padding: 6px 5px 6px 15px;
+      color: $text-color-light;
+      vertical-align: middle;
+      width: 30px;
+      display: inline-block;
+    }
+
+    .captcha-container {
+      display: flex;
+      align-items: center;
+
+      .captcha-image {
+        cursor: pointer;
+        margin-left: 10px;
+        height: 36px;
+      }
+    }
+
+    .login-button {
+      width: 100%;
+      margin-bottom: 10px;
+      margin-top: 10px;
+    }
+  }
+
   .el-input {
     display: inline-block;
     height: 47px;
@@ -156,85 +287,24 @@ $cursor: #fff;
 
     input {
       background: transparent;
-      border: 0px;
-      -webkit-appearance: none;
-      border-radius: 0px;
+      border: 0;
       padding: 12px 5px 12px 15px;
-      color: $light_gray;
-      height: 47px;
-      caret-color: $cursor;
+      color: $text-color-light;
+      caret-color: $text-color-light;
 
       &:-webkit-autofill {
-        box-shadow: 0 0 0px 1000px $bg inset !important;
-        -webkit-text-fill-color: $cursor !important;
+        box-shadow: 0 0 0px 1000px $bg-color inset !important;
+        -webkit-text-fill-color: $text-color-light !important;
       }
     }
   }
 
   .el-form-item {
     border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.1);
+    background: $input-bg;
     border-radius: 5px;
-    color: #454545;
-  }
-}
-</style>
-
-<style lang="scss" scoped>
-$bg: #162e46;
-$dark_gray:#eee;
-$light_gray:#eee;
-
-.login-container {
-  min-height: 100%;
-  width: 100%;
-  background-color: $bg;
-  overflow: hidden;
-
-  .login-form {
-    position: relative;
-    width: 448px;
-    max-width: 100%;
-    height: 63vh;
-    padding: 160px 35px 0;
-    margin: 0 auto;
-    overflow: hidden;
-    border-radius: 24px;
-    border: 1px solid rgba(160, 174, 192, 0.25);
-    -webkit-backdrop-filter: blur(30px);
-    backdrop-filter: blur(30px);
-  }
-
-  .tips {
-    font-size: 14px;
-    color: #fff;
-    margin-bottom: 10px;
-
-    span {
-      &:first-of-type {
-        margin-right: 16px;
-      }
-    }
-  }
-
-  .svg-container {
-    padding: 6px 5px 6px 15px;
-    color: $dark_gray;
-    vertical-align: middle;
-    width: 30px;
-    display: inline-block;
-  }
-
-  .title-container {
-    position: relative;
-
-    .title {
-      font-size: 26px;
-      color: $light_gray;
-      margin: 0px auto 40px auto;
-      text-align: center;
-      font-weight: bold;
-    }
+    color: $text-color-dark;
+    margin-bottom: 20px;
   }
 
   .show-pwd {
@@ -242,7 +312,7 @@ $light_gray:#eee;
     right: 10px;
     top: 7px;
     font-size: 16px;
-    color: $dark_gray;
+    color: $text-color-light;
     cursor: pointer;
     user-select: none;
   }

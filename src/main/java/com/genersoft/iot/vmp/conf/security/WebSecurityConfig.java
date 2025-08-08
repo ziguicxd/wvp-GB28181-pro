@@ -103,7 +103,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         defaultExcludes.add("/api/jt1078/playback/download");
         defaultExcludes.add("/api/jt1078/snap");
 
-
+        // 添加验证码接口到允许匿名访问的列表
+        defaultExcludes.add("/api/captcha");
 
         if (userSetting.getInterfaceAuthentication() && !userSetting.getInterfaceAuthenticationExcludes().isEmpty()) {
             defaultExcludes.addAll(userSetting.getInterfaceAuthenticationExcludes());

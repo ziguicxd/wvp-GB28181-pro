@@ -1,6 +1,6 @@
 <template>
   <div id="pushList" class="app-container">
-    <div v-if="!streamPush" style="height: calc(100vh - 124px);">
+    <div v-if="!streamPush" style="height: calc(100vh - 124px); display: flex; flex-direction: column;">
       <el-form :inline="true" size="mini">
         <el-form-item label="搜索">
           <el-input
@@ -71,16 +71,17 @@
           <el-button icon="el-icon-refresh-right" circle @click="refresh()" />
         </el-form-item>
       </el-form>
-      <el-table
-        ref="pushListTable"
-        size="small"
-        :data="pushList"
-        style="width: 100%"
-        height="calc(100% - 64px)"
-        :loading="loading"
-        :row-key="(row)=> row.app + row.stream"
-        @selection-change="handleSelectionChange"
-      >
+      <div style="flex: 1; overflow: auto; min-height: 0; margin-bottom: 0;">
+        <el-table
+          ref="pushListTable"
+          size="small"
+          :data="pushList"
+          style="width: 100%"
+          height="100%"
+          :loading="loading"
+          :row-key="(row)=> row.app + row.stream"
+          @selection-change="handleSelectionChange"
+        >
         <el-table-column type="selection" :reserve-selection="true" min-width="55" />
         <el-table-column prop="gbName" label="名称" min-width="150" />
         <el-table-column prop="app" label="应用名" min-width="100" />
@@ -123,8 +124,10 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
       <el-pagination
-        style="text-align: right"
+        size="mini"
+        style="text-align: right; height: 15px; line-height: 22px;"
         :current-page="currentPage"
         :page-size="count"
         :page-sizes="[15, 25, 35, 50]"
@@ -261,7 +264,8 @@ export default {
       this.getPushList()
     },
     queryCloudRecords: function(row) {
-      this.$router.push(`/cloudRecord/detail/${row.app}/${row.stream}`)
+      // 修复跳转路径，使其与路由定义一致
+      this.$router.push(`/cloudRecord/detail/${row.app}/${row.stream}`);
     },
     importChannel: function() {
       this.$refs.importChannel.openDialog(() => {})
@@ -301,3 +305,19 @@ export default {
 }
 </script>
 
+<style>
+/* 分页栏样式优化 */
+.el-pagination {
+  margin: 0 !important;
+}
+.el-pagination.el-pagination--small {
+  height: 28px;
+}
+.el-pagination .btn-prev,
+.el-pagination .btn-next,
+.el-pagination .el-pager li {
+  min-width: 24px !important;
+  height: 22px !important;
+  line-height: 22px !important;
+}
+</style>

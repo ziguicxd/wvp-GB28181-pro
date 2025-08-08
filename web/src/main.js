@@ -1,5 +1,8 @@
 import Vue from 'vue'
 
+// 最优先加载HTTP拦截器，在任何其他模块之前
+import '@/utils/httpInterceptor' // 全局HTTP请求拦截器
+
 import 'normalize.css/normalize.css' // A modern alternative to CSS resets
 
 import ElementUI from 'element-ui'

@@ -76,6 +76,10 @@ export default {
       this.updatePlayerDomSize()
     }
     this.btnDom = document.getElementById('buttonsBox')
+
+    // 全局拦截器已在main.js中启动，这里只需要确保拦截器正常工作
+    this.ensureGlobalInterceptorActive()
+
     console.log('初始化时的地址为: ' + paramUrl)
     if (paramUrl) {
       this.play(this.videoUrl)
@@ -88,6 +92,9 @@ export default {
     this.playing = false
     this.loaded = false
     this.playerLoading = false
+
+    // 全局拦截器会持续工作，不需要在组件销毁时恢复
+    // console.log('[h265web] 组件销毁，全局拦截器继续工作')
   },
   methods: {
     updatePlayerDomSize() {
@@ -143,7 +150,16 @@ export default {
             coreProbePart: 0.4,
             probeSize: 8192,
             ignoreAudio: this.hasAudio == null ? 0 : (this.hasAudio ? 0 : 1)
-          }
+          },
+          // 屏蔽统计和日志相关配置
+          debug: false, // 关闭调试模式
+          debugLevel: 0, // 设置调试级别为0
+          logLevel: 0, // 关闭日志输出
+          disableStats: true, // 禁用统计
+          disableAnalytics: true, // 禁用分析
+          noStats: true, // 不发送统计数据
+          noLog: true, // 不输出日志
+          silent: true // 静默模式
         },
         options
       ))
@@ -161,13 +177,31 @@ export default {
         this.playerLoading = false
       }
       h265web.onLoadFinish = () => {
-        this.loaded = true
-        // 可以获取mediaInfo
-        // @see https://github.com/numberwolf/h265web.js/blob/8b26a31ffa419bd0a0f99fbd5111590e144e36a8/example_normal/index.js#L252C9-L263C11
-        this.mediaInfo = h265web.mediaInfo()
+        try {
+          this.loaded = true
+          // 可以获取mediaInfo
+          // @see https://github.com/numberwolf/h265web.js/blob/8b26a31ffa419bd0a0f99fbd5111590e144e36a8/example_normal/index.js#L252C9-L263C11
+          if (h265web.mediaInfo && typeof h265web.mediaInfo === 'function') {
+            this.mediaInfo = h265web.mediaInfo()
+          } else {
+            console.warn('播放器不支持mediaInfo方法')
+          }
+        } catch (error) {
+          console.warn('获取媒体信息时出现错误:', error)
+          this.loaded = true // 仍然标记为已加载，避免阻塞
+        }
       }
       h265web.onPlayTime = (videoPTS) => {
-        this.$emit('playTimeChange', videoPTS)
+        try {
+          // 检查videoPTS是否有效
+          if (videoPTS !== null && videoPTS !== undefined && !isNaN(videoPTS)) {
+            this.$emit('playTimeChange', videoPTS)
+          } else {
+            console.warn('播放器返回无效的时间值:', videoPTS)
+          }
+        } catch (error) {
+          console.warn('播放器时间回调出现错误:', error)
+        }
       }
       h265web.do()
     },
@@ -190,12 +224,20 @@ export default {
       this.play(this.videoUrl)
     },
     play: function(url) {
+      // 确保完全清理旧的播放器
       if (h265webPlayer[this._uid]) {
         this.destroy()
+        // 给一点时间让销毁操作完成
+        setTimeout(() => {
+          this.play(url)
+        }, 100)
+        return
       }
+
       if (!url) {
         return
       }
+
       if (this.playerWidth === 0 || this.playerHeight === 0) {
         this.updatePlayerDomSize()
         setTimeout(() => {
@@ -203,19 +245,30 @@ export default {
         }, 300)
         return
       }
+
       this.create(url)
     },
     unPause: function() {
-      if (h265webPlayer[this._uid]) {
-        h265webPlayer[this._uid].play()
-        this.playing = h265webPlayer[this._uid].isPlaying()
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].play) {
+          h265webPlayer[this._uid].play()
+          this.playing = h265webPlayer[this._uid].isPlaying()
+        }
+      } catch (error) {
+        console.warn('恢复播放时出现错误:', error)
+        this.playing = false
       }
       this.err = ''
     },
     pause: function() {
-      if (h265webPlayer[this._uid]) {
-        h265webPlayer[this._uid].pause()
-        this.playing = h265webPlayer[this._uid].isPlaying()
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].pause) {
+          h265webPlayer[this._uid].pause()
+          this.playing = h265webPlayer[this._uid].isPlaying()
+        }
+      } catch (error) {
+        console.warn('暂停播放时出现错误:', error)
+        this.playing = false
       }
       this.err = ''
     },
@@ -232,12 +285,56 @@ export default {
       }
     },
     destroy: function() {
-      if (h265webPlayer[this._uid]) {
-        h265webPlayer[this._uid].release()
-      }
-      h265webPlayer[this._uid] = null
+      // 立即重置状态，避免其他方法继续调用播放器
       this.playing = false
+      this.loaded = false
+      this.playerLoading = false
       this.err = ''
+
+      if (h265webPlayer[this._uid]) {
+        try {
+          // 先暂停播放，避免事件监听器继续触发
+          if (h265webPlayer[this._uid].pause) {
+            h265webPlayer[this._uid].pause()
+          }
+
+          // 等待一小段时间让暂停操作完成
+          setTimeout(() => {
+            try {
+              if (h265webPlayer[this._uid] && h265webPlayer[this._uid].release) {
+                h265webPlayer[this._uid].release()
+              }
+            } catch (error) {
+              console.warn('释放播放器资源时出现错误:', error)
+            } finally {
+              h265webPlayer[this._uid] = null
+              // 清理DOM容器
+              this.clearPlayerDOM()
+            }
+          }, 100)
+
+        } catch (error) {
+          console.warn('销毁播放器时出现错误:', error)
+          h265webPlayer[this._uid] = null
+          this.clearPlayerDOM()
+        }
+      } else {
+        this.clearPlayerDOM()
+      }
+    },
+
+    clearPlayerDOM: function() {
+      // 清理DOM容器，移除所有子元素和事件监听器
+      try {
+        if (this.$refs.playerBox) {
+          // 移除所有子元素
+          while (this.$refs.playerBox.firstChild) {
+            this.$refs.playerBox.removeChild(this.$refs.playerBox.firstChild)
+          }
+        }
+      } catch (error) {
+        console.warn('清理DOM容器时出现错误:', error)
+      }
     },
     fullscreenSwich: function() {
       const isFull = this.isFullscreen()
@@ -255,8 +352,35 @@ export default {
         document.webkitFullscreenElement || false
     },
     setPlaybackRate: function(speed) {
-      h265webPlayer[this._uid].setPlaybackRate(speed)
-    }
+      try {
+        if (h265webPlayer[this._uid] && h265webPlayer[this._uid].setPlaybackRate) {
+          h265webPlayer[this._uid].setPlaybackRate(speed)
+        }
+      } catch (error) {
+        console.warn('设置播放倍速时出现错误:', error)
+      }
+    },
+    // 确保全局拦截器正常工作
+    ensureGlobalInterceptorActive() {
+      try {
+        // 检查全局拦截器是否存在并正常工作
+        if (window.h265webInterceptor) {
+          const status = window.h265webInterceptor.status()
+          if (status.active) {
+            // console.log('[h265web] 全局拦截器正常工作')
+          } else {
+            // console.warn('[h265web] 全局拦截器未激活，尝试重新启动')
+            window.h265webInterceptor.start()
+          }
+        } else {
+          // console.warn('[h265web] 全局拦截器不存在，可能未正确加载')
+        }
+      } catch (error) {
+        // console.error('[h265web] 检查全局拦截器状态失败:', error)
+      }
+    },
+
+
   }
 }
 </script>

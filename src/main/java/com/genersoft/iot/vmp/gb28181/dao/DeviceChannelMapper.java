@@ -192,7 +192,7 @@ public interface DeviceChannelMapper {
     List<ChannelReduce> queryChannelListInAll(@Param("query") String query, @Param("online") Boolean online, @Param("hasSubChannel") Boolean hasSubChannel, @Param("platformId") String platformId, @Param("catalogId") String catalogId);
 
 
-    @Update(value = {"UPDATE wvp_device_channel SET status='OFF' WHERE id=#{id}"})
+    @Update(value = {"UPDATE wvp_device_channel SET status='OFF', gb_status='OFF' WHERE id=#{id}"})
     void offline(@Param("id") int id);
 
     @Insert("<script> " +
@@ -214,7 +214,7 @@ public interface DeviceChannelMapper {
     int batchAdd(@Param("addChannels") List<DeviceChannel> addChannels);
 
 
-    @Update(value = {"UPDATE wvp_device_channel SET status='ON' WHERE id=#{id}"})
+    @Update(value = {"UPDATE wvp_device_channel SET status='ON', gb_status='ON' WHERE id=#{id}"})
     void online(@Param("id") int id);
 
     @Update({"<script>" +
@@ -245,6 +245,7 @@ public interface DeviceChannelMapper {
             ", port=#{item.port}" +
             ", password=#{item.password}" +
             ", status=#{item.status}" +
+            ", gb_status=#{item.status}" +
             ", longitude=#{item.longitude}" +
             ", latitude=#{item.latitude}" +
             ", ptz_type=#{item.ptzType}" +
@@ -298,6 +299,7 @@ public interface DeviceChannelMapper {
             ", port=#{item.port}" +
             ", password=#{item.password}" +
             ", status=#{item.status}" +
+            ", gb_status=#{item.status}" +
             ", longitude=#{item.longitude}" +
             ", latitude=#{item.latitude}" +
             ", ptz_type=#{item.ptzType}" +
@@ -401,7 +403,7 @@ public interface DeviceChannelMapper {
 
     @Update({"<script>" +
             "<foreach collection='channels' item='item' separator=';'>" +
-            "UPDATE wvp_device_channel SET status=#{item.status} WHERE data_type = #{item.dataType} and device_id=#{item.deviceId}" +
+            "UPDATE wvp_device_channel SET status=#{item.status}, gb_status=#{item.status} WHERE data_type = #{item.dataType} and device_id=#{item.deviceId}" +
             "</foreach>" +
             "</script>"})
     int batchUpdateStatus(List<DeviceChannel> channels);
@@ -563,7 +565,7 @@ public interface DeviceChannelMapper {
             "</script>")
     void updateStreamGPS(List<GPSMsgInfo> gpsMsgInfoList);
 
-    @Update("UPDATE wvp_device_channel SET status=#{status} WHERE data_type=#{dataType} and data_device_id=#{dataDeviceId} AND device_id=#{deviceId}")
+    @Update("UPDATE wvp_device_channel SET status=#{status}, gb_status=#{status} WHERE data_type=#{dataType} and data_device_id=#{dataDeviceId} AND device_id=#{deviceId}")
     void updateStatus(DeviceChannel channel);
 
 
@@ -668,7 +670,7 @@ public interface DeviceChannelMapper {
             " </script>"})
     DeviceChannel getOneBySourceChannelId(@Param("dataDeviceId") int dataDeviceId, @Param("channelId") String channelId);
 
-    @Update(value = {"UPDATE wvp_device_channel SET status = 'OFF' WHERE data_type = 1 and data_device_id=#{deviceId}"})
+    @Update(value = {"UPDATE wvp_device_channel SET status = 'OFF', gb_status = 'OFF' WHERE data_type = 1 and data_device_id=#{deviceId}"})
     void offlineByDeviceId(@Param("deviceId") int deviceId);
 
 }
