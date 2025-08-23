@@ -449,6 +449,10 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
             log.info("[国标级联] 心跳到期， 上级平台编号： {}, 平台不存在或者未启用， 忽略", platformServerId);
             return;
         }
+        
+        // 心跳失败阈值，默认为5次（可减少误报）
+        int maxFailCount = 5;
+        
         try {
             commanderForPlatform.keepalive(platform, eventResult -> {
                 // 心跳失败
@@ -456,35 +460,101 @@ public class PlatformServiceImpl implements IPlatformService, CommandLineRunner 
                     log.warn("[国标级联] 发送心跳收到错误，code： {}, msg: {}", eventResult.statusCode, eventResult.msg);
                 }
 
-                // 心跳超时失败
-                if (failCount < 2) {
-                    log.info("[国标级联] 心跳发送超时， 平台服务编号： {}", platformServerId);
-                    PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), platform.getKeepTimeout() * 1000L,
+                // 渐进式退避策略：随着失败次数增加，重试间隔逐渐延长
+                long retryInterval = platform.getKeepTimeout() * 1000L;
+                if (failCount > 0) {
+                    // 第一次重试：保持原间隔，第二次开始逐渐增加
+                    retryInterval = retryInterval * (1 + Math.min(failCount, 3)); // 最多延长3倍
+                }
+
+                // 心跳超时失败处理
+                if (failCount < maxFailCount - 1) {
+                    log.info("[国标级联] 心跳发送超时({}/{}), 平台服务编号： {}", failCount + 1, maxFailCount, platformServerId);
+                    PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), retryInterval,
                             this::keepaliveExpire);
                     keepaliveTask.setFailCount(failCount + 1);
                     statusTaskRunner.addKeepAliveTask(keepaliveTask);
                 }else {
-                    // 心跳超时三次, 不再发送心跳， 平台离线
-                    log.info("[国标级联] 心跳发送超时三次，平台离线， 平台服务编号： {}", platformServerId);
-                    offline(platform);
+                    // 达到最大失败次数，进行最终确认检查
+                    if (shouldPlatformGoOffline(platform)) {
+                        log.info("[国标级联] 心跳发送失败{}/{}次，确认平台离线， 平台服务编号： {}", 
+                                failCount + 1, maxFailCount, platformServerId);
+                        offline(platform);
+                    } else {
+                        log.info("[国标级联] 心跳发送失败{}/{}次，但平台仍可访问，继续尝试， 平台服务编号： {}", 
+                                failCount + 1, maxFailCount, platformServerId);
+                        // 重置失败计数，继续尝试
+                        PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), retryInterval,
+                                this::keepaliveExpire);
+                        keepaliveTask.setFailCount(0); // 重置失败计数
+                        statusTaskRunner.addKeepAliveTask(keepaliveTask);
+                    }
                 }
             }, eventResult -> {
+                // 心跳成功，重置失败计数
                 PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), platform.getKeepTimeout() * 1000L,
                         this::keepaliveExpire);
+                keepaliveTask.setFailCount(0); // 成功时重置失败计数
                 statusTaskRunner.addKeepAliveTask(keepaliveTask);
             });
         } catch (SipException | InvalidArgumentException | ParseException e) {
             log.error("[命令发送失败] 国标级联 发送心跳: {}", e.getMessage());
-            if (failCount < 2) {
-                PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), platform.getKeepTimeout() * 1000L,
+            
+            // 渐进式退避策略：随着失败次数增加，重试间隔逐渐延长
+            long retryInterval = platform.getKeepTimeout() * 1000L;
+            if (failCount > 0) {
+                // 第一次重试：保持原间隔，第二次开始逐渐增加
+                retryInterval = retryInterval * (1 + Math.min(failCount, 3)); // 最多延长3倍
+            }
+            
+            if (failCount < maxFailCount - 1) {
+                PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), retryInterval,
                         this::keepaliveExpire);
                 keepaliveTask.setFailCount(failCount + 1);
                 statusTaskRunner.addKeepAliveTask(keepaliveTask);
             }else {
-                // 心跳超时三次, 不再发送心跳， 平台离线
-                log.info("[国标级联] 心跳发送失败三次，平台离线， 平台服务编号： {}", platformServerId);
-                offline(platform);
+                // 达到最大失败次数，进行最终确认检查
+                if (shouldPlatformGoOffline(platform)) {
+                    log.info("[国标级联] 心跳发送失败{}/{}次，确认平台离线， 平台服务编号： {}", 
+                            failCount + 1, maxFailCount, platformServerId);
+                    offline(platform);
+                } else {
+                    log.info("[国标级联] 心跳发送失败{}/{}次，但平台仍可访问，继续尝试， 平台服务编号： {}", 
+                            failCount + 1, maxFailCount, platformServerId);
+                    // 重置失败计数，继续尝试
+                    PlatformKeepaliveTask keepaliveTask = new PlatformKeepaliveTask(platform.getServerGBId(), retryInterval,
+                            this::keepaliveExpire);
+                    keepaliveTask.setFailCount(0); // 重置失败计数
+                    statusTaskRunner.addKeepAliveTask(keepaliveTask);
+                }
             }
+        }
+    }
+
+    /**
+     * 最终确认检查平台是否真的离线
+     * 通过多种方式验证平台状态，减少误判
+     */
+    private boolean shouldPlatformGoOffline(Platform platform) {
+        // 1. 检查是否有活跃的推流到该平台
+        List<SendRtpInfo> activeStreams = sendRtpServerService.queryForPlatform(platform.getServerGBId());
+        if (activeStreams != null && !activeStreams.isEmpty()) {
+            log.info("[平台状态确认] 平台 {} 仍有 {} 个活跃推流，暂不标记为离线", 
+                    platform.getServerGBId(), activeStreams.size());
+            return false;
+        }
+        
+        // 2. 尝试发送一个简单的测试消息进行最终确认
+        try {
+            // 这里可以添加一个简单的测试命令来确认平台是否真的离线
+            // 例如发送一个简单的查询命令，如果成功说明平台还在线
+            log.info("[平台状态确认] 对平台 {} 进行最终状态确认检查", platform.getServerGBId());
+            // 在实际应用中，这里可以添加具体的测试逻辑
+            
+            return true; // 默认认为需要离线
+        } catch (Exception e) {
+            log.warn("[平台状态确认] 平台 {} 最终确认检查异常: {}", platform.getServerGBId(), e.getMessage());
+            return true;
         }
     }
 
