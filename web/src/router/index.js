@@ -108,7 +108,8 @@ export const constantRoutes = [
         path: '/jtDevice',
         name: 'JTDevice',
         component: () => import('@/views/jtDevice/index'),
-        meta: { title: '部标设备', icon: 'jtDevice' }
+        meta: { title: '部标设备', icon: 'jtDevice' },
+        hidden: true
       },
       {
         hidden: true,
