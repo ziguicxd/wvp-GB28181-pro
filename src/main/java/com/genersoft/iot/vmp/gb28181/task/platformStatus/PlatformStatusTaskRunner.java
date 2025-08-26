@@ -108,18 +108,7 @@ public class PlatformStatusTaskRunner {
         return task.getSipTransactionInfo();
     }
 
-    public boolean updateRegisterDelay(String platformServerId, long expirationTime) {
-        PlatformRegisterTask task = registerSubscribes.get(platformServerId);
-        if (task == null) {
-            return false;
-        }
-        log.info("[更新平台注册任务时间] 平台上级编号： {}", platformServerId);
-        task.setDelayTime(expirationTime);
-        String redisKey = String.format("%s_%s_%s", prefix, userSetting.getServerId(), platformServerId);
-        Duration duration = Duration.ofSeconds((expirationTime - System.currentTimeMillis())/1000);
-        redisTemplate.expire(redisKey, duration);
-        return true;
-    }
+
 
     public boolean containsRegister(String platformServerId) {
         return registerSubscribes.containsKey(platformServerId);
@@ -152,15 +141,6 @@ public class PlatformStatusTaskRunner {
         return true;
     }
 
-    public boolean updateKeepAliveDelay(String platformServerId, long expirationTime) {
-        PlatformKeepaliveTask task = keepaliveSubscribes.get(platformServerId);
-        if (task == null) {
-            return false;
-        }
-        log.info("[更新平台心跳任务时间] 平台上级编号： {}", platformServerId);
-        task.setDelayTime(expirationTime);
-        return true;
-    }
 
     public boolean containsKeepAlive(String platformServerId) {
         return keepaliveSubscribes.containsKey(platformServerId);
